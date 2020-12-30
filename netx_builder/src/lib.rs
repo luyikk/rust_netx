@@ -198,8 +198,6 @@ pub fn build_trait(args:TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
             };
-
-
             quote! {
                 {
                      struct #struct_name{
@@ -241,8 +239,6 @@ pub fn build_trait(args:TokenStream, input: TokenStream) -> TokenStream {
         };
 
         TokenStream::from(expanded)
-
-
 
     } else {
 
