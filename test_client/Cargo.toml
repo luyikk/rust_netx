@@ -1,0 +1,14 @@
+[package]
+name = "test_client"
+version = "0.1.0"
+authors = ["yi lu <luyikk@126.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "0.3", features = ["full"] }
+paste="1.0.2"
+env_logger = "0.8.2"
+netxclient={path="../netx_client"}
+netxbuilder={path="../netx_builder"}
