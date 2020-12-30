@@ -12,6 +12,7 @@ use crate::client::result::RetResult;
 use tokio::time::{Duration, sleep};
 use crate::client::request_manager::RequestManager;
 use std::collections::HashMap;
+use serde::{Serialize,Deserialize};
 
 
 use bytes::Buf;
@@ -41,7 +42,7 @@ impl<T> Drop for NetXClient<T>{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Deserialize,Serialize)]
 pub struct ServerInfo{
     addr:String,
     service_name:String,

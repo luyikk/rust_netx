@@ -25,7 +25,6 @@ async fn main()->Result<(),Box<dyn Error>> {
 
     let server:Box<dyn IServer>=impl_interface!(client=>IServer);
 
-
     //call!(@checkrun client=>800;5);
     // client.runcheck1(800,5).await?.check()?;
     server.print(5).await?;
