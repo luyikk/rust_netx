@@ -41,31 +41,25 @@ impl<T:SessionSave+'static> RequestManager<T>{
         });
     }
 
-    pub async fn check(&self){
-        let mut queue= self.queue.lock().await;
-        loop{
-            if let Some(item)=queue.pop_back(){
-                if item.1.elapsed().as_millis() as u32>= self.request_out_time{
-                    if let Some(client)= self.netx_client.upgrade(){
-                        if let Err(er)= client.set_error(item.0,AError::StrErr("time out".into())).await{
-                            error!("check err:{}",er);
-                            break;
-                        }
-                    }
-                    else{
+    pub async fn check(&self) {
+        let mut queue = self.queue.lock().await;
+        while let Some(item) = queue.pop_back() {
+            if item.1.elapsed().as_millis() as u32 >= self.request_out_time {
+                if let Some(client) = self.netx_client.upgrade() {
+                    if let Err(er) = client.set_error(item.0, AError::StrErr("time out".into())).await {
+                        error!("check err:{}", er);
                         break;
                     }
-                }
-                else{
-                    queue.push_back(item);
+                } else {
                     break;
                 }
-            }
-            else{
+            } else {
+                queue.push_back(item);
                 break;
             }
         }
     }
+
 
     pub async fn set(&self,sessionid:i64){
         let mut queue= self.queue.lock().await;

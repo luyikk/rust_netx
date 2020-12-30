@@ -100,7 +100,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                 return Err("talk connect tx is close".into());
             },
             Ok((is_connect,msg))=>{
-                if is_connect ==false{
+                if !is_connect{
                     return Err(msg.into());
                 }
             }
@@ -108,6 +108,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
         Ok(())
     }
 
+    #[allow(clippy::type_complexity)]
     async fn input_buffer((netx_client,set_connect):(Arc<Actor<NetXClient<T>>>,Sender<(bool,String)>), client:Arc<Actor<TcpClient>>,mut reader:OwnedReadHalf)->Result<bool,Box<dyn Error>>{
         let serverinfo=netx_client.get_serviceinfo();
         let mut sessionid=netx_client.get_sessionid();
@@ -124,7 +125,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                         false=>{
                             info!("{} {}",serverinfo,data.get_le::<String>()?);
                             if let Some(set_connect)=option_connect.take(){
-                                if let Err(_)= set_connect.send((true,"success".into())){
+                                if  set_connect.send((true,"success".into())).is_err(){
                                     error!("talk connect rx is close");
                                 }
                             }
@@ -134,7 +135,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                             let err= data.get_le::<String>()?;
                             error!("connect {} error:{}",serverinfo,err);
                             if let Some(set_connect)=option_connect.take(){
-                                if let Err(_)= set_connect.send((false,err)){
+                                if  set_connect.send((false,err)).is_err(){
                                     error!("talk connect rx is close");
                                 }
                             }
@@ -320,7 +321,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
     #[inline]
     pub fn set_error(&mut self,serial:i64,err:AError)->Result<(),Box<dyn Error+ Send + Sync>>{
         if let Some(tx)= self.result_dict.remove(&serial){
-            return match tx.send(Err(err)) {
+            match tx.send(Err(err)) {
                 Err(_) => {
                     Err("close rx".into())
                 },
@@ -349,7 +350,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
 }
 
-
+#[allow(clippy::too_many_arguments)]
 #[aqueue::aqueue_trait]
 pub trait INetXClient<T>{
     async fn init<C:IController+Sync+Send+'static>(&self,controller:C)->AResult<()>;
@@ -489,6 +490,7 @@ macro_rules! make_runcheck {
         }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[aqueue::aqueue_trait]
 impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     #[inline]
@@ -605,7 +607,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     async fn close(&self) -> Result<(),Box<dyn Error>> {
         let net:AResult<Arc<Actor<TcpClient>>>= self.inner_call(async move|inner|{
             match inner.get_mut().net.take() {
-                Some(net)=>Ok(net.clone()),
+                Some(net)=>Ok(net),
                 None=>Err(AError::StrErr("not connect".into()))
             }
         }).await;

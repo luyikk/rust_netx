@@ -74,6 +74,11 @@ impl RetResult {
     }
 
     #[inline]
+    pub fn is_empty(&self)->bool{
+        self.arguments.is_empty()
+    }
+
+    #[inline]
     pub fn check(self)->AResult<RetResult>{
         if self.is_error{
             Err(AError::StrErr(format!("{}:{}",self.error_id,self.msg)))
@@ -93,7 +98,7 @@ impl RetResult {
 
     #[inline]
     pub fn deserialize<'a,T:Deserialize<'a>>(&'a mut self)->Result<T,Box<dyn Error>>{
-        if self.len()==0{
+        if self.is_empty(){
             return Err(io::Error::new(ErrorKind::Other,"index >= len").into())
         }
 

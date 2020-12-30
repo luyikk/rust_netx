@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 tokio = { version = "0.3", features = ["full"] }
-paste="1.0.2"
 env_logger = "0.8.2"
 netxclient={path="../netx_client"}
 netxbuilder={path="../netx_builder"}

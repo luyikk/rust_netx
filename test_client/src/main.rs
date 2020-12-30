@@ -13,8 +13,6 @@ use server::*;
 async fn main()->Result<(),Box<dyn Error>> {
     env_logger::Builder::default().filter_level(LevelFilter::Debug).init();
 
-
-
     let client =
         NetXClient::new(ServerInfo::new("192.168.1.196:1006".into(),
                                         "".into(),
@@ -23,13 +21,11 @@ async fn main()->Result<(),Box<dyn Error>> {
 
 
     client.init(TestController::new(client.clone())).await?;
-    NetXClient::connect_network(client.clone()).await?;
+   // NetXClient::connect_network(client.clone()).await?;
+
+    let server:Box<dyn IServer>=impl_interface!(client=>IServer);
 
 
-
-
-
-   let server:Box<dyn IServer>=impl_interface!(client=>IServer);
     //call!(@checkrun client=>800;5);
     // client.runcheck1(800,5).await?.check()?;
     server.print(5).await?;
@@ -59,6 +55,8 @@ async fn main()->Result<(),Box<dyn Error>> {
     server.recursive_test(10000).await?;
 
     println!("{}",start.elapsed().as_millis());
+
+
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;
 

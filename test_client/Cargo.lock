@@ -471,7 +471,6 @@ dependencies = [
  "env_logger",
  "netxbuilder",
  "netxclient",
- "paste",
  "tokio",
 ]
 

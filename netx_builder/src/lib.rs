@@ -30,15 +30,15 @@ fn get_function_tt(tag_id:i32,func_name:String, rt:Type)->u8{
     match rt{
         Type::Path(tp)=>{
             if let Some(seq)= tp.path.segments.first(){
-                if seq.ident.to_string()=="Result"{
+                if seq.ident=="Result"{
                     match &seq.arguments{
                         PathArguments::AngleBracketed(arg)=>{
                             if arg.args.len()==2{
                                 if let GenericArgument::Type(Type::Path(  checkbox))= &arg.args[1] {
                                     if let Some(checkbox_name)= checkbox.path.segments.first(){
-                                        if checkbox_name.ident.to_string()=="Box"{
+                                        if checkbox_name.ident=="Box"{
                                             return if let GenericArgument::Type(Type::Tuple(rt)) = &arg.args[0] {
-                                                if rt.elems.len()==0{
+                                                if rt.elems.is_empty(){
                                                     1
                                                 }
                                                 else{
@@ -67,7 +67,7 @@ fn get_function_tt(tag_id:i32,func_name:String, rt:Type)->u8{
     }
 }
 
-fn get_impl_func(funcs:&Vec<FuncInfo>) -> Vec<proc_macro2::TokenStream> {
+fn get_impl_func(funcs:&[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     let mut ret=Vec::new();
     for func in funcs {
         let fn_name=format_ident!("{}",func.func_name);
@@ -266,20 +266,17 @@ fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
                     let output=sig.output.clone();
                     let mut input_names =Vec::new();
                     for args in &sig.inputs {
-                        match args {
-                            FnArg::Typed(pat_type) => {
-                                let tt = &pat_type.ty;
-                                args_type.push(quote!(#tt));
+                          if let FnArg::Typed(pat_type) =args {
+                              let tt = &pat_type.ty;
+                              args_type.push(quote!(#tt));
 
-                                match &*pat_type.pat {
-                                    Pat::Ident(a)=>{
-                                        input_names.push(a.ident.clone());
-                                    },
-                                    _=>{panic!("error arg name")}
-                                }
-                            },
-                            _ => {}
-                        }
+                              match &*pat_type.pat {
+                                  Pat::Ident(a) => {
+                                      input_names.push(a.ident.clone());
+                                  },
+                                  _ => { panic!("error arg name") }
+                              }
+                          }
                     }
                     let tt = match &sig.output {
                         ReturnType::Default => 0,
@@ -307,10 +304,10 @@ fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
 #[proc_macro_attribute]
 pub fn build_impl(_:TokenStream, input: TokenStream)-> TokenStream {
     let ast = parse_macro_input!(input as ItemImpl);
-    return TokenStream::from(quote! {
+    TokenStream::from(quote! {
             #[aqueue_trait]
             #ast
-        });
+        })
 }
 
 
