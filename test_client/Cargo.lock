@@ -11,9 +11,9 @@ dependencies = [
 
 [[package]]
 name = "aqueue"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dac5f497c53ba2509ee981576ac7992d4f1396fe9bfbeabf5cc6641a80cc9e6a"
+checksum = "590fb7d56ccfe78081292e97dbcc491d19cdb77dd529f2111eb748d5ed21e5fd"
 dependencies = [
  "aqueue_trait",
  "async-oneshot",
@@ -65,6 +65,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0dcbc35f504eb6fc275a6d20e4ebcda18cf50d40ba6fabff8c711fa16cb3b16"
 
 [[package]]
+name = "bytes"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad1f8e949d755f9d79112b5bb46938e0ef9d3804a0b16dfab13aafcaa5f0fa72"
+
+[[package]]
 name = "cache-padded"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -97,7 +103,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee94918b277193883b4c4e858522e729c023356fee58417adcfbacb86fe491cd"
 dependencies = [
- "bytes",
+ "bytes 0.6.0",
  "paste",
  "serde",
 ]
@@ -114,12 +120,6 @@ dependencies = [
  "regex",
  "termcolor",
 ]
-
-[[package]]
-name = "futures-core"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "847ce131b72ffb13b6109a221da9ad97a64cbe48feb1028356b836b47b8f1748"
 
 [[package]]
 name = "futures-micro"
@@ -232,7 +232,7 @@ version = "0.1.0"
 dependencies = [
  "aqueue",
  "async-oneshot",
- "bytes",
+ "bytes 0.6.0",
  "data-rw",
  "log",
  "netxbuilder",
@@ -411,12 +411,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "slab"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
-
-[[package]]
 name = "smallvec"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -446,9 +440,9 @@ dependencies = [
 
 [[package]]
 name = "tcpclient"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf160df1abd24df34c4f1c4dfc24121387fd27e34089796d5c0cac3e1931d352"
+checksum = "5ed39d0ff624f207651e87c62051eb78f10f4a1466a9f0ecf0ea0830fa1e720f"
 dependencies = [
  "aqueue",
  "log",
@@ -485,13 +479,12 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "0.3.6"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "720ba21c25078711bf456d607987d95bce90f7c3bea5abe1db587862e7a1e87c"
+checksum = "d258221f566b6c803c7b4714abadc080172b272090cdc5e244a6d4dd13c3a6bd"
 dependencies = [
  "autocfg",
- "bytes",
- "futures-core",
+ "bytes 1.0.0",
  "libc",
  "memchr",
  "mio",
@@ -500,16 +493,15 @@ dependencies = [
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
- "slab",
  "tokio-macros",
  "winapi",
 ]
 
 [[package]]
 name = "tokio-macros"
-version = "0.3.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46dfffa59fc3c8aad216ed61bdc2c263d2b9d87a9c8ac9de0c11a813e51b6db7"
+checksum = "42517d2975ca3114b22a16192634e8241dc5cc1f130be194645970cc1c371494"
 dependencies = [
  "proc-macro2",
  "quote",

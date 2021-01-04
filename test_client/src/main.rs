@@ -9,6 +9,7 @@ use test_controller::TestController;
 use server::*;
 
 
+
 #[tokio::main]
 async fn main()->Result<(),Box<dyn Error>> {
     env_logger::Builder::default().filter_level(LevelFilter::Debug).init();
@@ -22,6 +23,8 @@ async fn main()->Result<(),Box<dyn Error>> {
 
     client.init(TestController::new(client.clone())).await?;
    // NetXClient::connect_network(client.clone()).await?;
+
+
 
     let server:Box<dyn IServer>=impl_interface!(client=>IServer);
 
@@ -55,6 +58,15 @@ async fn main()->Result<(),Box<dyn Error>> {
 
     println!("{}",start.elapsed().as_millis());
 
+    let mut s="".to_string();
+    std::io::stdin().read_line(&mut s)?;
+
+    client.close().await?;
+
+
+
+    drop(client);
+    drop(server);
 
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;

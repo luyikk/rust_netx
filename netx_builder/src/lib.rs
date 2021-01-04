@@ -126,7 +126,9 @@ pub fn build_trait(args:TokenStream, input: TokenStream) -> TokenStream {
                     client
                 }
             }
+
         }
+
 
         #[aqueue_trait]
         impl<T:SessionSave+'static> #interface_name for #impl_interface_struct_name<Arc<Actor<NetXClient<T>>>>{

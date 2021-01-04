@@ -41,6 +41,7 @@ impl<T:SessionSave+'static> RequestManager<T>{
         });
     }
 
+    #[inline]
     pub async fn check(&self) {
         let mut queue = self.queue.lock().await;
         while let Some(item) = queue.pop_back() {
@@ -60,7 +61,7 @@ impl<T:SessionSave+'static> RequestManager<T>{
         }
     }
 
-
+    #[inline]
     pub async fn set(&self,sessionid:i64){
         let mut queue= self.queue.lock().await;
         queue.push_front((sessionid, Instant::now()));

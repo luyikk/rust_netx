@@ -3,6 +3,7 @@ use std::cell::RefCell;
 
 use netxclient::*;
 use netxbuilder::*;
+use crate::server::*;
 
 #[build_trait(TestController)]
 pub trait ITestController{
@@ -20,15 +21,19 @@ pub trait ITestController{
 
 }
 
+type Client=Arc<Actor<NetXClient<DefaultSessionStore>>>;
 
+#[allow(dead_code)]
 pub struct TestController{
-    client:Arc<Actor<NetXClient<DefaultSessionStore>>>,
+    client:Client,
+    server:Box<dyn IServer>,
     name:RefCell<String>
 }
 
 impl TestController{
-    pub fn new(client:Arc<Actor<NetXClient<DefaultSessionStore>>>)->TestController{
+    pub fn new(client:Client)->TestController{
         TestController{
+            server: impl_interface!(client=>IServer),
             client,
             name: RefCell::new("".to_string())
         }
@@ -63,7 +68,7 @@ impl ITestController for TestController{
     async fn recursive_test(&self,mut a: i32) -> Result<i32, Box<dyn Error>> {
         a -= 1;
         if a > 0 {
-            let x: i32 = call!(self.client=>1005;a);
+            let x: i32 = self.server.recursive_test(a).await?;
             Ok(x)
         } else {
             Ok(a)

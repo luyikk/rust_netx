@@ -607,6 +607,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     #[inline]
     async fn close(&self) -> Result<(),Box<dyn Error>> {
         let net:AResult<Arc<Actor<TcpClient>>>= self.inner_call(async move|inner|{
+            inner.get_mut().controller_fun_register_dict.clear();
             match inner.get_mut().net.take() {
                 Some(net)=>Ok(net),
                 None=>Err(AError::StrErr("not connect".into()))
