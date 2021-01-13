@@ -152,7 +152,7 @@ pub fn build_trait(args:TokenStream, input: TokenStream) -> TokenStream {
             for (index,token) in func.args_type.iter().enumerate() {
                 let arg_name=format_ident!("arg{}",index.to_string());
                 read_token.push(quote! {
-                  let #arg_name=data.get_le::<#token>()?;
+                  let #arg_name=data.serde_deserialize::<#token>()?;
                 });
                 arg_names.push(arg_name);
             }

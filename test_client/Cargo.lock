@@ -11,14 +11,13 @@ dependencies = [
 
 [[package]]
 name = "aqueue"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "590fb7d56ccfe78081292e97dbcc491d19cdb77dd529f2111eb748d5ed21e5fd"
+checksum = "57c198e4f8f029c4add7e058756f627b65ce7e0ace4a9bc2623e7fef40a29fae"
 dependencies = [
  "aqueue_trait",
  "async-oneshot",
  "concurrent-queue",
- "tokio",
 ]
 
 [[package]]
@@ -99,9 +98,9 @@ dependencies = [
 
 [[package]]
 name = "data-rw"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee94918b277193883b4c4e858522e729c023356fee58417adcfbacb86fe491cd"
+checksum = "3b088125922081a3b678681d5527fce8a29a96e23c9f572936eca05e2fb324b7"
 dependencies = [
  "bytes 0.6.0",
  "paste",

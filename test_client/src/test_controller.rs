@@ -7,7 +7,6 @@ use crate::server::*;
 
 #[build_trait(TestController)]
 pub trait ITestController{
-
     #[tag(2000)]
     async fn add_one(&self,i:i32)->Result<i32,Box<dyn Error>>;
     #[tag(3000)]
