@@ -2,6 +2,7 @@
 /target
 /.vs
 /netx_builder/target
-/test_client/target
 /netx_client/target
-/netx_server/target/
+/netx_server/target
+/test_client/target
+/test_server/target
