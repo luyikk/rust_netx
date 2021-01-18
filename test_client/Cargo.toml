@@ -10,4 +10,3 @@ edition = "2018"
 tokio = { version = "1", features = ["full"] }
 env_logger = "0.8.2"
 netxclient={path="../netx_client"}
-netxbuilder={path="../netx_builder"}

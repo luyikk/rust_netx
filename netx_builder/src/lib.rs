@@ -1,6 +1,5 @@
 mod global_info;
 
-
 extern crate proc_macro;
 use quote::{quote,format_ident};
 use proc_macro::{TokenStream};
@@ -67,7 +66,7 @@ fn get_function_tt(tag_id:i32,func_name:String, rt:Type)->u8{
     }
 }
 
-fn get_impl_func(funcs:&[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
+fn get_impl_func_client(funcs:&[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     let mut ret=Vec::new();
     for func in funcs {
         let fn_name=format_ident!("{}",func.func_name);
@@ -106,14 +105,53 @@ fn get_impl_func(funcs:&[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     ret
 }
 
+fn get_impl_func_server(funcs:&[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
+    let mut ret=Vec::new();
+    for func in funcs {
+        let fn_name=format_ident!("{}",func.func_name);
+        let inputs=func.inputs.clone();
+        let output=func.output.clone();
+        let input_names=func.input_names.clone();
+        let tag=func.tag;
+        match func.tt {
+            0 => {
+                ret.push(quote! {
+                    async fn #fn_name(#inputs) {
+                       call_peer!(@run_not_err self.client=>#tag;#(#input_names ,)*);
+                    }
+                });
+            },
+            1 => {
+                ret.push(quote! {
+                    async fn #fn_name(#inputs) #output{
+                        call_peer!(@checkrun self.client=>#tag;#(#input_names ,)*);
+                        Ok(())
+                    }
+                });
+            },
+            2 => {
+                ret.push(quote! {
+                    async fn #fn_name(#inputs) #output{
+                       Ok(call_peer!(self.client=>#tag;#(#input_names ,)*))
+                    }
+                });
+            },
+            _ => {
+                panic!("error tt:{}", func.tt);
+            }
+        }
+    }
+    ret
+}
+
 #[proc_macro_attribute]
-pub fn build_trait(args:TokenStream, input: TokenStream) -> TokenStream {
+pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as ItemTrait);
     let funcs = get_funcs_info(&mut ast);
     let controller_name=args.to_string();
     let interface_name=ast.ident.clone();
     let impl_interface_struct_name= format_ident!("___impl_{}_call",interface_name);
-    let impl_func=get_impl_func(&funcs);
+    let impl_func= get_impl_func_client(&funcs);
     let impl_interface=quote! {
         #[allow(non_camel_case_types)]
         pub struct #impl_interface_struct_name <T>{
@@ -255,6 +293,154 @@ pub fn build_trait(args:TokenStream, input: TokenStream) -> TokenStream {
     }
 }
 
+#[proc_macro_attribute]
+pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as ItemTrait);
+    let funcs = get_funcs_info(&mut ast);
+    let controller_name=args.to_string();
+    let interface_name=ast.ident.clone();
+    let impl_interface_struct_name= format_ident!("___impl_{}_call",interface_name);
+    let impl_func= get_impl_func_server(&funcs);
+    let impl_interface=quote! {
+        #[allow(non_camel_case_types)]
+        pub struct #impl_interface_struct_name <T>{
+               client:T
+        }
+
+        impl<T> #impl_interface_struct_name<T>{
+            pub fn new(client:T)->#impl_interface_struct_name<T>{
+                #impl_interface_struct_name{
+                    client
+                }
+            }
+
+        }
+
+
+        #[aqueue_trait]
+        impl #interface_name for #impl_interface_struct_name<NetxToken>{
+            #(#impl_func)*
+        }
+
+    };
+
+
+    if controller_name != "" {
+        let controller = format_ident!("{}",controller_name);
+        let make=  funcs.iter().map(|func|{
+            let struct_name=format_ident!("__struct{}",func.tag.to_string());
+            let func_name=format_ident!("{}",func.func_name);
+            let tt=func.tt;
+            let tag=func.tag;
+
+            let mut arg_names=Vec::new();
+            let mut read_token=Vec::new();
+
+            for (index,token) in func.args_type.iter().enumerate() {
+                let arg_name=format_ident!("arg{}",index.to_string());
+                read_token.push(quote! {
+                  let #arg_name=data.serde_deserialize::<#token>()?;
+                });
+                arg_names.push(arg_name);
+            }
+
+            let args_len=func.args_type.len();
+            let call= match tt{
+                0=>{
+                    quote! {
+                        let args_len=data.get_le::<i32>()? as usize;
+                        if args_len!=#args_len{
+                             return Err("args len error".into());
+                        }
+                        #( #read_token)*
+                        self.controller.#func_name (#(#arg_names,)*).await;
+                        Ok(RetResult::success())
+                    }
+                }
+                1=>{
+                    quote! {
+                        let args_len=data.get_le::<i32>()? as usize;
+                        if args_len!=#args_len{
+                             return Err("args len error".into());
+                        }
+                        #( #read_token)*
+                        self.controller.#func_name (#(#arg_names,)*).await?;
+                        Ok(RetResult::success())
+                    }
+                }
+                2=>{
+                    quote! {
+                        let args_len=data.get_le::<i32>()? as usize;
+                        if args_len!=#args_len{
+                             return Err("args len error".into());
+                        }
+                        #( #read_token)*
+                        let ret=self.controller.#func_name (#(#arg_names,)*).await?;
+                        let mut result=RetResult::success();
+                        result.add_arg_buff(ret.to_data());
+                        Ok(result)
+                    }
+                }
+                _=>{
+                    quote! {
+                           unimplemented!()
+                    }
+                }
+            };
+            quote! {
+                {
+                     struct #struct_name{
+                         controller:Arc<#controller>
+                     };
+
+                     #[aqueue_trait]
+                     impl FunctionInfo for #struct_name{
+                         #[inline]
+                         fn function_type(&self) -> u8 { #tt  }
+                         #[inline]
+                         async fn call(&self, mut data: Data) -> Result<RetResult, Box<dyn std::error::Error>> {
+                             #call
+                         }
+                     }
+                     let tag_id=#tag;
+                     if let Some(_)= dict.insert(tag_id,Box::new(#struct_name{
+                        controller:self.clone()
+                     }) as Box<dyn FunctionInfo>){
+                        panic!("Repeated function tag ID:{}",tag_id);
+                     }
+                 }
+            }
+        });
+        let expanded = quote! {
+            #[aqueue_trait]
+            #ast
+
+            impl IController for #controller{
+                #[inline]
+                fn register(self:Arc<Self>) -> Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>, Box<dyn std::error::Error>> {
+                    use data_rw::{Data, ToData};
+                    let mut dict=std::collections::HashMap::new();
+                    #( #make)*
+                    Ok(dict)
+                }
+            }
+
+        };
+
+        TokenStream::from(expanded)
+
+    } else {
+
+        let expanded = quote! {
+            #[aqueue_trait]
+            #ast
+
+            #impl_interface
+        };
+
+        TokenStream::from(expanded)
+    }
+}
 fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
     let mut funcs = Vec::new();
     for item in &mut ast.items {

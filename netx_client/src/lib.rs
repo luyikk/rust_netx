@@ -10,3 +10,4 @@ pub use aqueue::aqueue_trait;
 pub use aqueue::Actor;
 pub use data_rw;
 pub use paste;
+pub use netxbuilder::{build_client as build,build_impl,tag};

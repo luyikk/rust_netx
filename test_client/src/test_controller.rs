@@ -1,11 +1,9 @@
-
 use std::cell::RefCell;
-
 use netxclient::*;
-use netxbuilder::*;
 use crate::server::*;
 
-#[build_trait(TestController)]
+
+#[build(TestController)]
 pub trait ITestController{
     #[tag(2000)]
     async fn add_one(&self,i:i32)->Result<i32,Box<dyn Error>>;
@@ -14,7 +12,7 @@ pub trait ITestController{
     #[tag(4000)]
     async fn run(&self,name:String)->Result<(),Box<dyn Error>>;
     #[tag(5000)]
-    async fn print2(&self,i:i32,s:String);
+    async fn print2(&self,i:i32,s:String)-> Result<(), Box<dyn Error>>;
     #[tag(2002)]
     async fn recursive_test(&self, a:i32)->Result<i32,Box<dyn Error>>;
 
@@ -59,8 +57,9 @@ impl ITestController for TestController{
         Ok(())
     }
     #[inline]
-    async fn print2(&self, i: i32, s: String) {
+    async fn print2(&self, i: i32, s: String)-> Result<(), Box<dyn Error>> {
         println!("{}-{}-{}",i,s,self.name.borrow());
+        Ok(())
     }
 
     #[inline]

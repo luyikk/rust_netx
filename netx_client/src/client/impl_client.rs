@@ -10,7 +10,7 @@ use async_oneshot::{oneshot, Receiver, Sender};
 use std::sync::atomic::{AtomicI64, Ordering};
 use crate::client::result::RetResult;
 use tokio::time::{Duration, sleep};
-use crate::client::request_manager::RequestManager;
+use crate::client::request_manager::{RequestManager,IRequestManager};
 use std::collections::HashMap;
 use serde::{Serialize,Deserialize};
 
@@ -29,7 +29,7 @@ pub struct NetXClient<T>{
     net:Option<Arc<Actor<TcpClient>>>,
     result_dict:HashMap<i64,Sender<AResult<Data>>>,
     serial_atomic:AtomicI64,
-    request_manager:Option<Arc<RequestManager<T>>>,
+    request_manager:Option<Arc<Actor<RequestManager<T>>>>,
     controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
     mode:u8
 }
@@ -98,7 +98,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
         let (set_connect,wait_connect)=oneshot();
         let client= TcpClient::connect(netx_client.get_address(), Self::input_buffer, (netx_client.clone(),set_connect)).await?;
         netx_client.set_network_client(client).await?;
-
         match wait_connect.await{
             Err(_)=>{
                 return Err("talk connect tx is close".into());
@@ -313,6 +312,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub fn set_result(&mut self,serial:i64,data:Data)->Result<(),Box<dyn Error+ Send + Sync>>{
+        println!("set result {}",serial);
         if let Some(tx)= self.result_dict.remove(&serial){
             return match tx.send(Ok(data)) {
                 Err(_) => {
@@ -345,6 +345,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub fn set_error(&mut self,serial:i64,err:AError)->Result<(),Box<dyn Error+ Send + Sync>>{
+        println!("set error {}",serial);
         if let Some(tx)= self.result_dict.remove(&serial){
             match tx.send(Err(err)) {
                 Err(_) => {
@@ -361,15 +362,16 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
     #[inline]
-    pub fn set_request_manager(&mut self, request:Arc<RequestManager<T>>){
+    pub fn set_request_manager(&mut self, request:Arc<Actor<RequestManager<T>>>){
         self.request_manager=Some(request);
     }
 
     #[inline]
-    pub (crate) async fn set_request_sessionid(&self,sessionid:i64){
+    pub (crate) async fn set_request_sessionid(&self,sessionid:i64)->AResult<()>{
         if let Some(ref request)=self.request_manager{
-            request.set(sessionid).await
+            return request.set(sessionid).await
         }
+        Ok(())
     }
 
 
@@ -390,7 +392,7 @@ pub trait INetXClient<T>{
     async fn set_network_client(&self,client:Arc<Actor<TcpClient>>)->AResult<()>;
     async fn set_result(&self,serial:i64,data:Data)->AResult<()>;
     async fn set_error(&self,serial:i64,err:AError)->AResult<()>;
-    async fn set_request_manager(&self,request:Arc<RequestManager<T>>)->AResult<()>;
+    async fn set_request_manager(&self,request:Arc<Actor<RequestManager<T>>>)->AResult<()>;
     async fn call_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn close(&self)-> Result<(),Box<dyn Error>>;
 
@@ -626,7 +628,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         }).await
     }
     #[inline]
-    async fn set_request_manager(&self, request: Arc<RequestManager<T>>) -> AResult<()> {
+    async fn set_request_manager(&self, request: Arc<Actor<RequestManager<T>>>) -> AResult<()> {
         self.inner_call(async move|inner|{
             inner.get_mut().set_request_manager(request);
             Ok(())
@@ -675,16 +677,14 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
                 }
 
                 inner.get_mut().result_dict.insert(serial,tx);
-
                 Ok((net.clone(),rx))
             }else{
                 Err(AError::StrErr("not connect".into()))
             }
         }).await?;
         unsafe {
-            self.deref_inner().set_request_sessionid(serial).await;
+            self.deref_inner().set_request_sessionid(serial).await?;
         }
-
         if self.get_mode()==0 {
             net.send(buff).await?;
         }
@@ -695,6 +695,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             data.write(&buff);
             net.send(data).await?;
         }
+        println!("wait rx {}",serial);
         match rx.await {
             Err(_)=>{
                 Err("tx is Close".into())

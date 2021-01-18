@@ -1,7 +1,7 @@
 use netxclient::*;
-use netxbuilder::*;
 
-#[build_trait]
+
+#[build]
 pub trait IServer:Sync+Send{
 
     #[tag(1000)]

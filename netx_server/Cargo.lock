@@ -165,13 +165,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "netxbuilder"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "proc_macro_roids",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "netxserver"
 version = "0.1.0"
 dependencies = [
  "aqueue",
+ "async-oneshot",
  "bytes 0.6.0",
  "data-rw",
  "log",
+ "netxbuilder",
  "paste",
  "serde",
  "tcpserver",
@@ -247,6 +259,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
 dependencies = [
  "unicode-xid",
+]
+
+[[package]]
+name = "proc_macro_roids"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06675fa2c577f52bcf77fbb511123927547d154faa08097cc012c66ec3c9611a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

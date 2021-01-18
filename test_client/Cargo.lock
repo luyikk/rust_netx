@@ -230,7 +230,6 @@ name = "netxclient"
 version = "0.1.0"
 dependencies = [
  "aqueue",
- "async-oneshot",
  "bytes 0.6.0",
  "data-rw",
  "log",
@@ -462,7 +461,6 @@ name = "test_client"
 version = "0.1.0"
 dependencies = [
  "env_logger",
- "netxbuilder",
  "netxclient",
  "tokio",
 ]

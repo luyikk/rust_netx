@@ -1,5 +1,5 @@
 use tcpserver::{TCPPeer, Builder, ITCPServer, IPeer};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use aqueue::{Actor, AResult};
 use tokio::net::tcp::OwnedReadHalf;
 use log::*;
@@ -10,23 +10,22 @@ use data_rw::Data;
 use std::ops::Deref;
 use crate::{OwnedReadHalfExt, ServerOption, RetResult};
 use crate::server::async_token_manager::AsyncTokenManager;
-use crate::async_token_manager::IAsyncTokenManager;
+use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::async_token::{IAsyncToken, NetxToken};
-use crate::server::async_token::AsyncToken;
-use crate::controller::IGetController;
+use crate::controller::ICreateController;
 use bytes::Buf;
-use log::Level::Debug;
+
 
 
 pub struct NetXServer<T>{
    option:ServerOption,
    serv:Arc<dyn ITCPServer<Arc<NetXServer<T>>>>,
-   async_tokens:Arc<Actor<AsyncTokenManager<T>>>
+   async_tokens:TokenManager<T>
 }
 unsafe impl<T> Send for NetXServer<T>{}
 unsafe impl<T> Sync for NetXServer<T>{}
 
-impl<T:IGetController+'static> NetXServer<T> {
+impl<T: ICreateController +'static> NetXServer<T> {
    #[inline]
    pub async fn new(option:ServerOption,impl_controller:T)->Arc<NetXServer<T>>{
       let serv= Builder::new(&option.addr).set_connect_event(|addr|{
@@ -34,19 +33,36 @@ impl<T:IGetController+'static> NetXServer<T> {
          true
       }).set_input_event(async move|mut reader,peer,serv|{
          let addr=peer.addr();
-         if let Err(er)= Self::data_input_byline(&mut reader,peer,serv).await {
-            info!("user:{}:{},disconnect it", addr, er)
+         let token= match Self::get_peer_token(&mut reader, &peer, &serv).await {
+            Ok(token)=>token,
+            Err(er)=>{
+               info!("user:{}:{},disconnect it", addr, er);
+               return
+            }
+         };
+
+         if let Err(er)=Self::read_buff_byline(&mut reader,&peer,&token).await{
+            error!("read buff err:{}",er)
          }
+
+         if let Err(er)= serv.async_tokens.peer_disconnect(token.get_sessionid()).await{
+            error!("peer disconnect err:{}",er)
+         }
+
       }).build().await;
-     Arc::new(NetXServer{
+      let request_out_time=option.request_out_time;
+      let session_save_time=option.session_save_time;
+      Arc::new(NetXServer{
          option,
          serv,
-         async_tokens:AsyncTokenManager::new(impl_controller)
+         async_tokens:AsyncTokenManager::new(impl_controller,request_out_time,session_save_time)
       })
    }
 
+
+
    #[inline]
-   async fn data_input_byline(mut reader:&mut OwnedReadHalf,peer:Arc<Actor<TCPPeer>>,serv:Arc<NetXServer<T>>)->Result<(),Box<dyn Error>>{
+   async fn get_peer_token(mut reader:&mut OwnedReadHalf, peer:&Arc<Actor<TCPPeer>>, serv:&Arc<NetXServer<T>>) ->Result<NetxToken,Box<dyn Error>>{
       let cmd=reader.read_i32_le().await?;
       if cmd !=1000{
          Self::send_to_key_verify_msg(&peer,true,"not verify key").await?;
@@ -60,7 +76,6 @@ impl<T:IGetController+'static> NetXServer<T> {
       }
 
       let password=reader.read_string().await?;
-
       if !serv.option.verify_key.is_empty() && password!=serv.option.verify_key{
          Self::send_to_key_verify_msg(&peer,true,"service verify key error").await?;
          return Err(format!("IP:{} verify key:{} error",peer.addr(),name).into())
@@ -70,7 +85,7 @@ impl<T:IGetController+'static> NetXServer<T> {
       let session=reader.read_i64_le().await?;
       let token=
          if session==0{
-           serv.async_tokens.create_token().await?
+           serv.async_tokens.create_token(Arc::downgrade(&serv.async_tokens) as Weak<dyn IAsyncTokenManager>).await?
          }
          else {
              match serv.async_tokens.get_token(session).await? {
@@ -78,19 +93,24 @@ impl<T:IGetController+'static> NetXServer<T> {
                   token
                },
                None => {
-                  serv.async_tokens.create_token().await?
+                  serv.async_tokens.create_token(Arc::downgrade(&serv.async_tokens) as Weak<dyn IAsyncTokenManager>).await?
                }
             }
          };
 
-      Self::send_to_sessionid(&peer, token.get_sessionid()).await?;
-      token.set_peer(Some(Arc::downgrade(&peer))).await?;
-      Self::data_reading(&mut reader,peer,serv,token).await?;
+      Ok(token)
+   }
+
+   #[inline]
+   async fn read_buff_byline(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<(),Box<dyn Error>>{
+      token.set_peer(Some(Arc::downgrade(peer))).await?;
+      Self::send_to_sessionid(peer, token.get_sessionid()).await?;
+      Self::data_reading(&mut reader,token).await?;
       Ok(())
    }
 
    #[inline]
-   async fn data_reading(mut reader:&mut OwnedReadHalf,peer:Arc<Actor<TCPPeer>>,serv:Arc<NetXServer<T>>,token:NetxToken)->Result<(),Box<dyn Error>>{
+   async fn data_reading(mut reader:&mut OwnedReadHalf,token:&NetxToken)->Result<(),Box<dyn Error>>{
 
       while let Ok(mut data)=reader.read_buff().await{
          let cmd=data.get_le::<i32>()?;
@@ -131,14 +151,14 @@ impl<T:IGetController+'static> NetXServer<T> {
                }
             },
             2500=>{
-               error!("not impl 2500")
+               let serial=data.get_le::<i64>()?;
+               token.set_result(serial,data).await?;
             },
             _ => {
-              error!("not found cmd:{}",cmd)
+               error!("not found cmd:{}",cmd)
             }
          }
       }
-
 
       Ok(())
    }
