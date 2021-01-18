@@ -9,10 +9,10 @@ use serde::export::Option::Some;
 use tokio::time::{sleep, Duration, Instant};
 use log::*;
 
+
 pub struct AsyncTokenManager<T>{
     impl_controller:T,
     dict:HashMap<i64,NetxToken>,
-    current:i64,
     request_out_time:u32,
     session_save_time:u32,
     request_disconnect_clear_queue:VecDeque<(i64,Instant)>
@@ -30,7 +30,6 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
             AsyncTokenManager {
                 impl_controller,
                 dict: HashMap::new(),
-                current: 1,
                 request_out_time,
                 session_save_time,
                 request_disconnect_clear_queue:Default::default()
@@ -98,9 +97,7 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
 
     #[inline]
     fn make_new_sessionid(&mut self)->i64{
-        let value=self.current;
-        self.current=self.current.wrapping_add(1);
-        value
+       chrono::Local::now().timestamp_nanos()
     }
     #[inline]
     pub async fn create_token(&mut self,manager:Weak<dyn IAsyncTokenManager>)->Result<NetxToken,Box<dyn Error>>{
