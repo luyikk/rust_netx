@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 tcpserver = "0.3.6"
-aqueue="0.3.1"
+aqueue="0.3.2"
 log="0.4"
 data-rw="0.2.3"
 serde = "1.0"

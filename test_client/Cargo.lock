@@ -11,9 +11,9 @@ dependencies = [
 
 [[package]]
 name = "aqueue"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c198e4f8f029c4add7e058756f627b65ce7e0ace4a9bc2623e7fef40a29fae"
+checksum = "8f4af7cea49adc041c3f7dd1454881904996a7e7ebf8a94194e3674c539acac5"
 dependencies = [
  "aqueue_trait",
  "async-oneshot",
@@ -230,6 +230,7 @@ name = "netxclient"
 version = "0.1.0"
 dependencies = [
  "aqueue",
+ "async-oneshot",
  "bytes 0.6.0",
  "data-rw",
  "log",

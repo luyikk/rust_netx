@@ -127,7 +127,6 @@ impl AsyncToken{
             if item.1.elapsed().as_millis() as u32 >= request_out_time {
                 if let Err(er) = self.set_error(item.0, AError::StrErr("time out".into())) {
                     error!("check err:{}", er);
-                    break;
                 }
                 drop(item)
             } else {

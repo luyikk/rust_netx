@@ -34,11 +34,9 @@ impl<T:SessionSave+'static> RequestManager<T>{
     fn start_check(request_manager:Weak<Actor<RequestManager<T>>>){
         tokio::spawn(async move{
             while let Some(req)=  request_manager.upgrade() {
-                tokio::spawn(async move {
-                    if let Err(er) = req.check().await {
-                        error!("check request error:{}", er);
-                    }
-                });
+                if let Err(er) = req.check().await {
+                    error!("check request error:{}", er);
+                }
                 sleep(Duration::from_millis(500)).await
             }
         });
@@ -49,17 +47,19 @@ impl<T:SessionSave+'static> RequestManager<T>{
         while let Some(item) =  self.queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= self.request_out_time {
                 if let Some(client) = self.netx_client.upgrade() {
-                    if let Err(er) = client.set_error(item.0, AError::StrErr("time out".into())).await {
+                    if let Err(er) = client.set_error(item.0, AError::StrErr(format!("serial:{} time out",item.0))).await {
                         error!("check err:{}", er);
-                        drop(item);
-                        break;
                     }
-                } else {
-                    drop(item);
-                    break;
                 }
+                drop(item);
             } else {
                 self.queue.push_back(item);
+                if let Some(client) = self.netx_client.upgrade() {
+                    match client.get_callback_len().await {
+                        Ok(len)=>trace!("callback len:{}",len),
+                        Err(er)=> error!("check err:{}", er)
+                    }
+                }
                 break;
             }
         }

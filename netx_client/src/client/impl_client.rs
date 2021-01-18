@@ -193,9 +193,9 @@ impl<T:SessionSave+'static> NetXClient<T>{
                         }
                     }
                 },
-                2500=>{
-                    let serial=data.get_le::<i64>()?;
-                    netx_client.set_result(serial,data).await?;
+                2500=> {
+                    let serial = data.get_le::<i64>()?;
+                    netx_client.set_result(serial, data).await?;
                 }
                 _=>{
                     error!("{} Unknown command:{}->{:?}",serverinfo, cmd,data);
@@ -312,7 +312,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub fn set_result(&mut self,serial:i64,data:Data)->Result<(),Box<dyn Error+ Send + Sync>>{
-        println!("set result {}",serial);
         if let Some(tx)= self.result_dict.remove(&serial){
             return match tx.send(Ok(data)) {
                 Err(_) => {
@@ -344,17 +343,21 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
     #[inline]
+    pub fn get_callback_len(&mut self,) ->usize{
+        self.result_dict.len()
+    }
+
+    #[inline]
     pub fn set_error(&mut self,serial:i64,err:AError)->Result<(),Box<dyn Error+ Send + Sync>>{
-        println!("set error {}",serial);
         if let Some(tx)= self.result_dict.remove(&serial){
-            match tx.send(Err(err)) {
+           return match tx.send(Err(err)) {
                 Err(_) => {
                     Err("close rx".into())
                 },
                 Ok(_) => {
                     Ok(())
                 }
-            }
+            };
         }
         else{
             Ok(())
@@ -375,6 +378,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
 
+
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -390,6 +394,7 @@ pub trait INetXClient<T>{
     async fn store_sessionid(&self,sessionid:i64)->AResult<()>;
     async fn set_mode(&self,mode:u8)->AResult<()>;
     async fn set_network_client(&self,client:Arc<Actor<TcpClient>>)->AResult<()>;
+    async fn get_callback_len(&self) -> AResult<usize> ;
     async fn set_result(&self,serial:i64,data:Data)->AResult<()>;
     async fn set_error(&self,serial:i64,err:AError)->AResult<()>;
     async fn set_request_manager(&self,request:Arc<Actor<RequestManager<T>>>)->AResult<()>;
@@ -597,6 +602,12 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         }).await
     }
 
+    #[inline]
+    async fn get_callback_len(&self) -> AResult<usize> {
+        self.inner_call(async move|inner|{
+            Ok(inner.get_mut().get_callback_len())
+        }).await
+    }
 
 
     #[inline]
@@ -695,7 +706,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             data.write(&buff);
             net.send(data).await?;
         }
-        println!("wait rx {}",serial);
+
         match rx.await {
             Err(_)=>{
                 Err("tx is Close".into())

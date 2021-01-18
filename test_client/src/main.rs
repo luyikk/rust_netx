@@ -18,7 +18,7 @@ async fn main()->Result<(),Box<dyn Error>> {
         NetXClient::new(ServerInfo::new("127.0.0.1:6666".into(),
                                         "".into(),
                                         "123123".into()),
-                        DefaultSessionStore::default(),200000).await?;
+                        DefaultSessionStore::default(),10000).await?;
 
 
     client.init(TestController::new(client.clone())).await?;
@@ -56,9 +56,9 @@ async fn main()->Result<(),Box<dyn Error>> {
 
     //let r:i32=call!(client=>1005;10000);
 
-   // let r= server.recursive_test(100000).await?;
+    let r= server.recursive_test(100000).await?;
 
-    println!("r:{} {}",0,start.elapsed().as_millis());
+    println!("r:{} {}",r,start.elapsed().as_millis());
 
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;
