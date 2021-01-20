@@ -73,7 +73,7 @@ impl AsyncToken{
     }
 
     #[inline]
-    pub fn set_result(&mut self,serial:i64,data:Data)->Result<(),Box<dyn Error+ Send + Sync>>{
+    pub fn set_result(&mut self,serial:i64,data:Data)->AResult<()>{
         if let Some(tx)= self.result_dict.remove(&serial){
             return match tx.send(Ok(data)) {
                 Err(_) => {
@@ -148,8 +148,8 @@ pub trait IAsyncToken{
     async fn send<T: Deref<Target=[u8]> + Send + Sync + 'static>(&self, buff: T) -> AResult<usize>;
     async fn get_token(&self,sessionid:i64)->AResult<Option<NetxToken>>;
     async fn get_all_tokens(&self)->AResult<Vec<NetxToken>>;
-    async fn call(&self,serial:i64,buff: Data)->Result<RetResult,Box<dyn Error>>;
-    async fn run(&self,buff: Data) -> Result<(),Box<dyn Error>>;
+    async fn call(&self,serial:i64,buff: Data)->AResult<RetResult>;
+    async fn run(&self,buff: Data) -> AResult<()>;
     async fn set_result(&self,serial:i64,data:Data)->AResult<()>;
     async fn set_error(&self,serial:i64,err:AError)->AResult<()>;
     async fn check_request_timeout(&self,request_out_time:u32)->AResult<()>;
@@ -248,7 +248,7 @@ impl IAsyncToken for Actor<AsyncToken>{
     }
 
     #[inline]
-    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult, Box<dyn Error>> {
+    async fn call(&self, serial: i64, buff: Data) -> AResult<RetResult> {
         let (net,rx):(Arc<Actor<TCPPeer>>,Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().peer{
                 if let Some(peer)= net.upgrade() {
@@ -279,13 +279,16 @@ impl IAsyncToken for Actor<AsyncToken>{
                 Err("tx is Close".into())
             },
             Ok(data)=>{
-                Ok(RetResult::from(data?)?)
+                match RetResult::from(data?){
+                    Ok(r)=>Ok(r),
+                    Err(er)=>Err(AError::Other(er.into()))
+                }
             }
         }
     }
 
     #[inline]
-    async fn run(&self, buff: Data) -> Result<(), Box<dyn Error>> {
+    async fn run(&self, buff: Data) -> AResult<()> {
         let net:Arc<Actor<TCPPeer>>= self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().peer{
                 if let Some(peer)= net.upgrade() {
@@ -309,15 +312,7 @@ impl IAsyncToken for Actor<AsyncToken>{
     #[inline]
     async fn set_result(&self, serial: i64, data: Data) -> AResult<()> {
         self.inner_call(async move|inner|{
-            match inner.get_mut().set_result(serial,data){
-                Err(er)=>{
-                    Err(AError::Other(er))
-                },
-                Ok(_)=>{
-                    Ok(())
-                }
-            }
-
+             inner.get_mut().set_result(serial,data)
         }).await
     }
 

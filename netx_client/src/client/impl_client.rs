@@ -301,7 +301,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
     #[inline]
-    pub fn set_result(&mut self,serial:i64,data:Data)->Result<(),Box<dyn Error+ Send + Sync>>{
+    pub fn set_result(&mut self,serial:i64,data:Data)->AResult<()>{
         if let Some(tx)= self.result_dict.remove(&serial){
             return match tx.send(Ok(data)) {
                 Err(_) => {
@@ -661,15 +661,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     #[inline]
     async fn set_result(&self, serial: i64, data: Data) -> AResult<()> {
         self.inner_call(async move|inner|{
-            match inner.get_mut().set_result(serial,data){
-                Err(er)=>{
-                    Err(AError::Other(er))
-                },
-                Ok(_)=>{
-                    Ok(())
-                }
-            }
-
+            inner.get_mut().set_result(serial,data)
         }).await
     }
     #[inline]
