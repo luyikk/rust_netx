@@ -9,24 +9,29 @@ use test_controller::TestController;
 use server::*;
 
 
-
 #[tokio::main]
 async fn main()->Result<(),Box<dyn Error>> {
     env_logger::Builder::default().filter_level(LevelFilter::Debug).init();
 
+
+
+
+
+
     let client =
-        NetXClient::new(ServerInfo::new("127.0.0.1:6666".into(),
+        NetXClient::new(ServerInfo::new("192.168.1.235:6666".into(),
                                         "".into(),
                                         "123123".into()),
                         DefaultSessionStore::default(),10000).await?;
 
 
     client.init(TestController::new(client.clone())).await?;
-   // NetXClient::connect_network(client.clone()).await?;
-
+    //NetXClient::connect_network(client.clone()).await?;
+    client.connect_network().await?;
 
 
     let server:Box<dyn IServer>=impl_interface!(client=>IServer);
+
 
     //call!(@checkrun client=>800;5);
     // client.runcheck1(800,5).await?.check()?;
@@ -45,20 +50,21 @@ async fn main()->Result<(),Box<dyn Error>> {
     //client.runcheck2(600,6,"my name is").await?.check()?;
     //server.print2(6,"my name is").await?;
     let start = Instant::now();
-    for _ in 0..100000 {
+    for i in 0..1000000 {
+
        //call!(@result client=>1000;1,2);
-       let _=server.add(1,2).await?;
-       //println!("{}",v);
+       let v= server.add(i, 1).await?;
+       println!("{}",v);
        //client.call_2(1000,1,2).await?.check()?.deserialize::<i32>()?;
 
-        //server.print2(i,&format!("{} mm",i)).await?;
+       //server.print2(i,&format!("{} mm",i)).await?;
     }
 
     //let r:i32=call!(client=>1005;10000);
 
-    let r= server.recursive_test(100000).await?;
+    //let r= server.recursive_test(100000).await?;
 
-    println!("r:{} {}",r,start.elapsed().as_millis());
+    println!("r:{} {}",0,start.elapsed().as_millis());
 
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;

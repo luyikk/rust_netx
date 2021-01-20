@@ -13,7 +13,7 @@ use tokio::time::{Duration, sleep};
 use crate::client::request_manager::{RequestManager,IRequestManager};
 use std::collections::HashMap;
 use serde::{Serialize,Deserialize};
-
+use tokio::sync::watch::{Sender as WSender,Receiver as WReceiver,channel};
 
 use bytes::Buf;
 use crate::client::controller::{FunctionInfo, IController};
@@ -27,6 +27,7 @@ pub struct NetXClient<T>{
     session:T,
     serverinfo:ServerInfo,
     net:Option<Arc<Actor<TcpClient>>>,
+    connect_stats:Option<WReceiver<(bool,String)>>,
     result_dict:HashMap<i64,Sender<AResult<Data>>>,
     serial_atomic:AtomicI64,
     request_manager:Option<Arc<Actor<RequestManager<T>>>>,
@@ -74,6 +75,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
             serverinfo,
             net:None,
             result_dict:HashMap::new(),
+            connect_stats:None,
             serial_atomic:AtomicI64::new(1),
             request_manager:None,
             controller_fun_register_dict:HashMap::new(),
@@ -93,26 +95,8 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
 
-    #[inline]
-    pub async fn connect_network(netx_client:Arc<Actor<NetXClient<T>>>)->Result<(),Box<dyn Error>> {
-        let (set_connect,wait_connect)=oneshot();
-        let client= TcpClient::connect(netx_client.get_address(), Self::input_buffer, (netx_client.clone(),set_connect)).await?;
-        netx_client.set_network_client(client).await?;
-        match wait_connect.await{
-            Err(_)=>{
-                return Err("talk connect tx is close".into());
-            },
-            Ok((is_connect,msg))=>{
-                if !is_connect{
-                    return Err(msg.into());
-                }
-            }
-        }
-        Ok(())
-    }
-
     #[allow(clippy::type_complexity)]
-    async fn input_buffer((netx_client,set_connect):(Arc<Actor<NetXClient<T>>>,Sender<(bool,String)>), client:Arc<Actor<TcpClient>>,mut reader:OwnedReadHalf)->Result<bool,Box<dyn Error>>{
+    async fn input_buffer((netx_client,set_connect):(Arc<Actor<NetXClient<T>>>,WSender<(bool,String)>), client:Arc<Actor<TcpClient>>,mut reader:OwnedReadHalf)->Result<bool,Box<dyn Error>>{
         let serverinfo=netx_client.get_serviceinfo();
         let mut sessionid=netx_client.get_sessionid();
         client.send(Self::get_verify_buff(&serverinfo.service_name,&serverinfo.verify_key,&sessionid)).await?;
@@ -135,6 +119,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                                 if  set_connect.send((false,err)).is_err(){
                                     error!("talk connect rx is close");
                                 }
+                                drop(set_connect);
                             }
                             break;
                         }
@@ -301,6 +286,11 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
     #[inline]
+    pub fn set_connect_stats(&mut self,stats:Option<WReceiver<(bool,String)>>){
+        self.connect_stats=stats;
+    }
+
+    #[inline]
     pub fn is_connect(&self)->bool{
         self.net.is_some()
     }
@@ -385,6 +375,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
 #[aqueue::aqueue_trait]
 pub trait INetXClient<T>{
     async fn init<C:IController+Sync+Send+'static>(&self,controller:C)->AResult<()>;
+    async fn connect_network(self:&Arc<Self>)->AResult<()>;
     fn get_address(&self)->String;
     fn get_serviceinfo(&self)->ServerInfo;
     fn get_sessionid(&self)->i64;
@@ -394,6 +385,7 @@ pub trait INetXClient<T>{
     async fn store_sessionid(&self,sessionid:i64)->AResult<()>;
     async fn set_mode(&self,mode:u8)->AResult<()>;
     async fn set_network_client(&self,client:Arc<Actor<TcpClient>>)->AResult<()>;
+    async fn reset_connect_stats(&self)->AResult<()>;
     async fn get_callback_len(&self) -> AResult<usize> ;
     async fn set_result(&self,serial:i64,data:Data)->AResult<()>;
     async fn set_error(&self,serial:i64,err:AError)->AResult<()>;
@@ -536,6 +528,54 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     }
 
     #[inline]
+    async fn connect_network(self: &Arc<Self>) -> AResult<()> {
+        let netx_client=self.clone();
+        let wait_handler:Option<WReceiver<(bool,String)>>=self.inner_call(async move|inner|{
+            if inner.get().is_connect(){
+                return match inner.get().connect_stats{
+                    Some(ref stats)=>{
+                        Ok(Some(stats.clone()))
+                    },
+                    None=>{
+                        Ok(None)
+                    }
+                }
+            }
+
+            let (set_connect,wait_connect)=channel((false,"not connect".to_string()));
+
+            match TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client.clone(),set_connect)).await {
+                Ok(client)=> {
+                    inner.get_mut().set_network_client(client);
+                    inner.get_mut().connect_stats=Some(wait_connect.clone());
+                    Ok(Some(wait_connect))
+                },
+                Err(er)=>{
+                    Err(AError::StrErr(format!("{}",er)))
+                }
+            }
+        }).await?;
+
+        if let Some(mut wait_connect)=wait_handler {
+            match wait_connect.changed().await {
+                Err(err) => {
+                    self.reset_connect_stats().await?;
+                    return Err(format!("connect err:{}",err).into());
+                },
+                Ok(_) => {
+                    self.reset_connect_stats().await?;
+                    let (is_connect,msg)= (*wait_connect.borrow()).clone();
+                    if !is_connect {
+                        return Err(msg.into());
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    #[inline]
     fn get_address(&self) -> String {
          unsafe {
              self.deref_inner().get_addr_string()
@@ -598,6 +638,14 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     async fn set_network_client(&self, client: Arc<Actor<TcpClient>>) -> AResult<()> {
         self.inner_call(async move|inner|{
             inner.get_mut().set_network_client(client);
+            Ok(())
+        }).await
+    }
+
+    #[inline]
+    async fn reset_connect_stats(&self) -> AResult<()> {
+        self.inner_call(async move|inner|{
+            inner.get_mut().set_connect_stats(None);
             Ok(())
         }).await
     }
@@ -706,7 +754,6 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             data.write(&buff);
             net.send(data).await?;
         }
-
         match rx.await {
             Err(_)=>{
                 Err("tx is Close".into())
@@ -885,7 +932,7 @@ macro_rules! call {
     (@count $($rest:expr),*)=>(<[()]>::len(&[$(call!(@uint $rest)),*]));
     ($client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
-                NetXClient::connect_network($client.clone()).await?;
+                $client.connect_network().await?;
             }
             use data_rw::Data;
             let mut data=Data::with_capacity(128);
@@ -903,7 +950,7 @@ macro_rules! call {
     });
     (@result $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
-               NetXClient::connect_network($client.clone()).await?;
+               $client.connect_network().await?;
             }
             use data_rw::Data;
             let mut data=Data::with_capacity(128);
@@ -919,7 +966,7 @@ macro_rules! call {
     });
     (@run $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
-                NetXClient::connect_network($client.clone()).await?;
+                $client.connect_network().await?;
             }
             use data_rw::Data;
             let mut data=Data::with_capacity(128);
@@ -935,7 +982,7 @@ macro_rules! call {
     });
      (@run_not_err $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
-               if let Err(err)= NetXClient::connect_network($client.clone()).await{
+               if let Err(err)= $client.connect_network().await{
                     log::error!{"run {} is error:{}",$cmd,err}
                }
             }
@@ -955,7 +1002,7 @@ macro_rules! call {
     });
     (@checkrun $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
-                NetXClient::connect_network($client.clone()).await?;
+                $client.connect_network().await?;
             }
             use data_rw::Data;
             let mut data=Data::with_capacity(128);
