@@ -393,7 +393,7 @@ pub trait INetXClient<T>{
     async fn call_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn close(&self)-> Result<(),Box<dyn Error>>;
 
-    async fn call(&self, serial:i64, buff:Data) ->Result<RetResult,Box<dyn Error>>;
+    async fn call(&self, serial:i64, buff:Data) ->AResult<RetResult>;
     async fn call_0(&self, cmd:i32) ->Result<RetResult,Box<dyn Error>>;
     async fn call_1<A1:Writer+Send+Sync>
     (&self,cmd:i32,arg1:A1)->Result<RetResult,Box<dyn Error>>;
@@ -727,7 +727,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     }
 
     #[inline]
-    async fn call(&self,serial:i64,buff: Data) -> Result<RetResult,Box<dyn Error>> {
+    async fn call(&self,serial:i64,buff: Data) -> AResult<RetResult> {
         let (net,rx):(Arc<Actor<TcpClient>>,Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().net{
                 let (tx,rx):(Sender<AResult<Data>>,Receiver<AResult<Data>>)=oneshot();
@@ -760,7 +760,10 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             }
             ,
             Ok(data)=>{
-                Ok(RetResult::from(data?)?)
+                match RetResult::from(data?){
+                    Ok(r)=>Ok(r),
+                    Err(er)=>Err(AError::Other(er.into()))
+                }
             }
         }
     }

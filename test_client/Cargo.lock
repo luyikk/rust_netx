@@ -439,9 +439,9 @@ dependencies = [
 
 [[package]]
 name = "tcpclient"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ed39d0ff624f207651e87c62051eb78f10f4a1466a9f0ecf0ea0830fa1e720f"
+checksum = "cfe87aa9e718bcbe153e7fefb15d381a7d13b5e8c8a730c95b75c2874080d70e"
 dependencies = [
  "aqueue",
  "log",

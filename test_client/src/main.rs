@@ -19,7 +19,7 @@ async fn main()->Result<(),Box<dyn Error>> {
 
 
     let client =
-        NetXClient::new(ServerInfo::new("192.168.1.235:6666".into(),
+        NetXClient::new(ServerInfo::new("127.0.0.1:6666".into(),
                                         "".into(),
                                         "123123".into()),
                         DefaultSessionStore::default(),10000).await?;
@@ -27,7 +27,7 @@ async fn main()->Result<(),Box<dyn Error>> {
 
     client.init(TestController::new(client.clone())).await?;
     //NetXClient::connect_network(client.clone()).await?;
-    client.connect_network().await?;
+    //client.connect_network().await?;
 
 
     let server:Box<dyn IServer>=impl_interface!(client=>IServer);
@@ -50,11 +50,11 @@ async fn main()->Result<(),Box<dyn Error>> {
     //client.runcheck2(600,6,"my name is").await?.check()?;
     //server.print2(6,"my name is").await?;
     let start = Instant::now();
-    for i in 0..1000000 {
+    for _ in 0..100000 {
 
        //call!(@result client=>1000;1,2);
-       let v= server.add(i, 1).await?;
-       println!("{}",v);
+       let _= server.add(1, 2).await?;
+       //println!("{}",v);
        //client.call_2(1000,1,2).await?.check()?.deserialize::<i32>()?;
 
        //server.print2(i,&format!("{} mm",i)).await?;
@@ -71,7 +71,7 @@ async fn main()->Result<(),Box<dyn Error>> {
     client.close().await?;
 
     drop(client);
-    drop(server);
+   //drop(server);
 
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;
