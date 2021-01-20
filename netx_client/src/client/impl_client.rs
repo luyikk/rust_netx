@@ -300,58 +300,10 @@ impl<T:SessionSave+'static> NetXClient<T>{
         self.serial_atomic.fetch_add(1,Ordering::Acquire)
     }
 
-    #[inline]
-    pub fn set_result(&mut self,serial:i64,data:Data)->AResult<()>{
-        if let Some(tx)= self.result_dict.remove(&serial){
-            return match tx.send(Ok(data)) {
-                Err(_) => {
-                    Err("close rx".into())
-                },
-                Ok(_) => {
-                    Ok(())
-                }
-            }
-        }
-        else{
-             match RetResult::from(data){
-                 Ok(res)=>{
-                     match res.check(){
-                        Ok(_)=>{
-                            error!("not found 2 {}",serial)
-                        },
-                        Err(err)=> {
-                            error!("{}",err)
-                        }
-                     }
-                 },
-                 Err(er)=>{
-                     error!("not found {} :{}",serial,er)
-                 }
-             }
-        }
-        Ok(())
-    }
 
     #[inline]
     pub fn get_callback_len(&mut self,) ->usize{
         self.result_dict.len()
-    }
-
-    #[inline]
-    pub fn set_error(&mut self,serial:i64,err:AError)->Result<(),Box<dyn Error+ Send + Sync>>{
-        if let Some(tx)= self.result_dict.remove(&serial){
-           return match tx.send(Err(err)) {
-                Err(_) => {
-                    Err("close rx".into())
-                },
-                Ok(_) => {
-                    Ok(())
-                }
-            };
-        }
-        else{
-            Ok(())
-        }
     }
 
     #[inline]
@@ -660,23 +612,58 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
 
     #[inline]
     async fn set_result(&self, serial: i64, data: Data) -> AResult<()> {
-        self.inner_call(async move|inner|{
-            inner.get_mut().set_result(serial,data)
-        }).await
-    }
-    #[inline]
-    async fn set_error(&self, serial: i64, err: AError) -> AResult<()> {
-        self.inner_call(async move|inner|{
-            match inner.get_mut().set_error(serial,err){
-                Err(er)=>{
-                    Err(AError::Other(er))
+
+       let have_tx:Option<Sender<AResult<Data>>>= self.inner_call(async move|inner|{
+            Ok(inner.get_mut().result_dict.remove(&serial))
+        }).await?;
+
+        if let Some(tx)=have_tx{
+            return match tx.send(Ok(data)) {
+                Err(_) => {
+                    Err("close rx".into())
                 },
-                Ok(_)=>{
+                Ok(_) => {
                     Ok(())
                 }
             }
-
-        }).await
+        }
+        else{
+            match RetResult::from(data){
+                Ok(res)=>{
+                    match res.check(){
+                        Ok(_)=>{
+                            error!("not found 2 {}",serial)
+                        },
+                        Err(err)=> {
+                            error!("{}",err)
+                        }
+                    }
+                },
+                Err(er)=>{
+                    error!("not found {} :{}",serial,er)
+                }
+            }
+        }
+        Ok(())
+    }
+    #[inline]
+    async fn set_error(&self, serial: i64, err: AError) -> AResult<()> {
+        let have_tx:Option<Sender<AResult<Data>>>= self.inner_call(async move|inner|{
+            Ok(inner.get_mut().result_dict.remove(&serial))
+        }).await?;
+        if let Some(tx)=have_tx{
+            return match tx.send(Err(err)) {
+                Err(_) => {
+                    Err("close rx".into())
+                },
+                Ok(_) => {
+                    Ok(())
+                }
+            };
+        }
+        else{
+            Ok(())
+        }
     }
     #[inline]
     async fn set_request_manager(&self, request: Arc<Actor<RequestManager<T>>>) -> AResult<()> {

@@ -54,12 +54,6 @@ impl<T:SessionSave+'static> RequestManager<T>{
                 drop(item);
             } else {
                 self.queue.push_back(item);
-                if let Some(client) = self.netx_client.upgrade() {
-                    match client.get_callback_len().await {
-                        Ok(len)=>trace!("callback len:{}",len),
-                        Err(er)=> error!("check err:{}", er)
-                    }
-                }
                 break;
             }
         }
