@@ -3,10 +3,12 @@ mod global_info;
 extern crate proc_macro;
 use quote::{quote,format_ident};
 use proc_macro::{TokenStream};
-use syn::{parse_macro_input, ItemTrait, parse_quote, NestedMeta, Lit, TraitItemMethod, TraitItem, ItemImpl, FnArg, Type, ReturnType, PathArguments, GenericArgument, Pat};
+use syn::{parse_macro_input, ItemTrait, parse_quote, NestedMeta, Lit, TraitItemMethod, TraitItem, ItemImpl, FnArg, Type, ReturnType, PathArguments, GenericArgument, Pat, Meta};
 use proc_macro_roids::{namespace_parameter};
 use global_info::*;
 
+const CONNECT:i32=2147483647;
+const DISCONNECT:i32=2147483646;
 
 fn have_tag(method:&TraitItemMethod)->Option<i32>{
     if let Some(tag) =namespace_parameter(&method.attrs,&parse_quote!(tag)){
@@ -19,9 +21,31 @@ fn have_tag(method:&TraitItemMethod)->Option<i32>{
                    _=>panic!("tag type error not i32")
                }
            },
-           _=>panic!("tag error")
+           NestedMeta::Meta(value)=>{
+               match value {
+                   Meta::Path(path) => {
+                       if path.segments.len()==1{
+                          let segment=  path.segments.first().unwrap();
+                          match &segment.ident.to_string()[..]{
+                              "connect"=> return Some(CONNECT),
+                              "disconnect"=>return Some(DISCONNECT),
+                              _ => {
+                                  panic!("tag error:{},like connect or disconnect?", segment.ident.to_string())
+                              }
+                          }
+
+                       }
+                       panic!("tag error,args !=1")
+                   }
+                   _=>{
+                       panic!("tag error")
+                   }
+               }
+
+           }
        }
     }
+
     None
 }
 
@@ -166,7 +190,6 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
             }
 
         }
-
 
         #[aqueue_trait]
         impl<T:SessionSave+'static> #interface_name for #impl_interface_struct_name<Arc<Actor<NetXClient<T>>>>{
@@ -481,6 +504,9 @@ fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
                     };
 
                     funcs.push(f_info);
+                }
+                else{
+                    panic!("method name '{}' tag:{} is not async function",method.sig.ident, tag_id);
                 }
             }
         }

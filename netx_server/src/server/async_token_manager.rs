@@ -9,7 +9,6 @@ use serde::export::Option::Some;
 use tokio::time::{sleep, Duration, Instant};
 use log::*;
 
-
 pub struct AsyncTokenManager<T>{
     impl_controller:T,
     dict:HashMap<i64,NetxToken>,
@@ -70,7 +69,7 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
         while let Some(item) = self.request_disconnect_clear_queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= self.session_save_time {
                 if let Some(token)= self.dict.get(&item.0) {
-                    if token.disconnect().await? {
+                    if token.is_disconnect().await? {
                         if let Some(token) = self.dict.remove(&item.0) {
                             token.clear_controller_fun_maps().await?;
                             debug!("token {} remove", token.get_sessionid());
@@ -103,11 +102,14 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
     pub async fn create_token(&mut self,manager:Weak<dyn IAsyncTokenManager>)->Result<NetxToken,Box<dyn Error>>{
         let sessionid=self.make_new_sessionid();
         let token= Arc::new(Actor::new( AsyncToken::new(sessionid,manager)));
-        let map=self.impl_controller.create_controller(token.clone())?.register()?;
+        let controller=self.impl_controller.create_controller(token.clone())?;
+        let map=controller.register()?;
         token.set_controller_fun_maps(map).await?;
         self.dict.insert(sessionid,token.clone());
         Ok(token)
     }
+
+
     #[inline]
     pub fn get_token(&self,sessionid:i64)->Option<NetxToken>{
         self.dict.get(&sessionid).cloned()

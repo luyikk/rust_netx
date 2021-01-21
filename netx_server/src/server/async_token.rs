@@ -53,6 +53,16 @@ impl Drop for AsyncToken{
 impl AsyncToken{
 
     #[inline]
+    pub(crate) async fn call_special_function(&self,cmd:i32)->Result<(),Box<dyn Error>>{
+        if let Some(ref dict) = self.controller_fun_register_dict {
+            if let Some(func) = dict.get(&cmd) {
+                func.call(Data::with_len(4,0)).await?;
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
     pub (crate) async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->Result<RetResult,Box<dyn Error>> {
         if let Some(ref dict) = self.controller_fun_register_dict {
             if let Some(func) = dict.get(&cmd) {
@@ -111,6 +121,7 @@ pub trait IAsyncToken{
     async fn set_controller_fun_maps(&self,map:HashMap<i32,Box<dyn FunctionInfo>>)->AResult<()>;
     async fn clear_controller_fun_maps(&self) ->AResult<()>;
     async fn set_peer(&self,peer:Option<Weak<Actor<TCPPeer>>>)->AResult<()>;
+    async fn call_special_function(&self,cmd:i32)->Result<(),Box<dyn Error>>;
     async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn send<T: Deref<Target=[u8]> + Send + Sync + 'static>(&self, buff: T) -> AResult<usize>;
     async fn get_token(&self,sessionid:i64)->AResult<Option<NetxToken>>;
@@ -120,7 +131,7 @@ pub trait IAsyncToken{
     async fn set_result(&self,serial:i64,data:Data)->AResult<()>;
     async fn set_error(&self,serial:i64,err:AError)->AResult<()>;
     async fn check_request_timeout(&self,request_out_time:u32)->AResult<()>;
-    async fn disconnect(&self)->AResult<bool>;
+    async fn is_disconnect(&self) ->AResult<bool>;
 
 }
 
@@ -162,6 +173,13 @@ impl IAsyncToken for Actor<AsyncToken>{
             inner.get_mut().peer=peer;
             Ok(())
         }).await
+    }
+
+    #[inline]
+    async fn call_special_function(&self, cmd: i32) -> Result<(), Box<dyn Error>> {
+       unsafe{
+           self.deref_inner().call_special_function(cmd).await
+       }
     }
 
     #[inline]
@@ -334,7 +352,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         }).await
     }
     #[inline]
-    async fn disconnect(&self) -> AResult<bool> {
+    async fn is_disconnect(&self) -> AResult<bool> {
         self.inner_call(async move|inner|{
             if let Some(ref peer)= inner.get().peer{
                 if let Some(peer)= peer.upgrade(){

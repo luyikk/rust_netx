@@ -15,7 +15,10 @@ use crate::async_token::{IAsyncToken, NetxToken};
 use crate::controller::ICreateController;
 use bytes::Buf;
 
-
+enum SpecialFunctionTag{
+   CONNECT=2147483647,
+   DISCONNECT=2147483646
+}
 
 pub struct NetXServer<T>{
    option:ServerOption,
@@ -24,6 +27,7 @@ pub struct NetXServer<T>{
 }
 unsafe impl<T> Send for NetXServer<T>{}
 unsafe impl<T> Sync for NetXServer<T>{}
+
 
 impl<T: ICreateController +'static> NetXServer<T> {
    #[inline]
@@ -45,6 +49,9 @@ impl<T: ICreateController +'static> NetXServer<T> {
             error!("read buff err:{}",er)
          }
 
+         if let Err(er)= token.call_special_function(SpecialFunctionTag::DISCONNECT as i32).await{
+            error!("call token disconnect err:{}",er)
+         }
          if let Err(er)= serv.async_tokens.peer_disconnect(token.get_sessionid()).await{
             error!("peer disconnect err:{}",er)
          }
@@ -104,6 +111,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
    #[inline]
    async fn read_buff_byline(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<(),Box<dyn Error>>{
       token.set_peer(Some(Arc::downgrade(peer))).await?;
+      token.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
       Self::send_to_sessionid(peer, token.get_sessionid()).await?;
       Self::data_reading(&mut reader,token).await?;
       Ok(())
