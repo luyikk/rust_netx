@@ -121,6 +121,7 @@ pub trait IAsyncToken{
     async fn set_controller_fun_maps(&self,map:HashMap<i32,Box<dyn FunctionInfo>>)->AResult<()>;
     async fn clear_controller_fun_maps(&self) ->AResult<()>;
     async fn set_peer(&self,peer:Option<Weak<Actor<TCPPeer>>>)->AResult<()>;
+    async fn get_peer(&self)->AResult<Option<Weak<Actor<TCPPeer>>>>;
     async fn call_special_function(&self,cmd:i32)->Result<(),Box<dyn Error>>;
     async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn send<T: Deref<Target=[u8]> + Send + Sync + 'static>(&self, buff: T) -> AResult<usize>;
@@ -172,6 +173,13 @@ impl IAsyncToken for Actor<AsyncToken>{
         self.inner_call(async move|inner|{
             inner.get_mut().peer=peer;
             Ok(())
+        }).await
+    }
+
+    #[inline]
+    async fn get_peer(&self) -> AResult<Option<Weak<Actor<TCPPeer>>>> {
+        self.inner_call(async move|inner|{
+            Ok(inner.get_mut().peer.clone())
         }).await
     }
 
@@ -294,6 +302,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         net.send(data).await?;
         Ok(())
     }
+
     #[inline]
     async fn set_result(&self, serial: i64, data: Data) -> AResult<()> {
         let have_tx:Option<Sender<AResult<Data>>>= self.inner_call(async move|inner|{
