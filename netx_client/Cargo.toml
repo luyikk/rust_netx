@@ -19,3 +19,6 @@ aqueue="0.3.2"
 data-rw="0.2.3"
 async-oneshot = "0.4"
 netxbuilder={path="../netx_builder"}
+
+[dev-dependencies]
+env_logger = "0.8.2"

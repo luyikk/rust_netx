@@ -71,7 +71,7 @@ async fn main()->Result<(),Box<dyn Error>> {
     client.close().await?;
 
     drop(client);
-   //drop(server);
+    drop(server);
 
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;

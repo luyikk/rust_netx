@@ -18,3 +18,6 @@ bytes="0.6"
 async-oneshot = "0.4"
 netxbuilder={path="../netx_builder"}
 chrono="0.4"
+
+[dev-dependencies]
+env_logger = "0.8.2"

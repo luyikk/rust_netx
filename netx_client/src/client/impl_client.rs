@@ -101,6 +101,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
         let mut sessionid=netx_client.get_sessionid();
         client.send(Self::get_verify_buff(&serverinfo.service_name,&serverinfo.verify_key,&sessionid)).await?;
         let mut option_connect=Some(set_connect);
+
         while let Ok(len)=reader.read_u32_le().await {
             let len=(len-4) as usize;
             let mut data=Data::with_len(len,0);
