@@ -66,8 +66,6 @@ impl<T: ICreateController +'static> NetXServer<T> {
       })
    }
 
-
-
    #[inline]
    async fn get_peer_token(mut reader:&mut OwnedReadHalf, peer:&Arc<Actor<TCPPeer>>, serv:&Arc<NetXServer<T>>) ->Result<NetxToken,Box<dyn Error>>{
       let cmd=reader.read_i32_le().await?;
@@ -163,7 +161,6 @@ impl<T: ICreateController +'static> NetXServer<T> {
             }
          }
       }
-
       Ok(())
    }
 

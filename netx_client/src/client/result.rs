@@ -6,7 +6,6 @@ use aqueue::{AResult, AError};
 use serde::Deserialize;
 use std::error::Error;
 
-
 #[derive(Debug)]
 pub struct RetResult {
     pub is_error:bool,
@@ -14,7 +13,6 @@ pub struct RetResult {
     pub msg:String,
     pub arguments:Vec<Data>
 }
-
 
 impl RetResult {
     #[inline]
@@ -107,9 +105,6 @@ impl RetResult {
     }
 
 }
-
-
-
 
 impl Index<usize> for RetResult {
     type Output = Data;

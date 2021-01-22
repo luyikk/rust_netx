@@ -14,7 +14,6 @@ use crate::client::request_manager::{RequestManager,IRequestManager};
 use std::collections::HashMap;
 use serde::{Serialize,Deserialize};
 use tokio::sync::watch::{Sender as WSender,Receiver as WReceiver,channel};
-
 use bytes::Buf;
 use crate::client::controller::{FunctionInfo, IController};
 
@@ -27,7 +26,6 @@ enum SpecialFunctionTag{
     CONNECT=2147483647,
     DISCONNECT=2147483646
 }
-
 
 pub struct NetXClient<T>{
     session:T,
@@ -62,7 +60,6 @@ impl std::fmt::Display for ServerInfo{
         write!(f,"{}[{}]",self.service_name,self.addr)
     }
 }
-
 
 impl ServerInfo{
     pub fn new(addr:String,service_name:String,verify_key:String)->ServerInfo{
@@ -99,7 +96,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
         let table=controller.register().expect("init error");
         self.controller_fun_register_dict=table;
     }
-
 
     #[allow(clippy::type_complexity)]
     async fn input_buffer((mut netx_client,set_connect):(Arc<Actor<NetXClient<T>>>, WSender<(bool, String)>), client:Arc<Actor<TcpClient>>, mut reader:OwnedReadHalf) ->Result<bool,Box<dyn Error>>{
@@ -340,9 +336,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
         }
         Ok(())
     }
-
-
-
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -546,7 +539,6 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
                 }
             }
         }
-
         Ok(())
     }
 
@@ -711,7 +703,6 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
                 None=>Err(AError::StrErr("not connect".into()))
             }
         }).await;
-
         match net{
             Err(_)=>Ok(()),
             Ok(net)=>{
@@ -818,7 +809,6 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
                 Err(AError::StrErr("not connect".into()))
             }
         }).await?;
-
         if self.get_mode()==0 {
             net.send(buff).await?;
         }
@@ -921,9 +911,6 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10);
     }
 }
-
-
-
 
 #[macro_export]
 macro_rules! call {

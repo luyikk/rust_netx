@@ -49,7 +49,6 @@ impl Drop for AsyncToken{
     }
 }
 
-
 impl AsyncToken{
 
     #[inline]
@@ -370,7 +369,6 @@ impl IAsyncToken for Actor<AsyncToken>{
             Ok(true)
         }).await
     }
-
 
 }
 

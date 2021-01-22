@@ -91,7 +91,6 @@ impl RetResult {
         if index>=self.len(){
             return Err(io::Error::new(ErrorKind::Other,"index >= len"))
         }
-
         Ok(& mut self.arguments[index])
     }
 
@@ -100,15 +99,11 @@ impl RetResult {
         if self.is_empty(){
             return Err(io::Error::new(ErrorKind::Other,"index >= len").into())
         }
-
         let r= T::deserialize(&mut self.arguments[0])?;
         Ok(r)
     }
 
 }
-
-
-
 
 impl Index<usize> for RetResult {
     type Output = Data;

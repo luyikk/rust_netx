@@ -11,7 +11,6 @@ pub trait IController:Send+Sync{
     fn register(self:Arc<Self>)->Result<HashMap<i32,Box<dyn FunctionInfo>>,Box<dyn Error>>;
 }
 
-
 #[aqueue::aqueue_trait]
 pub trait FunctionInfo:Send+Sync{
     fn function_type(&self)->u8;

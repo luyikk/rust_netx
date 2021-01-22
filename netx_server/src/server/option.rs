@@ -8,7 +8,6 @@ pub struct ServerOption{
     pub session_save_time:u32
 }
 
-
 impl ServerOption{
     #[inline]
     pub fn new(addr:&str,service_name:&str,verify_key:&str)->ServerOption{
