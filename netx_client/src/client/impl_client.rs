@@ -349,6 +349,7 @@ pub trait INetXClient<T>{
     fn get_mode(&self)->u8;
     fn new_serial(&self)->i64;
     fn is_connect(&self)->bool;
+    async fn get_peer(&self)->AResult<Option<Arc<Actor<TcpClient>>>>;
     async fn store_sessionid(&self,sessionid:i64)->AResult<()>;
     async fn set_mode(&self,mode:u8)->AResult<()>;
     async fn set_network_client(&self,client:Arc<Actor<TcpClient>>)->AResult<()>;
@@ -582,6 +583,13 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         unsafe {
             self.deref_inner().is_connect()
         }
+    }
+
+    #[inline]
+    async fn get_peer(&self) -> AResult<Option<Arc<Actor<TcpClient>>>> {
+        self.inner_call(async move|inner|{
+            Ok(inner.get().net.clone())
+        }).await
     }
 
     #[inline]
