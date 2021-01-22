@@ -111,9 +111,9 @@ dependencies = [
 
 [[package]]
 name = "data-rw"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b088125922081a3b678681d5527fce8a29a96e23c9f572936eca05e2fb324b7"
+checksum = "35e56bad945da39bce822143d0c4d02e1eafa5204c638dbe24a0fe19db709496"
 dependencies = [
  "bytes 0.6.0",
  "paste",
@@ -395,6 +395,20 @@ name = "serde"
 version = "1.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06c64263859d87aa2eb554587e2d23183398d617427327cf2b3d0ed8c69e4800"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.118"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c84d3526699cd55261af4b941e4e725444df67aa4f9e6a3564f18030d12672df"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "signal-hook-registry"

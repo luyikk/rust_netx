@@ -1,5 +1,6 @@
 mod test_controller;
 mod client;
+mod test_struct;
 
 use std::error::Error;
 use netxserver::{NetXServer, ServerOption};

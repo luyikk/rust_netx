@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use netxclient::*;
 use crate::server::*;
-use tcpclient::SocketClientTrait;
 
 
 #[build(TestController)]

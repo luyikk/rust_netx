@@ -12,13 +12,14 @@ tokio = { version = "1", features = ["full"] }
 bytes="0.6"
 log="0.4"
 tcpclient = "0.3.1"
-serde = { version = "1.0", features = ["derive"] }
+serde = "1.0"
 serde_json = "1.0"
 paste="1.0.2"
 aqueue="0.3.2"
-data-rw="0.2.3"
+data-rw="0.2.4"
 async-oneshot = "0.4"
 netxbuilder={path="../netx_builder"}
 
 [dev-dependencies]
 env_logger = "0.8.2"
+serde = { version = "1.0", features = ["derive"] }

@@ -2,7 +2,7 @@ use data_rw::Data;
 use std::io;
 use aqueue::{AResult, AError};
 use std::io::ErrorKind;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 use std::error::Error;
 
@@ -46,8 +46,12 @@ impl RetResult {
     }
 
     #[inline]
-    pub fn add_arg_buff(&mut self,p:Data){
-        self.arguments.push(p);
+    pub fn add_arg_buff<T:Serialize>(&mut self,p:T){
+        let mut data= Data::new();
+        if let Err(er)=data.serde_serialize(p){
+            log::error!("Data serialize error：{} {}",er,line!())
+        }
+        self.arguments.push(data);
     }
 
     #[inline]

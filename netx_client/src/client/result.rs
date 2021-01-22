@@ -3,7 +3,7 @@ use std::io;
 use tokio::io::ErrorKind;
 use std::ops::{Index, IndexMut};
 use aqueue::{AResult, AError};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 
 #[derive(Debug)]
@@ -45,10 +45,13 @@ impl RetResult {
     }
 
     #[inline]
-    pub fn add_arg_buff(&mut self,p:Data){
-        self.arguments.push(p);
+    pub fn add_arg_buff<T:Serialize>(&mut self,p:T){
+        let mut data= Data::new();
+        if let Err(er)=data.serde_serialize(p){
+            log::error!("Data serialize error：{} {}",er,line!())
+        }
+        self.arguments.push(data);
     }
-
     #[inline]
     pub fn from(mut data:Data)->io::Result<RetResult>{
         if data.get_le::<bool>()?{

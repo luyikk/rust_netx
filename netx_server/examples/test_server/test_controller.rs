@@ -4,6 +4,7 @@ use netxserver::*;
 use crate::client::*;
 use log::*;
 use tcpserver::IPeer;
+use crate::test_struct::{LogOn, LogOnResult, Flag};
 
 
 #[build(TestController)]
@@ -25,6 +26,8 @@ pub trait ITestController{
     #[tag(1005)]
     async fn recursive_test(&self, a:i32)->Result<i32,Box<dyn Error>>;
 
+    #[tag(10000)]
+    async fn logon(&self,info:LogOn)->Result<LogOnResult,Box<dyn Error>>;
 }
 
 pub struct TestController{
@@ -102,6 +105,18 @@ impl ITestController for TestController{
         } else {
             Ok(a)
         }
+    }
+    #[inline]
+    async fn logon(&self, info: LogOn) -> Result<LogOnResult, Box<dyn Error>> {
+        assert_eq!(info,LogOn{
+            username:"username".into(),
+            password:"password".into()
+        });
+
+        Ok(LogOnResult{
+            success: true,
+            msg: Flag::Message("LogOn Ok".into())
+        })
     }
 }
 

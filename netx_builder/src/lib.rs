@@ -251,7 +251,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                         #( #read_token)*
                         let ret=self.controller.#func_name (#(#arg_names,)*).await?;
                         let mut result=RetResult::success();
-                        result.add_arg_buff(ret.to_data());
+                        result.add_arg_buff(ret);
                         Ok(result)
                     }
                 }
@@ -400,7 +400,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                         #( #read_token)*
                         let ret=self.controller.#func_name (#(#arg_names,)*).await?;
                         let mut result=RetResult::success();
-                        result.add_arg_buff(ret.to_data());
+                        result.add_arg_buff(ret);
                         Ok(result)
                     }
                 }

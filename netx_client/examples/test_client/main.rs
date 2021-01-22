@@ -1,5 +1,6 @@
 mod server;
 mod test_controller;
+mod test_struct;
 
 use std::time::Instant;
 use netxclient::*;
@@ -7,6 +8,7 @@ use netxclient::log::*;
 
 use test_controller::TestController;
 use server::*;
+use crate::test_struct::{LogOn, LogOnResult, Flag};
 
 
 #[tokio::main]
@@ -56,6 +58,15 @@ async fn main()->Result<(),Box<dyn Error>> {
     println!("r:{} {}",r,start.elapsed().as_millis());
 
 
+    let res= server.logon(LogOn{
+        username: "username".to_string(),
+        password: "password".to_string()
+    }).await?;
+
+    assert_eq!(res,LogOnResult{
+        success: true,
+        msg: Flag::Message("LogOn Ok".into())
+    });
 
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;
