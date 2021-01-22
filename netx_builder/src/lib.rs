@@ -199,7 +199,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
     };
 
 
-    if controller_name != "" {
+    if !controller_name.is_empty() {
         let controller = format_ident!("{}",controller_name);
         let make=  funcs.iter().map(|func|{
             let struct_name=format_ident!("__struct{}",func.tag.to_string());
@@ -348,7 +348,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
     };
 
 
-    if controller_name != "" {
+    if !controller_name.is_empty() {
         let controller = format_ident!("{}",controller_name);
         let make=  funcs.iter().map(|func|{
             let struct_name=format_ident!("__struct{}",func.tag.to_string());

@@ -51,7 +51,6 @@ impl<T:SessionSave+'static> RequestManager<T>{
                         error!("check err:{}", er);
                     }
                 }
-                drop(item);
             } else {
                 self.queue.push_back(item);
                 break;

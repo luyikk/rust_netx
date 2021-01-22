@@ -84,7 +84,6 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
                 else{
                     debug!("remove token not found {}",item.0);
                 }
-                drop(item)
             } else {
                 self.request_disconnect_clear_queue.push_back(item);
                 break;

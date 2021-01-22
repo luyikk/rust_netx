@@ -3,8 +3,13 @@ use netxclient::*;
 use crate::server::*;
 
 
+
 #[build(TestController)]
 pub trait ITestController{
+    #[tag(connect)]
+    async fn connect_ok(&self)->Result<(),Box<dyn Error>>;
+    #[tag(disconnect)]
+    async fn disconnect(&self)->Result<(),Box<dyn Error>>;
     #[tag(2000)]
     async fn add_one(&self,i:i32)->Result<i32,Box<dyn Error>>;
     #[tag(3000)]
@@ -42,6 +47,17 @@ unsafe  impl Send for TestController{}
 
 #[build_impl]
 impl ITestController for TestController{
+    #[inline]
+    async fn connect_ok(&self) -> Result<(), Box<dyn Error>> {
+        println!("Connect OK");
+        Ok(())
+    }
+    #[inline]
+    async fn disconnect(&self) -> Result<(), Box<dyn Error>> {
+        println!("Disconnect");
+        Ok(())
+    }
+
     #[inline]
     async fn add_one(&self, i: i32) -> Result<i32, Box<dyn Error>> {
         Ok(i+1)

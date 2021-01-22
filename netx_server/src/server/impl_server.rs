@@ -96,12 +96,8 @@ impl<T: ICreateController +'static> NetXServer<T> {
          }
          else {
              match serv.async_tokens.get_token(session).await? {
-               Some(token) => {
-                  token
-               },
-               None => {
-                  serv.async_tokens.create_token(Arc::downgrade(&serv.async_tokens) as Weak<dyn IAsyncTokenManager>).await?
-               }
+               Some(token) => token,
+               None => serv.async_tokens.create_token(Arc::downgrade(&serv.async_tokens) as Weak<dyn IAsyncTokenManager>).await?
             }
          };
 
@@ -221,11 +217,11 @@ impl<T: ICreateController +'static> NetXServer<T> {
       peer.send(data).await
    }
    #[inline]
-   pub async fn start(self:Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>,Box<dyn Error>> {
+   pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>,Box<dyn Error>> {
       Ok(self.serv.start(self.clone()).await?)
    }
    #[inline]
-   pub async fn start_block(self:Arc<Self>)->Result<(),Box<dyn Error>>{
+   pub async fn start_block(self:&Arc<Self>)->Result<(),Box<dyn Error>>{
       self.serv.start_block(self.clone()).await
    }
 }

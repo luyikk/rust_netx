@@ -14,6 +14,5 @@ async fn main()->Result<(),Box<dyn Error>> {
         NetXServer::new(ServerOption::new("0.0.0.0:6666","","123123"),
                         ImplCreateController).await;
     server.start_block().await?;
-
     Ok(())
 }

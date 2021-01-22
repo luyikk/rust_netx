@@ -23,6 +23,12 @@ pub trait SessionSave{
     fn store_sessionid(&mut self,sessionid:i64);
 }
 
+enum SpecialFunctionTag{
+    CONNECT=2147483647,
+    DISCONNECT=2147483646
+}
+
+
 pub struct NetXClient<T>{
     session:T,
     serverinfo:ServerInfo,
@@ -96,28 +102,38 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
 
     #[allow(clippy::type_complexity)]
-    async fn input_buffer((netx_client,set_connect):(Arc<Actor<NetXClient<T>>>,WSender<(bool,String)>), client:Arc<Actor<TcpClient>>,mut reader:OwnedReadHalf)->Result<bool,Box<dyn Error>>{
-        let serverinfo=netx_client.get_serviceinfo();
-        let mut sessionid=netx_client.get_sessionid();
-        client.send(Self::get_verify_buff(&serverinfo.service_name,&serverinfo.verify_key,&sessionid)).await?;
-        let mut option_connect=Some(set_connect);
+    async fn input_buffer((mut netx_client,set_connect):(Arc<Actor<NetXClient<T>>>, WSender<(bool, String)>), client:Arc<Actor<TcpClient>>, mut reader:OwnedReadHalf) ->Result<bool,Box<dyn Error>>{
+        if let Err(er)=Self::read_buffer(&mut netx_client, set_connect, client, &mut reader).await{
+            error!("read buffer err:{}",er);
+        }
+        netx_client.call_special_function(SpecialFunctionTag::DISCONNECT as i32).await?;
+        netx_client.close().await?;
+        info! {"disconnect to {}", netx_client.get_serviceinfo()};
+        Ok(true)
+    }
 
-        while let Ok(len)=reader.read_u32_le().await {
-            let len=(len-4) as usize;
-            let mut data=Data::with_len(len,0);
+    #[inline]
+    async fn read_buffer(netx_client: &mut Arc<Actor<NetXClient<T>>>, set_connect: WSender<(bool, String)>, client: Arc<Actor<TcpClient>>, reader: &mut OwnedReadHalf)->Result<(),Box<dyn Error>> {
+        let serverinfo = netx_client.get_serviceinfo();
+        let mut sessionid = netx_client.get_sessionid();
+        client.send(Self::get_verify_buff(&serverinfo.service_name, &serverinfo.verify_key, &sessionid)).await?;
+        let mut option_connect = Some(set_connect);
+        while let Ok(len) = reader.read_u32_le().await {
+            let len = (len - 4) as usize;
+            let mut data = Data::with_len(len, 0);
             reader.read_exact(&mut data).await?;
-            let cmd=data.get_le::<i32>()?;
+            let cmd = data.get_le::<i32>()?;
             match cmd {
-                1000=>{
+                1000 => {
                     match data.get_le::<bool>()? {
-                        false=>{
-                            info!("{} {}",serverinfo,data.get_le::<String>()?);
+                        false => {
+                            info!("{} {}", serverinfo, data.get_le::<String>()?);
                         },
-                        true=>{
-                            let err= data.get_le::<String>()?;
-                            error!("connect {} error:{}",serverinfo,err);
-                            if let Some(set_connect)=option_connect.take(){
-                                if  set_connect.send((false,err)).is_err(){
+                        true => {
+                            let err = data.get_le::<String>()?;
+                            error!("connect {} error:{}", serverinfo, err);
+                            if let Some(set_connect) = option_connect.take() {
+                                if set_connect.send((false, err)).is_err() {
                                     error!("talk connect rx is close");
                                 }
                                 drop(set_connect);
@@ -126,73 +142,78 @@ impl<T:SessionSave+'static> NetXClient<T>{
                         }
                     }
                 },
-                2000=>{
-                    sessionid=data.get_le::<i64>()?;
-                    info!("{} save sessionid:{}",serverinfo, sessionid);
+                2000 => {
+                    sessionid = data.get_le::<i64>()?;
+                    info!("{} save sessionid:{}", serverinfo, sessionid);
                     netx_client.store_sessionid(sessionid).await?;
-                    if data.have_len() ==1 {
-                       if data.get_u8() ==1{
-                           netx_client.set_mode(1).await?;
-                       }
+                    if data.have_len() == 1 && data.get_u8() == 1 {
+                            netx_client.set_mode(1).await?;
                     }
-                    if let Some(set_connect)=option_connect.take(){
-                        if  set_connect.send((true,"success".into())).is_err(){
+                    netx_client.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
+                    if let Some(set_connect) = option_connect.take() {
+                        if set_connect.send((true, "success".into())).is_err() {
                             error!("talk connect rx is close");
                         }
+                        drop(set_connect);
                     }
                 },
-                2400=>{
-                    let tt=data.get_le::<u8>()?;
-                    let cmd=data.get_le::<i32>()?;
-                    let sessionid=data.get_le::<i64>()?;
-
-                    match tt{
-                        0=>{
-                            let run_netx_client=netx_client.clone();
+                2400 => {
+                    let tt = data.get_le::<u8>()?;
+                    let cmd = data.get_le::<i32>()?;
+                    let sessionid = data.get_le::<i64>()?;
+                    match tt {
+                        0 => {
+                            let run_netx_client = netx_client.clone();
                             tokio::spawn(async move {
                                 let _ = run_netx_client.call_controller(tt, cmd, data).await;
                             });
                         },
-                        1=>{
-                            let run_netx_client=netx_client.clone();
-                            let send_client=client.clone();
-                            tokio::spawn(async move{
-                                let res= run_netx_client.call_controller(tt,cmd,data).await;
-                                if let Err(er)= send_client.send(Self::get_result_buff(sessionid,res,run_netx_client.get_mode())).await{
-                                    error!("send buff 1 error:{}",er);
+                        1 => {
+                            let run_netx_client = netx_client.clone();
+                            let send_client = client.clone();
+                            tokio::spawn(async move {
+                                let res = run_netx_client.call_controller(tt, cmd, data).await;
+                                if let Err(er) = send_client.send(Self::get_result_buff(sessionid, res, run_netx_client.get_mode())).await {
+                                    error!("send buff 1 error:{}", er);
                                 }
                             });
                         },
-                        2=>{
-                            let run_netx_client=netx_client.clone();
-                            let send_client=client.clone();
-                            tokio::spawn(async move{
-                                let res= run_netx_client.call_controller(tt,cmd,data).await;
-                                if let Err(er)=  send_client.send(Self::get_result_buff(sessionid,res,run_netx_client.get_mode())).await{
-                                    error!("send buff 2 error:{}",er);
+                        2 => {
+                            let run_netx_client = netx_client.clone();
+                            let send_client = client.clone();
+                            tokio::spawn(async move {
+                                let res = run_netx_client.call_controller(tt, cmd, data).await;
+                                if let Err(er) = send_client.send(Self::get_result_buff(sessionid, res, run_netx_client.get_mode())).await {
+                                    error!("send buff 2 error:{}", er);
                                 }
                             });
                         },
-                        _=>{
-                            error!("not found call type:{}",tt);
-                            panic!("not found call type:{}",tt);
+                        _ => {
+                            error!("not found call type:{}", tt);
+                            panic!("not found call type:{}", tt);
                         }
                     }
                 },
-                2500=> {
+                2500 => {
                     let serial = data.get_le::<i64>()?;
                     netx_client.set_result(serial, data).await?;
                 }
-                _=>{
-                    error!("{} Unknown command:{}->{:?}",serverinfo, cmd,data);
+                _ => {
+                    error!("{} Unknown command:{}->{:?}", serverinfo, cmd, data);
                     break;
                 }
             }
         }
 
-        netx_client.close().await?;
-        info!{"disconnect to {}",serverinfo};
-        Ok(true)
+        Ok(())
+    }
+
+    #[inline]
+    pub(crate) async fn call_special_function(&self,cmd:i32)->Result<(),Box<dyn Error>> {
+        if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
+            func.call(Data::with_len(4, 0)).await?;
+        }
+        Ok(())
     }
 
     #[inline]
@@ -343,6 +364,7 @@ pub trait INetXClient<T>{
     async fn set_result(&self,serial:i64,data:Data)->AResult<()>;
     async fn set_error(&self,serial:i64,err:AError)->AResult<()>;
     async fn set_request_manager(&self,request:Arc<Actor<RequestManager<T>>>)->AResult<()>;
+    async fn call_special_function(&self, cmd: i32) -> Result<(), Box<dyn Error>>;
     async fn call_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn close(&self)-> Result<(),Box<dyn Error>>;
 
@@ -620,29 +642,19 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
 
         if let Some(tx)=have_tx{
             return match tx.send(Ok(data)) {
-                Err(_) => {
-                    Err("close rx".into())
-                },
-                Ok(_) => {
-                    Ok(())
-                }
+                Err(_) => Err("close rx".into()),
+                Ok(_) => Ok(())
             }
         }
         else{
             match RetResult::from(data){
                 Ok(res)=>{
                     match res.check(){
-                        Ok(_)=>{
-                            error!("not found 2 {}",serial)
-                        },
-                        Err(err)=> {
-                            error!("{}",err)
-                        }
+                        Ok(_)=> error!("not found 2 {}",serial),
+                        Err(err)=> error!("{}",err)
                     }
                 },
-                Err(er)=>{
-                    error!("not found {} :{}",serial,er)
-                }
+                Err(er)=> error!("not found {} :{}",serial,er)
             }
         }
         Ok(())
@@ -654,12 +666,8 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         }).await?;
         if let Some(tx)=have_tx{
             return match tx.send(Err(err)) {
-                Err(_) => {
-                    Err("close rx".into())
-                },
-                Ok(_) => {
-                    Ok(())
-                }
+                Err(_) => Err("close rx".into()),
+                Ok(_) => Ok(())
             };
         }
         else{
@@ -673,6 +681,14 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             Ok(())
         }).await
     }
+
+    #[inline]
+    async fn call_special_function(&self, cmd: i32) -> Result<(), Box<dyn Error>> {
+        unsafe{
+            self.deref_inner().call_special_function(cmd).await
+        }
+    }
+
     #[inline]
     async fn call_controller(&self, tt:u8, cmd: i32, data: Data) ->RetResult {
         unsafe {

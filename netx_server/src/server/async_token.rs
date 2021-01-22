@@ -105,7 +105,6 @@ impl AsyncToken{
                 if let Err(er) = self.set_error(item.0, AError::StrErr("time out".into())) {
                     error!("check err:{}", er);
                 }
-                drop(item)
             } else {
                 self.request_queue.push_back(item);
                 break;
@@ -249,7 +248,7 @@ impl IAsyncToken for Actor<AsyncToken>{
                     if inner.get_mut().result_dict.contains_key(&serial) {
                         return Err(AError::StrErr("serial is have".into()))
                     }
-                    if let None= inner.get_mut().result_dict.insert(serial, tx) {
+                    if inner.get_mut().result_dict.insert(serial, tx).is_none() {
                         inner.get_mut().request_queue.push_front((serial, Instant::now()));
                     }
 
