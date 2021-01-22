@@ -95,7 +95,6 @@ impl ITestController for TestController{
     async fn to_client_add_one(&self, a: i32) -> Result<i32, Box<dyn Error>> {
         self.client.add_one(a).await
     }
-
     #[inline]
     async fn recursive_test(&self, mut a: i32) -> Result<i32, Box<dyn Error>> {
         a -= 1;

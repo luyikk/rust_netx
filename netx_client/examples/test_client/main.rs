@@ -26,7 +26,6 @@ async fn main()->Result<(),Box<dyn Error>> {
     client.connect_network().await?;
     let server:Box<dyn IServer>=impl_interface!(client=>IServer);
 
-
     //call!(@checkrun client=>800;5);
     // client.runcheck1(800,5).await?.check()?;
      server.print(5).await?;
@@ -54,9 +53,8 @@ async fn main()->Result<(),Box<dyn Error>> {
     }
 
     //let r:i32=call!(client=>1005;10000);
-    let r= server.recursive_test(10000).await?;
-    println!("r:{} {}",r,start.elapsed().as_millis());
-
+    //let r= server.recursive_test(10000).await?;
+    println!("r:{} {}",0,start.elapsed().as_millis());
 
     let res= server.logon(LogOn{
         username: "username".to_string(),
