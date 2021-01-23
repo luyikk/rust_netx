@@ -1,6 +1,6 @@
 use proc_macro2::{TokenStream, Ident};
 use syn::punctuated::Punctuated;
-use syn::{FnArg, Token, ReturnType};
+use syn::{Token, ReturnType, FnArg};
 
 #[derive(Clone,Debug)]
 pub  struct FuncInfo {
