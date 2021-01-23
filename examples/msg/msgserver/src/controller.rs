@@ -1,6 +1,7 @@
 use std::error::Error;
 use netxserver::*;
 use log::*;
+use tcpserver::peer::IPeer;
 
 #[build(MsgServer)]
 pub trait IMsgServer{
