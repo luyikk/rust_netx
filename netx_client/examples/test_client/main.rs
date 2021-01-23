@@ -17,10 +17,11 @@ async fn main()->Result<(),Box<dyn Error>> {
     env_logger::Builder::default().filter_level(LevelFilter::Debug).init();
 
     let client =
-        NetXClient::new(ServerInfo::new("127.0.0.1:6666".into(),
-                                        "".into(),
-                                        "123123".into()),
-                        DefaultSessionStore::default(),10000).await?;
+        NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                                          "".into(),
+                                          "123123".into(),
+                                            5000),
+                        DefaultSessionStore::default()).await?;
 
 
     client.init(TestController::new(client.clone())).await?;

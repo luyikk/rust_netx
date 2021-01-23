@@ -29,7 +29,7 @@ enum SpecialFunctionTag{
 
 pub struct NetXClient<T>{
     session:T,
-    serverinfo:ServerInfo,
+    serverinfo: ServerOption,
     net:Option<Arc<Actor<TcpClient>>>,
     connect_stats:Option<WReceiver<(bool,String)>>,
     result_dict:HashMap<i64,Sender<AResult<Data>>>,
@@ -49,30 +49,33 @@ impl<T> Drop for NetXClient<T>{
 }
 
 #[derive(Clone,Deserialize,Serialize)]
-pub struct ServerInfo{
+pub struct ServerOption {
     addr:String,
     service_name:String,
-    verify_key:String
+    verify_key:String,
+    request_out_time_ms:u32
 }
 
-impl std::fmt::Display for ServerInfo{
+impl std::fmt::Display for ServerOption {
     fn fmt(&self, f: &mut  std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}[{}]",self.service_name,self.addr)
     }
 }
 
-impl ServerInfo{
-    pub fn new(addr:String,service_name:String,verify_key:String)->ServerInfo{
-        ServerInfo{
+impl ServerOption {
+    pub fn new(addr:String,service_name:String,verify_key:String,request_out_time_ms:u32)-> ServerOption {
+        ServerOption {
             addr,
             service_name,
             verify_key,
+            request_out_time_ms
         }
     }
 }
 
 impl<T:SessionSave+'static> NetXClient<T>{
-    pub async fn new(serverinfo:ServerInfo, session:T, request_out_time_ms:u32) ->Result<Arc<Actor<NetXClient<T>>>,Box<dyn Error>>{
+    pub async fn new(serverinfo: ServerOption, session:T) ->Result<Arc<Actor<NetXClient<T>>>,Box<dyn Error>>{
+        let request_out_time_ms=serverinfo.request_out_time_ms;
         let netx_client=Arc::new(Actor::new(NetXClient{
             session,
             serverinfo,
@@ -284,7 +287,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
     #[inline]
-    pub fn get_service_info(&self)->ServerInfo{
+    pub fn get_service_info(&self)-> ServerOption {
         self.serverinfo.clone()
     }
 
@@ -344,7 +347,7 @@ pub trait INetXClient<T>{
     async fn init<C:IController+Sync+Send+'static>(&self,controller:C)->AResult<()>;
     async fn connect_network(self:&Arc<Self>)->AResult<()>;
     fn get_address(&self)->String;
-    fn get_serviceinfo(&self)->ServerInfo;
+    fn get_serviceinfo(&self)-> ServerOption;
     fn get_sessionid(&self)->i64;
     fn get_mode(&self)->u8;
     fn new_serial(&self)->i64;
@@ -551,7 +554,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     }
 
     #[inline]
-    fn get_serviceinfo(&self) -> ServerInfo {
+    fn get_serviceinfo(&self) -> ServerOption {
         unsafe {
             self.deref_inner().get_service_info()
         }

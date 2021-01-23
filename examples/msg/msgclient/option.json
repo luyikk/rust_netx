@@ -1,0 +1,5 @@
+{
+  "addr": "0.0.0.0:8000",
+  "service_name": "msgserver",
+  "verify_key": "123123"
+}
