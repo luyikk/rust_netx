@@ -225,6 +225,8 @@ dependencies = [
 [[package]]
 name = "netxbuilder"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "987eb51069d1aa903b0a20f175135659927287318f8b9c169f0a7b85f268a966"
 dependencies = [
  "proc-macro2",
  "proc_macro_roids",
