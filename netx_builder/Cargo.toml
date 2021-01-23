@@ -6,6 +6,7 @@ edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
 documentation = "https://docs.rs/netxbuilder"
 description = "netx builder assembly."
+license = "MIT/Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 proc-macro = true
