@@ -1,6 +1,6 @@
 use std::error::Error;
 use netxserver::*;
-
+use log::*;
 
 #[build(MsgServer)]
 pub trait IMsgServer{
@@ -17,11 +17,21 @@ pub struct MsgServer{
 #[build_impl]
 impl IMsgServer for MsgServer{
     async fn connect(&self) -> Result<(), Box<dyn Error>> {
-        unimplemented!()
+        if let Some(weak) = self.token.get_peer().await? {
+            if let Some(peer)=weak.upgrade(){
+                info!("addr:{} session {} connect",peer.addr(),self.token.get_sessionid())
+            }
+        }
+        Ok(())
     }
 
     async fn disconnect(&self) -> Result<(), Box<dyn Error>> {
-        unimplemented!()
+        if let Some(weak) = self.token.get_peer().await? {
+            if let Some(peer)=weak.upgrade(){
+                info!("addr:{} session {} disconnect",peer.addr(),self.token.get_sessionid())
+            }
+        }
+        Ok(())
     }
 }
 

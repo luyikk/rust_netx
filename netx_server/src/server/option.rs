@@ -1,5 +1,6 @@
+use serde::{Serialize,Deserialize};
 
-#[derive(Clone)]
+#[derive(Clone,Deserialize,Serialize)]
 pub struct ServerOption{
     pub addr:String,
     pub service_name:String,
