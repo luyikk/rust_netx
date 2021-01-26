@@ -5,6 +5,7 @@ use tcpserver::IPeer;
 use packer::{LogOn, LogOnRes, User};
 use crate::user_manager::{USERMANAGER, IUserManager};
 use crate::interface_client::*;
+use std::time::Duration;
 
 
 //实现服务器接口和业务,用来给服务器调用
@@ -26,6 +27,8 @@ pub trait IServerController {
     async fn talk(&self,msg:String)->Result<(),Box<dyn Error>>;
     #[tag(1003)]
     async fn to(&self,target_nickname:String,msg:String)->Result<(),Box<dyn Error>>;
+    #[tag(1004)]
+    async fn ping(&self,target_nickname:String,time:i64)->Result<i64,Box<dyn Error>>;
 }
 
 pub struct ServerController {
@@ -120,18 +123,27 @@ impl IServerController for ServerController {
     #[inline]
     async fn to(&self, target_nickname: String, msg: String) -> Result<(), Box<dyn Error>> {
         let current_user = USERMANAGER.find(self.token.get_sessionid()).await?.
-            ok_or(Err("not login".into()))?;
-
+            ok_or("not login".to_string())?;
         let target_user = USERMANAGER.find_by_nickname(target_nickname.clone()).await?.
-            ok_or(Err(format!("not found {}", target_nickname).into()))?;
-
+            ok_or(format!("not found {}", target_nickname))?;
         let token = self.token.get_token(target_user.sessionid).await?.
-            ok_or(Err(format!("not found {}", target_nickname).into()))?;
+            ok_or(format!("not found {}", target_nickname))?;
 
         let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
         peer.message(current_user.nickname.clone(), msg, true).await;
 
         Ok(())
+    }
+    #[inline]
+    async fn ping(&self,target_nickname:String,time:i64)->Result<i64,Box<dyn Error>> {
+        let current_user = USERMANAGER.find(self.token.get_sessionid()).await?.
+            ok_or("not login".to_string())?;
+        let target_user = USERMANAGER.find_by_nickname(target_nickname.clone()).await?.
+            ok_or(format!("not found {}", target_nickname))?;
+        let token = self.token.get_token(target_user.sessionid).await?.
+            ok_or(format!("not found {}", target_nickname))?;
+        let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
+        Ok(peer.ping(current_user.nickname.clone(), time).await?)
     }
 }
 
