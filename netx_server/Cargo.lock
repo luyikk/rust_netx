@@ -236,7 +236,7 @@ dependencies = [
 
 [[package]]
 name = "netxserver"
-version = "0.1.3"
+version = "0.1.5"
 dependencies = [
  "aqueue",
  "async-oneshot",
