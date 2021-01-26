@@ -109,7 +109,7 @@ impl ITestController for TestController{
 
     #[inline]
     async fn test(&self, msg: String,i:i32) {
-        println!("{}",msg);
+        println!("{} {}",msg,i);
     }
 
     #[inline]

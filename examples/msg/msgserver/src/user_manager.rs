@@ -5,13 +5,16 @@ use netxserver::aqueue;
 use lazy_static::*;
 
 lazy_static!{
+    //为了方便实现,使用了actor
+    //For the convenience of implementation, actor is used
     pub static ref USERMANAGER:Actor<UserManager>={
         let usermanager=Actor::new(UserManager::new());
         usermanager
     };
 }
 
-
+// 用户管理器
+// user manager
 pub struct UserManager{
     users:Vec<User>
 }
@@ -45,6 +48,15 @@ impl UserManager{
         None
     }
 
+    pub fn find_by_nickname(&self,nickname:String)->Option<User>{
+        for user in self.users.iter(){
+            if user.nickname==nickname{
+                return Some(user.clone())
+            }
+        }
+        None
+    }
+
     pub fn remove(&mut self,sessionid:i64)->Option<User>{
         for (index,user) in self.users.iter().enumerate(){
             if user.sessionid==sessionid{
@@ -58,10 +70,12 @@ impl UserManager{
         self.users.clone()
     }
 }
+
 #[aqueue::aqueue_trait]
 pub trait IUserManager{
     async fn add(&self,user:User)->AResult<()>;
     async fn find(&self,sessionid:i64)->AResult<Option<User>>;
+    async fn find_by_nickname(&self,nickname:String)->AResult<Option<User>>;
     async fn remove(&self,sessionid:i64)->AResult<Option<User>>;
     async fn get_users(&self)->Vec<User>;
     async fn check_nickname(&self,nickname:String)->AResult<bool>;
@@ -82,6 +96,13 @@ impl IUserManager for Actor<UserManager>{
             Ok(inner.get_mut().find(sessionid))
         }).await
     }
+    #[inline]
+    async fn find_by_nickname(&self, nickname: String) -> AResult<Option<User>> {
+        self.inner_call(async move |inner|{
+            Ok(inner.get_mut().find_by_nickname(nickname))
+        }).await
+    }
+
     #[inline]
     async fn remove(&self, sessionid: i64) -> AResult<Option<User>> {
         self.inner_call(async move|inner|{

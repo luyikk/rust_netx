@@ -2,7 +2,6 @@
 
 pub mod client;
 pub use client::*;
-pub use std::error::Error;
 pub use std::sync::Arc;
 pub use log;
 pub use aqueue;

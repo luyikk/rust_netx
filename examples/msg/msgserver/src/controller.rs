@@ -4,10 +4,15 @@ use log::*;
 use tcpserver::IPeer;
 use packer::{LogOn, LogOnRes, User};
 use crate::user_manager::{USERMANAGER, IUserManager};
+use crate::interface_client::*;
 
 
+//实现服务器接口和业务,用来给服务器调用
+//Realize the server interface and business, used to call the server
 #[build(ServerController)]
 pub trait IServerController {
+    // connect 和 disconnect 在你需要的时候你可以实现它
+    // connect and disconnect you can implement it when you need it
     #[tag(connect)]
     async fn connect(&self)->Result<(),Box<dyn Error>>;
     #[tag(disconnect)]
@@ -19,7 +24,8 @@ pub trait IServerController {
     async fn get_users(&self)->Result<Vec<User>,Box<dyn Error>>;
     #[tag(1002)]
     async fn talk(&self,msg:String)->Result<(),Box<dyn Error>>;
-
+    #[tag(1003)]
+    async fn to(&self,target_nickname:String,msg:String)->Result<(),Box<dyn Error>>;
 }
 
 pub struct ServerController {
@@ -69,7 +75,7 @@ impl IServerController for ServerController {
     async fn login(&self, msg: LogOn) -> Result<LogOnRes, Box<dyn Error>> {
         info!("{} is logon",msg.nickname);
 
-        if ! USERMANAGER.check_nickname(msg.nickname.clone()).await? {
+        if USERMANAGER.check_nickname(msg.nickname.clone()).await? {
             USERMANAGER.add(User {
                 nickname: msg.nickname,
                 sessionid: self.token.get_sessionid()
@@ -79,6 +85,7 @@ impl IServerController for ServerController {
                 success: true,
                 msg: "login ok".to_string()
             })
+
         }else{
             Ok(LogOnRes {
                 success: false,
@@ -93,19 +100,44 @@ impl IServerController for ServerController {
     }
     #[inline]
     async fn talk(&self, msg: String) -> Result<(), Box<dyn Error>> {
-        for user in USERMANAGER.get_users().await{
-            let token=  self.token.get_token(user.sessionid).await?;
-            if let Some(peer)=token{
-
+        let current=USERMANAGER.find(self.token.get_sessionid()).await?;
+        if let Some(current_user)=current {
+            for user in USERMANAGER.get_users().await {
+                if user.sessionid!=current_user.sessionid {
+                    let token = self.token.get_token(user.sessionid).await?;
+                    if let Some(token) = token {
+                        let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
+                        peer.message(current_user.nickname.clone(), msg.clone(), false).await;
+                    }
+                }
             }
+            Ok(())
+
+        }else{
+            Err("not login".into())
         }
+    }
+    #[inline]
+    async fn to(&self, target_nickname: String, msg: String) -> Result<(), Box<dyn Error>> {
+        let current_user = USERMANAGER.find(self.token.get_sessionid()).await?.
+            ok_or(Err("not login".into()))?;
+
+        let target_user = USERMANAGER.find_by_nickname(target_nickname.clone()).await?.
+            ok_or(Err(format!("not found {}", target_nickname).into()))?;
+
+        let token = self.token.get_token(target_user.sessionid).await?.
+            ok_or(Err(format!("not found {}", target_nickname).into()))?;
+
+        let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
+        peer.message(current_user.nickname.clone(), msg, true).await;
 
         Ok(())
     }
 }
 
 
-
+// create struct impl ICreateController,used to create controllers for each user
+// 新建一个结构,实现ICreateController,用来为每个用户创建控制器
 pub struct ImplCreateController;
 impl ICreateController for ImplCreateController{
     #[inline]

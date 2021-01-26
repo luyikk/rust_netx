@@ -1,4 +1,5 @@
 use netxserver::*;
+use std::error::Error;
 
 #[build]
 pub trait IClient:Sync+Send{

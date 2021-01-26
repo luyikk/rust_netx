@@ -1,5 +1,6 @@
 use netxclient::*;
 use crate::test_struct::{LogOn, LogOnResult};
+use std::error::Error;
 
 
 #[build]

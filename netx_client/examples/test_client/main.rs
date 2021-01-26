@@ -9,7 +9,7 @@ use netxclient::log::*;
 use test_controller::TestController;
 use server::*;
 use crate::test_struct::{LogOn, LogOnResult, Flag};
-
+use std::error::Error;
 
 
 #[tokio::main]

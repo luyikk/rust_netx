@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use netxclient::*;
 use crate::server::*;
+use std::error::Error;
 
 
 #[build(TestController)]
