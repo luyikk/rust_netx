@@ -427,7 +427,11 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.serde_serialize(&$args)?;)*
+            $(
+              if let Err(err)=  data.serde_serialize(&$args){
+                 log::error!{"serde_serialize {} is error:{}",$cmd,err};
+              }
+            )*
             if let Err(err)= $peer.run(data).await{
                  log::error!{"run {} is error:{}",$cmd,err}
             }

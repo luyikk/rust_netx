@@ -25,7 +25,8 @@ pub trait ITestController{
     async fn to_client_add_one(&self,a:i32)->Result<i32,Box<dyn Error>>;
     #[tag(1005)]
     async fn recursive_test(&self, a:i32)->Result<i32,Box<dyn Error>>;
-
+    #[tag(5001)]
+    async fn test(&self,msg:String,i:i32);
     #[tag(10000)]
     async fn logon(&self,info:LogOn)->Result<LogOnResult,Box<dyn Error>>;
 }
@@ -105,6 +106,12 @@ impl ITestController for TestController{
             Ok(a)
         }
     }
+
+    #[inline]
+    async fn test(&self, msg: String,i:i32) {
+        println!("{}",msg);
+    }
+
     #[inline]
     async fn logon(&self, info: LogOn) -> Result<LogOnResult, Box<dyn Error>> {
         assert_eq!(info,LogOn{

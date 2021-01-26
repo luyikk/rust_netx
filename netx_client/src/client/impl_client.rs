@@ -992,7 +992,11 @@ macro_rules! call {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.serde_serialize(&$args)?;)*
+            $(
+              if let Err(err)=  data.serde_serialize(&$args){
+                 log::error!{"serde_serialize {} is error:{}",$cmd,err};
+              }
+            )*
             if let Err(err)= $client.run(data).await{
                  log::error!{"run {} is error:{}",$cmd,err}
             }

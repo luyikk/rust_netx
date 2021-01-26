@@ -13,7 +13,7 @@ pub trait IServer:Sync+Send{
     #[tag(700)]
     async fn run_test(&self,a:&str)->Result<(),Box<dyn Error>>;
     #[tag(5001)]
-    async fn test(&self);
+    async fn test(&self,msg:String,i:i32);
     #[tag(1003)]
     async fn to_client_add_one(&self,a:i32)->Result<i32,Box<dyn Error>>;
     #[tag(1005)]
