@@ -29,29 +29,29 @@ async fn main()->Result<(),Box<dyn Error>> {
     let server:Box<dyn IServer>=impl_interface!(client=>IServer);
 
     //call!(@checkrun client=>800;5);
-    // client.runcheck1(800,5).await?.check()?;
-     server.print(5).await?;
+    //client.runcheck1(800,5).await?.check()?;
+    server.print(5).await?;
 
-    // call!(@checkrun client=>700;"joy");
-    // client.runcheck1(700,"joy").await?.check()?;
+   // call!(@checkrun client=>700;"joy");
+    //client.runcheck1(700,"joy").await?.check()?;
      server.run_test("joy").await?;
 
     //let x:i32=call!(client=>1003;1);
     //let x=client.call_1(1003,1).await?.check()?.deserialize::<i32>()?;
-     let x=server.to_client_add_one(1).await?;
-     assert_eq!(x,2);
+    let x=server.to_client_add_one(1).await?;
+    assert_eq!(x,2);
 
-    //call!(@checkrun client=>600;6,"my name is");
+   // call!(@checkrun client=>600;6,"my name is");
     //client.runcheck2(600,6,"my name is").await?.check()?;
     server.print2(6,"my name is").await?;
 
     let start = Instant::now();
 
-    for _ in 0..10000 {
+    for i in 0..1000000 {
        //call!(@result client=>1000;1,2);
-       let _= server.add(1, 2).await?;
-       //println!("{}",v);
-       //client.call_2(1000,1,2).await?.check()?.deserialize::<i32>()?;
+       let v= server.add(1, i).await?;
+     //  println!("{}",v);
+      //client.call_2(1000,1,2).await?.check()?.deserialize::<i32>()?;
     }
 
     //let r:i32=call!(client=>1005;10000);

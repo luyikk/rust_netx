@@ -122,7 +122,7 @@ pub trait IAsyncToken{
     async fn get_peer(&self)->AResult<Option<Weak<Actor<TCPPeer>>>>;
     async fn call_special_function(&self,cmd:i32)->Result<(),Box<dyn Error>>;
     async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
-    async fn send<T: Deref<Target=[u8]> + Send + Sync + 'static>(&self, buff: T) -> AResult<usize>;
+    async fn send(&self, buff: Data) -> AResult<()>;
     async fn get_token(&self,sessionid:i64)->AResult<Option<NetxToken>>;
     async fn get_all_tokens(&self)->AResult<Vec<NetxToken>>;
     async fn call(&self,serial:i64,buff: Data)->AResult<RetResult>;
@@ -202,11 +202,11 @@ impl IAsyncToken for Actor<AsyncToken>{
     }
 
     #[inline]
-    async fn send<T: Deref<Target=[u8]> + Send + Sync + 'static>(&self, buff: T) -> AResult<usize> {
+    async fn send(&self, buff: Data) -> AResult<()> {
         unsafe {
             if let Some(ref peer)= self.deref_inner().peer{
                if let Some(peer)= peer.upgrade(){
-                   return peer.send(buff).await
+                   return peer.send(buff.into()).await
                }
             }
             let err=format!("token:{} tcp disconnect",self.get_sessionid());
@@ -264,7 +264,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         let mut data=Data::with_capacity(len);
         data.write_to_le(&(len as u32));
         data.write(&buff);
-        net.send(data).await?;
+        net.send(data.into()).await?;
         match rx.await {
             Err(_)=>{
                 Err("tx is Close".into())
@@ -297,7 +297,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         let mut data=Data::with_capacity(len);
         data.write_to_le(&(len as u32));
         data.write(&buff);
-        net.send(data).await?;
+        net.send(data.into()).await?;
         Ok(())
     }
 

@@ -143,7 +143,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
                      tokio::spawn(async move{
                         let res= run_token.run_controller(tt,cmd,data).await;
                         if let Err(er)=  run_token.send(Self::get_result_buff(serial,res)).await{
-                           error!("send buff 2 error:{}",er);
+                           error!("send buff {} error:{}",serial,er);
                         }
                      });
                   },
@@ -189,7 +189,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       buff
    }
    #[inline]
-   async fn send_to_sessionid(peer:&Arc<Actor<TCPPeer>>,sessionid:i64)->AResult<usize>{
+   async fn send_to_sessionid(peer:&Arc<Actor<TCPPeer>>,sessionid:i64)->AResult<()>{
       let mut data=Data::new();
       data.write_to_le(&2000i32);
       data.write_to_le(&sessionid);
@@ -197,7 +197,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       Self::sendto(peer,data).await
    }
    #[inline]
-   async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> AResult<usize> {
+   async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> AResult<()> {
       let mut data=Data::new();
       data.write_to_le(&1000i32);
       data.write_to_le(&is_err);
@@ -205,13 +205,13 @@ impl<T: ICreateController +'static> NetXServer<T> {
       Self::sendto(peer,data).await
    }
    #[inline]
-   async fn sendto<D:Deref<Target=[u8]>>(peer:&Arc<Actor<TCPPeer>>,buff:D)-> AResult<usize>{
+   async fn sendto(peer:&Arc<Actor<TCPPeer>>,buff:Data)-> AResult<()>{
       let buff=&*buff;
       let len=buff.len()+4;
       let mut data=Data::with_capacity(len);
       data.write_to_le(&(len as u32));
       data.write(buff);
-      peer.send(data).await
+      peer.send(data.into()).await
    }
    #[inline]
    pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>,Box<dyn Error>> {

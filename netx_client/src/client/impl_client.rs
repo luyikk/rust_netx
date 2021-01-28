@@ -111,7 +111,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
         Ok(true)
     }
 
-    #[inline]
     async fn read_buffer(netx_client: &mut Arc<Actor<NetXClient<T>>>, set_connect: WSender<(bool, String)>, client: Arc<Actor<TcpClient>>, reader: &mut OwnedReadHalf)->Result<(),Box<dyn Error>> {
         let serverinfo = netx_client.get_serviceinfo();
         let mut sessionid = netx_client.get_sessionid();
@@ -196,7 +195,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                 2500 => {
                     let serial = data.get_le::<i64>()?;
                     netx_client.set_result(serial, data).await?;
-                }
+                },
                 _ => {
                     error!("{} Unknown command:{}->{:?}", serverinfo, cmd, data);
                     break;
