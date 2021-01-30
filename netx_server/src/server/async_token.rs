@@ -7,7 +7,6 @@ use data_rw::Data;
 use crate::RetResult;
 use std::error::Error;
 use log::*;
-use std::ops::Deref;
 use crate::async_token_manager::IAsyncTokenManager;
 use async_oneshot::{oneshot, Sender, Receiver};
 use std::sync::atomic::{AtomicI64, Ordering};

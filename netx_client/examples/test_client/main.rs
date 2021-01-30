@@ -47,9 +47,9 @@ async fn main()->Result<(),Box<dyn Error>> {
 
     let start = Instant::now();
 
-    for i in 0..1000000 {
+    for i in 0..100000 {
        //call!(@result client=>1000;1,2);
-       let v= server.add(1, i).await?;
+       let _= server.add(1, i).await?;
      //  println!("{}",v);
       //client.call_2(1000,1,2).await?.check()?.deserialize::<i32>()?;
     }

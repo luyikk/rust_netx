@@ -6,6 +6,9 @@ use log::*;
 use tcpserver::IPeer;
 use crate::test_struct::{LogOn, LogOnResult, Flag};
 
+use std::cell::Cell;
+
+
 
 #[build(TestController)]
 pub trait ITestController{
@@ -29,13 +32,22 @@ pub trait ITestController{
     async fn test(&self,msg:String,i:i32);
     #[tag(10000)]
     async fn logon(&self,info:LogOn)->Result<LogOnResult,Box<dyn Error>>;
+
+    #[tag(999)]
+    async fn add_one(&self,a:i32)->Result<i32,Box<dyn Error>>;
+
+    #[tag(2500)]
+    async fn get_all_count(&self)->Result<i64,Box<dyn Error>>;
 }
 
 pub struct TestController{
     token:NetxToken,
     client:Box<dyn IClient>,
+    count:Cell<i64>
 }
 
+unsafe impl Send for TestController{}
+unsafe impl Sync for TestController{}
 
 impl Drop for TestController{
     #[inline]
@@ -124,6 +136,17 @@ impl ITestController for TestController{
             msg: Flag::Message("LogOn Ok".into())
         })
     }
+
+    #[inline]
+    async fn add_one(&self, a: i32) -> Result<i32, Box<dyn Error>> {
+        self.count.set(self.count.get()+1);
+        Ok(a+1)
+    }
+
+    #[inline]
+    async fn get_all_count(&self) -> Result<i64, Box<dyn Error>> {
+        Ok(self.count.get())
+    }
 }
 
 pub struct ImplCreateController;
@@ -131,7 +154,8 @@ impl ICreateController for ImplCreateController {
     fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>, Box<dyn Error>> {
        Ok(Arc::new(TestController{
            client: impl_interface!(token=>IClient),
-           token
+           token,
+           count:Cell::new(0)
        }))
     }
 }

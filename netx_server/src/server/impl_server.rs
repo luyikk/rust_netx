@@ -7,7 +7,6 @@ use tokio::task::JoinHandle;
 use std::error::Error;
 use tokio::io::AsyncReadExt;
 use data_rw::Data;
-use std::ops::Deref;
 use crate::{OwnedReadHalfExt, ServerOption, RetResult};
 use crate::server::async_token_manager::AsyncTokenManager;
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
@@ -193,7 +192,6 @@ impl<T: ICreateController +'static> NetXServer<T> {
       let mut data=Data::new();
       data.write_to_le(&2000i32);
       data.write_to_le(&sessionid);
-      data.write_to_le(&1u8);
       Self::sendto(peer,data).await
    }
    #[inline]
@@ -202,6 +200,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       data.write_to_le(&1000i32);
       data.write_to_le(&is_err);
       data.write_to_le(&msg);
+      data.write_to_le(&1u8);
       Self::sendto(peer,data).await
    }
    #[inline]

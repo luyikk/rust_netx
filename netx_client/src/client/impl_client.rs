@@ -126,6 +126,16 @@ impl<T:SessionSave+'static> NetXClient<T>{
                     match data.get_le::<bool>()? {
                         false => {
                             info!("{} {}", serverinfo, data.get_le::<String>()?);
+                            if data.have_len() == 1 && data.get_u8() == 1 {
+                                netx_client.set_mode(1).await?;
+                            }
+                            netx_client.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
+                            if let Some(set_connect) = option_connect.take() {
+                                if set_connect.send((true, "success".into())).is_err() {
+                                    error!("talk connect rx is close");
+                                }
+                                drop(set_connect);
+                            }
                         },
                         true => {
                             let err = data.get_le::<String>()?;
@@ -144,16 +154,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
                     sessionid = data.get_le::<i64>()?;
                     info!("{} save sessionid:{}", serverinfo, sessionid);
                     netx_client.store_sessionid(sessionid).await?;
-                    if data.have_len() == 1 && data.get_u8() == 1 {
-                            netx_client.set_mode(1).await?;
-                    }
-                    netx_client.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
-                    if let Some(set_connect) = option_connect.take() {
-                        if set_connect.send((true, "success".into())).is_err() {
-                            error!("talk connect rx is close");
-                        }
-                        drop(set_connect);
-                    }
                 },
                 2400 => {
                     let tt = data.get_le::<u8>()?;
@@ -187,7 +187,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
                             });
                         },
                         _ => {
-                            error!("not found call type:{}", tt);
                             panic!("not found call type:{}", tt);
                         }
                     }

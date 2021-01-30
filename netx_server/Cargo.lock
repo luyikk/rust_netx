@@ -451,9 +451,9 @@ dependencies = [
 
 [[package]]
 name = "tcpserver"
-version = "0.3.8"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b35edb53ef02810898d95956e12a481a9d8247fc1038eb8ec04d73399d6bb94"
+checksum = "8a8032c8a3f5b8b680809ec0192262466bf920b9ba09ac59615ccb0b016ea426"
 dependencies = [
  "aqueue",
  "data-rw",
