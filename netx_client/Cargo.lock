@@ -104,7 +104,9 @@ dependencies = [
 
 [[package]]
 name = "data-rw"
-version = "0.2.4"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddef73ae30b8e6004be72f5cdbfaddd700efa1cc290a1f13f96d50cec9db5e7b"
 dependencies = [
  "bytes 0.6.0",
  "paste",
@@ -222,7 +224,9 @@ dependencies = [
 
 [[package]]
 name = "netxbuilder"
-version = "0.1.1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "875c9402ec4c5e8164cb30c645111efde063a754e7eabeeccfa4e2f9a96361bb"
 dependencies = [
  "proc-macro2",
  "proc_macro_roids",
@@ -232,7 +236,7 @@ dependencies = [
 
 [[package]]
 name = "netxclient"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "aqueue",
  "async-oneshot",

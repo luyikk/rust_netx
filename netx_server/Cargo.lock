@@ -118,21 +118,23 @@ dependencies = [
 [[package]]
 name = "data-rw"
 version = "0.2.4"
-dependencies = [
- "bytes 0.6.0",
- "paste",
- "rmp-serde",
- "serde",
-]
-
-[[package]]
-name = "data-rw"
-version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35e56bad945da39bce822143d0c4d02e1eafa5204c638dbe24a0fe19db709496"
 dependencies = [
  "bytes 0.6.0",
  "paste",
+ "serde",
+]
+
+[[package]]
+name = "data-rw"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddef73ae30b8e6004be72f5cdbfaddd700efa1cc290a1f13f96d50cec9db5e7b"
+dependencies = [
+ "bytes 0.6.0",
+ "paste",
+ "rmp-serde",
  "serde",
 ]
 
@@ -240,7 +242,9 @@ dependencies = [
 
 [[package]]
 name = "netxbuilder"
-version = "0.1.1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "875c9402ec4c5e8164cb30c645111efde063a754e7eabeeccfa4e2f9a96361bb"
 dependencies = [
  "proc-macro2",
  "proc_macro_roids",
@@ -250,13 +254,13 @@ dependencies = [
 
 [[package]]
 name = "netxserver"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "aqueue",
  "async-oneshot",
  "bytes 0.6.0",
  "chrono",
- "data-rw 0.2.4",
+ "data-rw 0.3.0",
  "env_logger",
  "log",
  "netxbuilder",
@@ -491,7 +495,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a8032c8a3f5b8b680809ec0192262466bf920b9ba09ac59615ccb0b016ea426"
 dependencies = [
  "aqueue",
- "data-rw 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "data-rw 0.2.4",
  "log",
  "tokio",
 ]
