@@ -46,11 +46,14 @@ impl RetResult {
 
     #[inline]
     pub fn add_arg_buff<T:Serialize>(&mut self,p:T){
-        let mut data= Data::new();
-        if let Err(er)=data.serde_serialize(p){
-            log::error!("Data serialize error：{} {}",er,line!())
+        match Data::msgpack_from(p){
+            Ok(data)=>{
+                self.arguments.push(data);
+            },
+            Err(er)=>{
+                log::error!("Data serialize error：{} {}",er,line!())
+            }
         }
-        self.arguments.push(data);
     }
     #[inline]
     pub fn from(mut data:Data)->io::Result<RetResult>{
@@ -98,13 +101,11 @@ impl RetResult {
     }
 
     #[inline]
-    pub fn deserialize<'a,T:Deserialize<'a>>(&'a mut self)->Result<T,Box<dyn Error>>{
-        if self.is_empty(){
-            return Err(io::Error::new(ErrorKind::Other,"index >= len").into())
+    pub fn deserialize<'a,T:Deserialize<'a>+'static>(&'a mut self)->Result<T,Box<dyn Error>>{
+        if self.is_empty() {
+            return Err(io::Error::new(ErrorKind::Other, "index >= len").into())
         }
-
-        let r= T::deserialize(&mut self.arguments[0])?;
-        Ok(r)
+        Ok(self.arguments[0].msgpack_to()?)
     }
 
 }

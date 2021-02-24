@@ -15,11 +15,11 @@ serde = { version = "1.0", features = ["derive"] }
 tcpserver = "0.3.9"
 aqueue="0.3.2"
 log="0.4"
-data-rw="0.2.4"
+data-rw="0.3"
 paste="1.0.2"
 bytes="0.6"
 async-oneshot = "0.4"
-netxbuilder="0.1"
+netxbuilder="0.2"
 chrono="0.4"
 
 [dev-dependencies]

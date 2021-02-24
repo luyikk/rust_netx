@@ -4,7 +4,7 @@ use netxserver::*;
 use crate::client::*;
 use log::*;
 use tcpserver::IPeer;
-use crate::test_struct::{LogOn, LogOnResult, Flag};
+use crate::test_struct::{LogOn, LogOnResult};
 
 use std::cell::Cell;
 
@@ -31,7 +31,9 @@ pub trait ITestController{
     #[tag(5001)]
     async fn test(&self,msg:String,i:i32);
     #[tag(10000)]
-    async fn logon(&self,info:LogOn)->Result<LogOnResult,Box<dyn Error>>;
+    async fn logon(&self,info:LogOn)->Result<(bool,String),Box<dyn Error>>;
+    #[tag(10001)]
+    async fn logon2(&self,info:(String,String))->Result<LogOnResult,Box<dyn Error>>;
 
     #[tag(999)]
     async fn add_one(&self,a:i32)->Result<i32,Box<dyn Error>>;
@@ -125,15 +127,22 @@ impl ITestController for TestController{
     }
 
     #[inline]
-    async fn logon(&self, info: LogOn) -> Result<LogOnResult, Box<dyn Error>> {
+    async fn logon(&self, info: LogOn) -> Result<(bool,String), Box<dyn Error>> {
         assert_eq!(info,LogOn{
             username:"username".into(),
             password:"password".into()
         });
 
+        Ok((true,"1 Ok".to_string()))
+    }
+
+    async fn logon2(&self, (username,password): (String, String)) -> Result<LogOnResult, Box<dyn Error>> {
+        assert_eq!(username,"username");
+        assert_eq!(password,"password");
+
         Ok(LogOnResult{
             success: true,
-            msg: Flag::Message("LogOn Ok".into())
+            msg: "2 Ok".to_string()
         })
     }
 

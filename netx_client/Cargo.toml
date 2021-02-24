@@ -1,6 +1,6 @@
 [package]
 name = "netxclient"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["luyi <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -18,9 +18,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 paste="1.0.2"
 aqueue="0.3.2"
-data-rw="0.2.4"
+data-rw="0.3"
 async-oneshot = "0.4"
-netxbuilder="0.1"
+netxbuilder="0.2"
 
 
 [dev-dependencies]

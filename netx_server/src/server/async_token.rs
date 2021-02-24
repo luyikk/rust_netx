@@ -385,7 +385,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.serde_serialize(&$args)?;)*
+            $(data.msgpack_serialize($args)?;)*
             let ret= $peer.call(serial,data).await?;
             let mut ret= ret.check()?;
             ret.deserialize()?
@@ -400,7 +400,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.serde_serialize(&$args)?;)*
+            $(data.msgpack_serialize($args)?;)*
             $peer.call(serial,data).await?
     });
     (@run $peer:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
@@ -413,7 +413,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.serde_serialize(&$args)?;)*
+            $(data.msgpack_serialize($args)?;)*
             $peer.run(data).await?;
     });
      (@run_not_err $peer:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
@@ -427,8 +427,8 @@ macro_rules! call_peer {
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(
-              if let Err(err)=  data.serde_serialize(&$args){
-                 log::error!{"serde_serialize {} is error:{}",$cmd,err};
+              if let Err(err)=  data.msgpack_serialize($args){
+                 log::error!{"msgpack_serialize {} is error:{}",$cmd,err};
               }
             )*
             if let Err(err)= $peer.run(data).await{
@@ -445,7 +445,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.serde_serialize(&$args)?;)*
+            $(data.msgpack_serialize($args)?;)*
             let ret=$peer.call(serial,data).await?;
             ret.check()?;
     });

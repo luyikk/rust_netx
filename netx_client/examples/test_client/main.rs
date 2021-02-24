@@ -8,7 +8,7 @@ use netxclient::log::*;
 
 use test_controller::TestController;
 use server::*;
-use crate::test_struct::{LogOn, LogOnResult, Flag};
+use crate::test_struct::{LogOn, LogOnResult};
 use std::error::Error;
 
 
@@ -34,7 +34,7 @@ async fn main()->Result<(),Box<dyn Error>> {
 
    // call!(@checkrun client=>700;"joy");
     //client.runcheck1(700,"joy").await?.check()?;
-     server.run_test("joy").await?;
+     server.run_test("joy".into()).await?;
 
     //let x:i32=call!(client=>1003;1);
     //let x=client.call_1(1003,1).await?.check()?.deserialize::<i32>()?;
@@ -43,11 +43,11 @@ async fn main()->Result<(),Box<dyn Error>> {
 
    // call!(@checkrun client=>600;6,"my name is");
     //client.runcheck2(600,6,"my name is").await?.check()?;
-    server.print2(6,"my name is").await?;
+    server.print2(6,"my name is".into()).await?;
 
     let start = Instant::now();
 
-    for i in 0..100000 {
+    for i in 0..10000 {
        //call!(@result client=>1000;1,2);
        let _= server.add(1, i).await?;
      //  println!("{}",v);
@@ -55,18 +55,25 @@ async fn main()->Result<(),Box<dyn Error>> {
     }
 
     //let r:i32=call!(client=>1005;10000);
-    //let r= server.recursive_test(10000).await?;
-    println!("r:{} {}",0,start.elapsed().as_millis());
+    let r= server.recursive_test(10000).await?;
+    println!("r:{} {}",r,start.elapsed().as_millis());
 
     let res= server.logon(LogOn{
         username: "username".to_string(),
         password: "password".to_string()
     }).await?;
 
+    assert_eq!(res,(true,"1 Ok".to_string()));
+    println!("{:?}",res);
+
+    let res=server.logon2(("username".into(),"password".into())).await?;
     assert_eq!(res,LogOnResult{
         success: true,
-        msg: Flag::Message("LogOn Ok".into())
+        msg: "2 Ok".to_string()
     });
+
+    println!("{:?}",res);
+
 
     let mut s="".to_string();
     std::io::stdin().read_line(&mut s)?;
