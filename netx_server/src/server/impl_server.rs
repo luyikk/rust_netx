@@ -105,17 +105,19 @@ impl<T: ICreateController +'static> NetXServer<T> {
    async fn read_buff_byline(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<(),Box<dyn Error>>{
       token.set_peer(Some(Arc::downgrade(peer))).await?;
       token.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
-      Self::send_to_sessionid(peer, token.get_sessionid()).await?;
-      Self::data_reading(&mut reader,token).await?;
+      Self::data_reading(&mut reader,peer,token).await?;
       Ok(())
    }
 
    #[inline]
-   async fn data_reading(mut reader:&mut OwnedReadHalf,token:&NetxToken)->Result<(),Box<dyn Error>>{
+   async fn data_reading(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<(),Box<dyn Error>>{
 
       while let Ok(mut data)=reader.read_buff().await{
          let cmd=data.get_le::<i32>()?;
          match cmd {
+            2000=>{
+               Self::sendto (peer,Self::send_to_sessionid( token.get_sessionid())).await?;
+            },
             2400 => {
                let tt=data.get_le::<u8>()?;
                let cmd=data.get_le::<i32>()?;
@@ -188,11 +190,11 @@ impl<T: ICreateController +'static> NetXServer<T> {
       buff
    }
    #[inline]
-   async fn send_to_sessionid(peer:&Arc<Actor<TCPPeer>>,sessionid:i64)->AResult<()>{
+   fn send_to_sessionid(sessionid:i64)->Data{
       let mut data=Data::new();
       data.write_to_le(&2000i32);
       data.write_to_le(&sessionid);
-      Self::sendto(peer,data).await
+      data
    }
    #[inline]
    async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> AResult<()> {

@@ -129,6 +129,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                             if data.have_len() == 1 && data.get_u8() == 1 {
                                 netx_client.set_mode(1).await?;
                             }
+                            client.send(Self::get_sessionid_buff(netx_client.get_mode())).await?;
                             netx_client.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
                             if let Some(set_connect) = option_connect.take() {
                                 if set_connect.send((true, "success".into())).is_err() {
@@ -154,6 +155,8 @@ impl<T:SessionSave+'static> NetXClient<T>{
                     sessionid = data.get_le::<i64>()?;
                     info!("{} save sessionid:{}", serverinfo, sessionid);
                     netx_client.store_sessionid(sessionid).await?;
+
+
                 },
                 2400 => {
                     let tt = data.get_le::<u8>()?;
@@ -236,6 +239,22 @@ impl<T:SessionSave+'static> NetXClient<T>{
         data.write_to_le(sessionid);
         data
     }
+
+    fn get_sessionid_buff(mode:u8)->Data{
+        let mut buff=Data::with_capacity(32);
+        buff.write_to_le(&2000);
+
+        if mode==0{
+            buff
+        }else {
+            let len = buff.len() + 4;
+            let mut data = Data::with_capacity(len);
+            data.write_to_le(&(len as u32));
+            data.write(&buff);
+            data
+        }
+    }
+
 
     #[inline]
     fn get_result_buff(sessionid:i64,result:RetResult,mode:u8)->Data{
