@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::error::Error;
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::io::AsyncReadExt;
-use data_rw::{Data, Writer};
+use data_rw::Data;
 use log::*;
 use async_oneshot::{oneshot, Receiver, Sender};
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -383,127 +383,14 @@ pub trait INetXClient<T>{
     async fn close(&self)-> Result<(),Box<dyn Error>>;
 
     async fn call(&self, serial:i64, buff:Data) ->AResult<RetResult>;
-    async fn call_0(&self, cmd:i32) ->Result<RetResult,Box<dyn Error>>;
-    async fn call_1<A1:Writer+Send+Sync>
-    (&self,cmd:i32,arg1:A1)->Result<RetResult,Box<dyn Error>>;
-    async fn call_2<A1:Writer+Send+Sync,A2:Writer+Send+Sync>
-    (&self,cmd:i32,arg1:A1,arg2:A2)->Result<RetResult,Box<dyn Error>>;
-    async fn call_3<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3)->Result<RetResult,Box<dyn Error>>;
-    async fn call_4<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4)->Result<RetResult,Box<dyn Error>>;
-    async fn call_5<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5)->Result<RetResult,Box<dyn Error>>;
-    async fn call_6<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6)->Result<RetResult,Box<dyn Error>>;
-    async fn call_7<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,A7: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7)->Result<RetResult,Box<dyn Error>>;
-    async fn call_8<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync, A7: Writer + Send + Sync,A8: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8)->Result<RetResult,Box<dyn Error>>;
-    async fn call_9<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send + Sync,A8: Writer + Send + Sync,A9: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8,arg9:A9)->Result<RetResult,Box<dyn Error>>;
-    async fn call_10<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send + Sync,A8: Writer + Send + Sync,A9: Writer + Send + Sync,A10: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8,arg9:A9,arg10:A10)->Result<RetResult,Box<dyn Error>>;
-
-
     async fn run(&self, buff:Data)-> Result<(),Box<dyn Error>>;
-    async fn run0(&self,cmd:i32)->Result<(),Box<dyn Error>>;
-    async fn run1<A1:Writer+Send+Sync>(&self,cmd:i32,arg1:A1)->Result<(),Box<dyn Error>>;
-    async fn run2<A1:Writer+Send+Sync,A2:Writer+Send+Sync>(&self,cmd:i32,arg1:A1,arg2:A2)->Result<(),Box<dyn Error>>;
-    async fn run3<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3)->Result<(),Box<dyn Error>>;
-    async fn run4<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4)->Result<(),Box<dyn Error>>;
-    async fn run5<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5)->Result<(),Box<dyn Error>>;
-    async fn run6<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync >
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6)->Result<(),Box<dyn Error>>;
-    async fn run7<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send+ Sync >
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7)->Result<(),Box<dyn Error>>;
-    async fn run8<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send + Sync,A8: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8)->Result<(),Box<dyn Error>>;
-    async fn run9<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send + Sync,A8: Writer + Send + Sync,A9: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8,arg9:A9)->Result<(),Box<dyn Error>>;
-    async fn run10<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send + Sync,A8: Writer + Send + Sync,A9: Writer + Send + Sync,A10: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8,arg9:A9,arg10:A10)->Result<(),Box<dyn Error>>;
-
-    async fn runcheck0(&self,cmd:i32)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck1<A1:Writer+Send+Sync>
-    (&self,cmd:i32,arg1:A1)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck2<A1:Writer+Send+Sync,A2:Writer+Send+Sync>
-    (&self,cmd:i32,arg1:A1,arg2:A2)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck3<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck4<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck5<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck6<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck7<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,A7: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck8<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync, A7: Writer + Send + Sync,A8: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck9<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send + Sync,A8: Writer + Send + Sync,A9: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8,arg9:A9)->Result<RetResult,Box<dyn Error>>;
-    async fn runcheck10<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync,A4: Writer + Send + Sync,A5: Writer + Send + Sync,A6: Writer + Send + Sync,  A7: Writer + Send + Sync,A8: Writer + Send + Sync,A9: Writer + Send + Sync,A10: Writer + Send + Sync>
-    (&self,cmd:i32,arg1: A1, arg2: A2,arg3:A3,arg4:A4,arg5:A5,arg6:A6,arg7:A7,arg8:A8,arg9:A9,arg10:A10)->Result<RetResult,Box<dyn Error>>;
-
 }
 
 
-macro_rules! make_call_ret_result {
-        (@uint $($x:tt)*)=>(());
-        (@count $($rest:expr),*)=>(<[()]>::len(&[$(make_call_ret_result!(@uint $rest)),*]));
-        ($client:expr=>$cmd:expr;$($args:expr),*$(,)*) => {
-            let serial=$client.new_serial();
-            let args_count=make_call_ret_result!(@count $($args),*) as i32;
-            let mut data=Data::with_capacity(128);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&2u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
-            $(data.write_to_le(&$args);)*
-            return Ok($client.call(serial,data).await?);
-        }
-}
 
-macro_rules! make_run {
-        (@uint $($x:tt)*)=>(());
-        (@count $($rest:expr),*)=>(<[()]>::len(&[$(make_run!(@uint $rest)),*]));
-        ($client:expr=>$cmd:expr;$($args:expr),*$(,)*) => {
-            let serial=$client.new_serial();
-            let args_count=make_run!(@count $($args),*) as i32;
-            let mut data=Data::with_capacity(128);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&0u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
-            $(data.write_to_le(&$args);)*
-            $client.run(data).await?;
-            return Ok(());
-        }
 
-}
 
-macro_rules! make_runcheck {
-        (@uint $($x:tt)*)=>(());
-        (@count $($rest:expr),*)=>(<[()]>::len(&[$(make_runcheck!(@uint $rest)),*]));
-        ($client:expr=>$cmd:expr;$($args:expr),*$(,)*) => {
-            let serial=$client.new_serial();
-            let args_count=make_runcheck!(@count $($args),*) as i32;
-            let mut data=Data::with_capacity(128);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&1u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
-            $(data.write_to_le(&$args);)*
-            return Ok($client.call(serial,data).await?);
-        }
-}
+
 
 #[allow(clippy::too_many_arguments)]
 #[aqueue::aqueue_trait]
@@ -782,50 +669,6 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             }
         }
     }
-    #[inline]
-    async fn call_0(&self, cmd: i32) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;);
-    }
-    #[inline]
-    async fn call_1<A1: Writer + Send + Sync>(&self, cmd: i32, arg1: A1) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1);
-    }
-    #[inline]
-    async fn call_2<A1: Writer + Send + Sync, A2: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2);
-    }
-    #[inline]
-    async fn call_3<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3);
-    }
-    #[inline]
-    async fn call_4<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3,arg4);
-    }
-    #[inline]
-    async fn call_5<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3,arg4,arg5);
-    }
-    #[inline]
-    async fn call_6<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6);
-    }
-    #[inline]
-    async fn call_7<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-    }
-    #[inline]
-    async fn call_8<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8);
-    }
-    #[inline]
-    async fn call_9<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync, A9: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8, arg9: A9) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9);
-    }
-    #[inline]
-    async fn call_10<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync, A9: Writer + Send + Sync, A10: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8, arg9: A9, arg10: A10) -> Result<RetResult, Box<dyn Error>> {
-        make_call_ret_result!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10);
-    }
 
 
     #[inline]
@@ -850,94 +693,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
 
         Ok(())
     }
-    #[inline]
-    async fn run0(&self, cmd: i32) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;);
-    }
-    #[inline]
-    async fn run1<A1: Writer + Send + Sync>(&self, cmd:i32, arg1: A1) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1);
-    }
-    #[inline]
-    async fn run2<A1: Writer + Send + Sync, A2: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2);
-    }
-    #[inline]
-    async fn run3<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3);
-    }
-    #[inline]
-    async fn run4<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3,arg4);
-    }
-    #[inline]
-    async fn run5<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3,arg4,arg5);
-    }
-    #[inline]
-    async fn run6<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6);
-    }
-    #[inline]
-    async fn run7<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send+ Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-    }
-    #[inline]
-    async fn run8<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8);
-    }
-    #[inline]
-    async fn run9<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync, A9: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8, arg9: A9) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9);
-    }
-    #[inline]
-    async fn run10<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync, A9: Writer + Send + Sync, A10: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8, arg9: A9, arg10: A10) -> Result<(), Box<dyn Error>> {
-        make_run!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10);
-    }
-    #[inline]
-    async fn runcheck0(&self, cmd: i32) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;);
-    }
-    #[inline]
-    async fn runcheck1<A1: Writer + Send + Sync>(&self, cmd: i32, arg1: A1) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1);
-    }
-    #[inline]
-    async fn runcheck2<A1: Writer + Send + Sync, A2: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2);
-    }
-    #[inline]
-    async fn runcheck3<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3);
-    }
-    #[inline]
-    async fn runcheck4<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4);
-    }
-    #[inline]
-    async fn runcheck5<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4,arg5);
-    }
-    #[inline]
-    async fn runcheck6<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6);
-    }
-    #[inline]
-    async fn runcheck7<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-    }
-    #[inline]
-    async fn runcheck8<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8);
-    }
-    #[inline]
-    async fn runcheck9<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync, A9: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8, arg9: A9) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9);
-    }
-    #[inline]
-    async fn runcheck10<A1: Writer + Send + Sync, A2: Writer + Send + Sync, A3: Writer + Send + Sync, A4: Writer + Send + Sync, A5: Writer + Send + Sync, A6: Writer + Send + Sync, A7: Writer + Send + Sync, A8: Writer + Send + Sync, A9: Writer + Send + Sync, A10: Writer + Send + Sync>(&self, cmd: i32, arg1: A1, arg2: A2, arg3: A3, arg4: A4, arg5: A5, arg6: A6, arg7: A7, arg8: A8, arg9: A9, arg10: A10) -> Result<RetResult, Box<dyn Error>> {
-        make_runcheck!(self=>cmd;arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10);
-    }
+
 }
 
 #[macro_export]

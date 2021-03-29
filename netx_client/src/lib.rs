@@ -3,7 +3,6 @@
 pub mod client;
 pub use client::*;
 pub use std::sync::Arc;
-pub use log;
 pub use aqueue;
 pub use aqueue::aqueue_trait;
 pub use aqueue::Actor;

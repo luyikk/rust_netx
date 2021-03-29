@@ -4,7 +4,6 @@ pub mod owned_read_half_ex;
 
 pub use server::*;
 pub use owned_read_half_ex::*;
-pub use log;
 pub use std::sync::Arc;
 pub use aqueue;
 pub use aqueue::aqueue_trait;
