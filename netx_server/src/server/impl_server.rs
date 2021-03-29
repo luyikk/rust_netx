@@ -47,7 +47,6 @@ impl<T: ICreateController +'static> NetXServer<T> {
          if let Err(er)=Self::read_buff_byline(&mut reader,&peer,&token).await{
             error!("read buff err:{}",er)
          }
-
          if let Err(er)= token.call_special_function(SpecialFunctionTag::DISCONNECT as i32).await{
             error!("call token disconnect err:{}",er)
          }
@@ -72,19 +71,16 @@ impl<T: ICreateController +'static> NetXServer<T> {
          Self::send_to_key_verify_msg(&peer,true,"not verify key").await?;
          return Err("not verify key".into())
       }
-
       let name=reader.read_string().await?;
       if !serv.option.service_name.is_empty() && name !=serv.option.service_name{
          Self::send_to_key_verify_msg(&peer,true,"service name error").await?;
          return Err(format!("IP:{} service name:{} error",peer.addr(),name).into())
       }
-
       let password=reader.read_string().await?;
       if !serv.option.verify_key.is_empty() && password!=serv.option.verify_key{
          Self::send_to_key_verify_msg(&peer,true,"service verify key error").await?;
          return Err(format!("IP:{} verify key:{} error",peer.addr(),name).into())
       }
-
       Self::send_to_key_verify_msg(&peer,false,"verify success").await?;
       let session=reader.read_i64_le().await?;
       let token=
@@ -116,13 +112,12 @@ impl<T: ICreateController +'static> NetXServer<T> {
          let cmd=data.get_le::<i32>()?;
          match cmd {
             2000=>{
-               Self::sendto (peer,Self::send_to_sessionid( token.get_sessionid())).await?;
+               Self::sendto(peer,Self::send_to_sessionid( token.get_sessionid())).await?;
             },
             2400 => {
                let tt=data.get_le::<u8>()?;
                let cmd=data.get_le::<i32>()?;
                let serial=data.get_le::<i64>()?;
-
                match tt {
                   0=>{
                      let run_token=token.clone();
