@@ -34,7 +34,7 @@ async fn main()->Result<(),Box<dyn Error>> {
                 NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
                                                   "".into(),
                                                   "123123".into(),
-                                                  5000),
+                                                  10000),
                                 DefaultSessionStore::default()).await.unwrap();
 
 
