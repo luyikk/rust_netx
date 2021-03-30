@@ -34,10 +34,8 @@ pub trait ITestController{
     async fn logon(&self,info:LogOn)->Result<(bool,String),Box<dyn Error>>;
     #[tag(10001)]
     async fn logon2(&self,info:(String,String))->Result<LogOnResult,Box<dyn Error>>;
-
     #[tag(999)]
     async fn add_one(&self,a:i32)->Result<i32,Box<dyn Error>>;
-
     #[tag(2500)]
     async fn get_all_count(&self)->Result<i64,Box<dyn Error>>;
 }
