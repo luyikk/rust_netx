@@ -121,7 +121,7 @@ pub trait IAsyncToken{
     async fn get_peer(&self)->AResult<Option<Weak<Actor<TCPPeer>>>>;
     async fn call_special_function(&self,cmd:i32)->Result<(),Box<dyn Error>>;
     async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
-    async fn send(&self, buff: Data) -> AResult<()>;
+    async fn send(&self, buff: Data) -> AResult<usize>;
     async fn get_token(&self,sessionid:i64)->AResult<Option<NetxToken>>;
     async fn get_all_tokens(&self)->AResult<Vec<NetxToken>>;
     async fn call(&self,serial:i64,buff: Data)->AResult<RetResult>;
@@ -201,7 +201,7 @@ impl IAsyncToken for Actor<AsyncToken>{
     }
 
     #[inline]
-    async fn send(&self, buff: Data) -> AResult<()> {
+    async fn send(&self, buff: Data) -> AResult<usize> {
         unsafe {
             if let Some(ref peer)= self.deref_inner().peer{
                if let Some(peer)= peer.upgrade(){

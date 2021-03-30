@@ -192,7 +192,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       data
    }
    #[inline]
-   async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> AResult<()> {
+   async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> AResult<usize> {
       let mut data=Data::new();
       data.write_to_le(&1000i32);
       data.write_to_le(&is_err);
@@ -201,7 +201,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       Self::sendto(peer,data).await
    }
    #[inline]
-   async fn sendto(peer:&Arc<Actor<TCPPeer>>,buff:Data)-> AResult<()>{
+   async fn sendto(peer:&Arc<Actor<TCPPeer>>,buff:Data)-> AResult<usize>{
       let buff=&*buff;
       let len=buff.len()+4;
       let mut data=Data::with_capacity(len);
