@@ -96,7 +96,6 @@ impl RetResult {
         if index>=self.len(){
             return Err(io::Error::new(ErrorKind::Other,"index >= len"))
         }
-
         Ok(& mut self.arguments[index])
     }
 

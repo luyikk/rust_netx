@@ -18,7 +18,7 @@ impl OwnedReadHalfExt for &mut OwnedReadHalf{
         let len= self.read_u32_le().await? as usize;
         let mut data=vec![0;len];
         let r=self.read_exact(&mut data).await?;
-        debug_assert_eq!(len, r);
+        debug_assert_eq!(len,  r);
         Ok(String::from_utf8_lossy(&data).to_string())
     }
     #[inline]
@@ -29,13 +29,11 @@ impl OwnedReadHalfExt for &mut OwnedReadHalf{
         debug_assert_eq!(len, r);
         Ok(data)
     }
-
     #[inline]
     async fn read_buff_by(&mut self,data:&mut Data)->io::Result<usize>{
         let len=( self.read_u32_le().await? -4) as usize;
         data.resize(len,0);
         data.set_position(0);
-        let r=self.read_exact(data).await?;
-        Ok(r)
+        Ok( self.read_exact(data).await?)
     }
 }

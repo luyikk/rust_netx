@@ -62,17 +62,15 @@ impl AsyncToken{
 
     #[inline]
     pub (crate) async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->Result<RetResult,Box<dyn Error>> {
-        if let Some(ref dict) = self.controller_fun_register_dict {
-            if let Some(func) = dict.get(&cmd) {
-                if func.function_type() != tt {
-                    return Err(format!(" cmd:{} function type error:{}", cmd, tt).into());
-                }
-
-                return func.call(data).await
-            }
+        let  dict= self.controller_fun_register_dict.as_ref()
+            .ok_or(format!("not register cmd:{}", cmd))?;
+        let func=dict.get(&cmd)
+            .ok_or(format!("not found cmd:{}",cmd))?;
+        if func.function_type() ==tt{
+            func.call(data).await
+        }else{
+            Err(format!(" cmd:{} function type error:{}", cmd, tt).into())
         }
-        debug!("not found cmd:{}",cmd);
-        return Err(format!("not found cmd:{}", cmd).into());
     }
 
     #[inline]
@@ -203,67 +201,56 @@ impl IAsyncToken for Actor<AsyncToken>{
     #[inline]
     async fn send(&self, buff: Data) -> AResult<usize> {
         unsafe {
-            if let Some(ref peer)= self.deref_inner().peer{
-               if let Some(peer)= peer.upgrade(){
-                   return peer.send(buff).await
-               }
-            }
-            let err=format!("token:{} tcp disconnect",self.get_sessionid());
-            Err(AError::StrErr(err))
+            self.deref_inner()
+                .peer.as_ref()
+                .ok_or(format!("token:{} disconnect", self.get_sessionid()))?
+                .upgrade()
+                .ok_or(format!("token:{} peer upgrade fail", self.get_sessionid()))?
+                .send(buff).await
         }
     }
 
     #[inline]
     async fn get_token(&self, sessionid: i64) -> AResult<Option<NetxToken>> {
-        self.inner_call(async move|inner|{
-            if let Some(manager)= inner.get().manager.upgrade(){
-                manager.get_token(sessionid).await
-            }
-            else {
-                Err(AError::StrErr("manager upgrade fail".into()))
-            }
+        self.inner_call(async move|inner| {
+            inner.get().manager.upgrade()
+                .ok_or("manager upgrade fail".to_string())?
+                .get_token(sessionid).await
         }).await
     }
 
     #[inline]
     async fn get_all_tokens(&self) -> AResult<Vec<NetxToken>> {
-        self.inner_call(async move|inner|{
-            if let Some(manager)= inner.get().manager.upgrade(){
-                manager.get_all_tokens().await
-            }
-            else {
-                Err(AError::StrErr("manager upgrade fail".into()))
-            }
+        self.inner_call(async move|inner| {
+            inner.get().manager.upgrade()
+                .ok_or("manager upgrade fail".to_string())?
+                .get_all_tokens().await
         }).await
     }
 
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> AResult<RetResult> {
-        let (net,rx):(Arc<Actor<TCPPeer>>,Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
-            if let Some(ref net)=inner.get().peer{
-                if let Some(peer)= net.upgrade() {
-                    let (tx, rx): (Sender<AResult<Data>>, Receiver<AResult<Data>>) = oneshot();
-                    if inner.get_mut().result_dict.contains_key(&serial) {
-                        return Err(AError::StrErr("serial is have".into()))
-                    }
-                    if inner.get_mut().result_dict.insert(serial, tx).is_none() {
-                        inner.get_mut().request_queue.push_front((serial, Instant::now()));
-                    }
-
-                    Ok((peer, rx))
-                }else{
-                    Err(AError::StrErr("call peer is null".into()))
-                }
-            }else{
-                Err(AError::StrErr("call not connect".into()))
+        let (peer,rx):(Arc<Actor<TCPPeer>>, Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
+           let peer= inner.get().peer
+                .as_ref()
+                .ok_or("call not connect".to_string())?
+                .upgrade()
+                .ok_or("peer upgrade fail")?;
+            if inner.get_mut().result_dict.contains_key(&serial) {
+                return Err(AError::StrErr("serial is have".into()))
             }
+            let (tx, rx): (Sender<AResult<Data>>, Receiver<AResult<Data>>) = oneshot();
+            if inner.get_mut().result_dict.insert(serial, tx).is_none() {
+                inner.get_mut().request_queue.push_front((serial, Instant::now()));
+            }
+            Ok((peer, rx))
         }).await?;
 
         let len=buff.len()+4;
         let mut data=Data::with_capacity(len);
         data.write_to_le(&(len as u32));
         data.write(&buff);
-        net.send(data).await?;
+        peer.send(data).await?;
         match rx.await {
             Err(_)=>{
                 Err("tx is Close".into())
@@ -279,7 +266,7 @@ impl IAsyncToken for Actor<AsyncToken>{
 
     #[inline]
     async fn run(&self, buff: Data) -> AResult<()> {
-        let net:Arc<Actor<TCPPeer>>= self.inner_call(async move|inner|{
+        let peer:Arc<Actor<TCPPeer>>= self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().peer{
                 if let Some(peer)= net.upgrade() {
                     Ok(peer)
@@ -296,7 +283,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         let mut data=Data::with_capacity(len);
         data.write_to_le(&(len as u32));
         data.write(&buff);
-        net.send(data).await?;
+        peer.send(data).await?;
         Ok(())
     }
 
@@ -386,8 +373,7 @@ macro_rules! call_peer {
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
-            let ret= $peer.call(serial,data).await?;
-            let mut ret= ret.check()?;
+            let mut ret= $peer.call(serial,data).await?.check()?;
             ret.deserialize()?
     });
     (@result $peer:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
@@ -446,8 +432,7 @@ macro_rules! call_peer {
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
-            let ret=$peer.call(serial,data).await?;
-            ret.check()?;
+            $peer.call(serial,data).await?.check()?;
     });
 
 }

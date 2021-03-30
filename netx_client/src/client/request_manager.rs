@@ -26,7 +26,6 @@ impl<T:SessionSave+'static> RequestManager<T>{
             request_out_time,
             netx_client
         }));
-
         Self::start_check(Arc::downgrade(&ptr));
         ptr
     }
@@ -47,7 +46,8 @@ impl<T:SessionSave+'static> RequestManager<T>{
         while let Some(item) =  self.queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= self.request_out_time {
                 if let Some(client) = self.netx_client.upgrade() {
-                    if let Err(er) = client.set_error(item.0, AError::StrErr(format!("serial:{} time out",item.0))).await {
+                    if let Err(er) = client
+                        .set_error(item.0, AError::StrErr(format!("serial:{} time out",item.0))).await {
                         error!("check err:{}", er);
                     }
                 }

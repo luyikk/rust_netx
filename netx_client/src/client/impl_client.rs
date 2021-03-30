@@ -95,9 +95,8 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub fn init<C:IController+Sync+Send+'static>(&mut self,controller:C){
-        let controller=Arc::new(controller);
-        let table=controller.register().expect("init error");
-        self.controller_fun_register_dict=table;
+        self.controller_fun_register_dict=
+            IController::register(Arc::new(controller)).expect("init error");
     }
 
     #[allow(clippy::type_complexity)]
@@ -155,8 +154,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
                     sessionid = data.get_le::<i64>()?;
                     info!("{} save sessionid:{}", serverinfo, sessionid);
                     netx_client.store_sessionid(sessionid).await?;
-
-
                 },
                 2400 => {
                     let tt = data.get_le::<u8>()?;
@@ -210,7 +207,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub(crate) async fn call_special_function(&self,cmd:i32)->Result<(),Box<dyn Error>> {
-        if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
+        if let Some(func)= self.controller_fun_register_dict.get(&cmd) {
             func.call(Data::with_len(4, 0)).await?;
         }
         Ok(())
@@ -218,15 +215,13 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub (crate)  async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->Result<RetResult,Box<dyn Error>>{
-        if let Some(func)= self.controller_fun_register_dict.get(&cmd){
-            if func.function_type() !=tt{
-                return Err(format!(" cmd:{} function type error:{}",cmd,tt).into());
-            }
+       let func= self.controller_fun_register_dict.get(&cmd)
+           .ok_or(format!("not found cmd:{}",cmd))?;
+       return if func.function_type() ==tt {
             func.call(data).await
-        }
-        else{
-            return Err(format!("not found cmd:{}",cmd).into());
-        }
+       }else{
+            Err(format!(" cmd:{} function type error:{}",cmd,tt).into())
+       }
     }
 
 
@@ -243,7 +238,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
     fn get_sessionid_buff(mode:u8)->Data{
         let mut buff=Data::with_capacity(32);
         buff.write_to_le(&2000);
-
         if mode==0{
             buff
         }else {
@@ -261,7 +255,6 @@ impl<T:SessionSave+'static> NetXClient<T>{
         let mut data=Data::with_capacity(1024);
         data.write_to_le(&2500u32);
         data.write_to_le(&sessionid);
-
         if result.is_error{
             data.write_to_le(&true);
             data.write_to_le(&result.error_id);
@@ -381,15 +374,9 @@ pub trait INetXClient<T>{
     async fn call_special_function(&self, cmd: i32) -> Result<(), Box<dyn Error>>;
     async fn call_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn close(&self)-> Result<(),Box<dyn Error>>;
-
     async fn call(&self, serial:i64, buff:Data) ->AResult<RetResult>;
     async fn run(&self, buff:Data)-> Result<(),Box<dyn Error>>;
 }
-
-
-
-
-
 
 
 #[allow(clippy::too_many_arguments)]
@@ -405,48 +392,47 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
 
     #[inline]
     async fn connect_network(self: &Arc<Self>) -> AResult<()> {
-        let netx_client=self.clone();
-        let wait_handler:Option<WReceiver<(bool,String)>>=self.inner_call(async move|inner|{
-            if inner.get().is_connect(){
-                return match inner.get().connect_stats{
-                    Some(ref stats)=>{
-                        Ok(Some(stats.clone()))
+        let netx_client = self.clone();
+        let mut wait_handler: WReceiver<(bool, String)> = self.inner_call(async move |inner| {
+            if inner.get().is_connect() {
+                return match inner.get().connect_stats {
+                    Some(ref stats) => {
+                        Ok(stats.clone())
                     },
-                    None=>{
-                        Ok(None)
+                    None => {
+                        Err(AError::StrErr("inner is connect,but not get stats".to_string()))
                     }
                 }
             }
 
-            let (set_connect,wait_connect)=channel((false,"not connect".to_string()));
-
-            match TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client.clone(),set_connect)).await {
-                Ok(client)=> {
-                    inner.get_mut().set_network_client(client);
-                    inner.get_mut().connect_stats=Some(wait_connect.clone());
-                    Ok(Some(wait_connect))
+            let (set_connect, wait_connect) = channel((false, "not connect".to_string()));
+            match TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client.clone(), set_connect)).await {
+                Ok(client) => {
+                    let ref_inner = inner.get_mut();
+                    ref_inner.set_network_client(client);
+                    ref_inner.connect_stats = Some(wait_connect.clone());
+                    Ok(wait_connect)
                 },
-                Err(er)=>{
-                    Err(AError::StrErr(format!("{}",er)))
+                Err(er) => {
+                    Err(AError::StrErr(format!("{}", er)))
                 }
             }
         }).await?;
 
-        if let Some(mut wait_connect)=wait_handler {
-            match wait_connect.changed().await {
-                Err(err) => {
-                    self.reset_connect_stats().await?;
-                    return Err(format!("connect err:{}",err).into());
-                },
-                Ok(_) => {
-                    self.reset_connect_stats().await?;
-                    let (is_connect,msg)= (*wait_connect.borrow()).clone();
-                    if !is_connect {
-                        return Err(msg.into());
-                    }
+        match wait_handler.changed().await {
+            Err(err) => {
+                self.reset_connect_stats().await?;
+                return Err(format!("connect err:{}", err).into());
+            },
+            Ok(_) => {
+                self.reset_connect_stats().await?;
+                let (is_connect, msg) = &(*wait_handler.borrow());
+                if !is_connect {
+                    return Err(format!("connect err:{}",msg).into());
                 }
             }
         }
+
         Ok(())
     }
 
@@ -552,8 +538,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
                 Err(_) => Err("close rx".into()),
                 Ok(_) => Ok(())
             }
-        }
-        else{
+        } else{
             match RetResult::from(data){
                 Ok(res)=>{
                     match res.check(){
@@ -576,8 +561,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
                 Err(_) => Err("close rx".into()),
                 Ok(_) => Ok(())
             };
-        }
-        else{
+        } else{
             Ok(())
         }
     }
@@ -631,17 +615,15 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     #[inline]
     async fn call(&self,serial:i64,buff: Data) -> AResult<RetResult> {
         let (net,rx):(Arc<Actor<TcpClient>>,Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
-            if let Some(ref net)=inner.get().net{
-                let (tx,rx):(Sender<AResult<Data>>,Receiver<AResult<Data>>)=oneshot();
-                if inner.get_mut().result_dict.contains_key(&serial){
-                    return Err(AError::StrErr("serial is have".into()))
-                }
-
-                inner.get_mut().result_dict.insert(serial,tx);
-                Ok((net.clone(),rx))
-            }else{
-                Err(AError::StrErr("not connect".into()))
+            let net=inner.get().net
+                .as_ref()
+                .ok_or("not connect".to_string())?;
+            if inner.get_mut().result_dict.contains_key(&serial){
+                return Err(AError::StrErr("serial is have".into()))
             }
+            let (tx,rx):(Sender<AResult<Data>>,Receiver<AResult<Data>>)=oneshot();
+            inner.get_mut().result_dict.insert(serial,tx);
+            Ok((net.clone(),rx))
         }).await?;
         unsafe {
             self.deref_inner().set_request_sessionid(serial).await?;
@@ -659,8 +641,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         match rx.await {
             Err(_)=>{
                 Err("tx is Close".into())
-            }
-            ,
+            },
             Ok(data)=>{
                 match RetResult::from(data?){
                     Ok(r)=>Ok(r),
@@ -674,11 +655,10 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     #[inline]
     async fn run(&self, buff: Data) -> Result<(),Box<dyn Error>> {
         let net= self.inner_call(async move|inner|{
-            if let Some(ref net)=inner.get().net{
-                Ok(net.clone())
-            }else{
-                Err(AError::StrErr("not connect".into()))
-            }
+            Ok(inner.get().net
+                .as_ref()
+                .ok_or("not connect".to_string())?
+                .clone())
         }).await?;
         if self.get_mode()==0 {
             net.send(buff).await?;
@@ -714,8 +694,7 @@ macro_rules! call {
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
-            let ret= $client.call(serial,data).await?;
-            let mut ret= ret.check()?;
+            let mut ret= $client.call(serial,data).await?.check()?;
             ret.deserialize()?
     });
     (@result $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
@@ -788,8 +767,8 @@ macro_rules! call {
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
-            let ret=$client.call(serial,data).await?;
-            ret.check()?;
+            $client.call(serial,data).await?.check()?;
+
     });
 
 }
