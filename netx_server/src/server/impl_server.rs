@@ -207,7 +207,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       let mut data=Data::with_capacity(len);
       data.write_to_le(&(len as u32));
       data.write(buff);
-      peer.send(data.into()).await
+      peer.send(data).await
    }
    #[inline]
    pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>,Box<dyn Error>> {

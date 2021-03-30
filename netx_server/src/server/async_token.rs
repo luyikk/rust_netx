@@ -205,7 +205,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         unsafe {
             if let Some(ref peer)= self.deref_inner().peer{
                if let Some(peer)= peer.upgrade(){
-                   return peer.send(buff.into()).await
+                   return peer.send(buff).await
                }
             }
             let err=format!("token:{} tcp disconnect",self.get_sessionid());
@@ -263,7 +263,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         let mut data=Data::with_capacity(len);
         data.write_to_le(&(len as u32));
         data.write(&buff);
-        net.send(data.into()).await?;
+        net.send(data).await?;
         match rx.await {
             Err(_)=>{
                 Err("tx is Close".into())
@@ -296,7 +296,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         let mut data=Data::with_capacity(len);
         data.write_to_le(&(len as u32));
         data.write(&buff);
-        net.send(data.into()).await?;
+        net.send(data).await?;
         Ok(())
     }
 

@@ -12,7 +12,7 @@ license = "MIT/Apache-2.0"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
-tcpserver = "0.3"
+tcpserver = "0.4"
 aqueue="0.3"
 log="0.4"
 data-rw="0.3"
