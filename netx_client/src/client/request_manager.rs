@@ -26,6 +26,7 @@ impl<T:SessionSave+'static> RequestManager<T>{
             request_out_time,
             netx_client
         }));
+
         Self::start_check(Arc::downgrade(&ptr));
         ptr
     }

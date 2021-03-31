@@ -1,6 +1,6 @@
 [package]
 name = "netxserver"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["yi lu <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"

@@ -215,13 +215,15 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub (crate)  async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->Result<RetResult,Box<dyn Error>>{
-       let func= self.controller_fun_register_dict.get(&cmd)
-           .ok_or(format!("not found cmd:{}",cmd))?;
-       return if func.function_type() ==tt {
-            func.call(data).await
-       }else{
-            Err(format!(" cmd:{} function type error:{}",cmd,tt).into())
-       }
+        return if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
+            if func.function_type() != tt {
+                Err(format!(" cmd:{} function type error:{}", cmd, tt).into())
+            } else {
+                func.call(data).await
+            }
+        } else {
+            Err(format!("not found cmd:{}", cmd).into())
+        }
     }
 
 
@@ -615,15 +617,16 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     #[inline]
     async fn call(&self,serial:i64,buff: Data) -> AResult<RetResult> {
         let (net,rx):(Arc<Actor<TcpClient>>,Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
-            let net=inner.get().net
-                .as_ref()
-                .ok_or("not connect".to_string())?;
-            if inner.get_mut().result_dict.contains_key(&serial){
-                return Err(AError::StrErr("serial is have".into()))
+            if let Some(ref net)=inner.get().net{
+                let (tx,rx):(Sender<AResult<Data>>,Receiver<AResult<Data>>)=oneshot();
+                if inner.get_mut().result_dict.contains_key(&serial){
+                    return Err(AError::StrErr("serial is have".into()))
+                }
+                inner.get_mut().result_dict.insert(serial,tx);
+                Ok((net.clone(),rx))
+            }else{
+                Err(AError::StrErr("not connect".into()))
             }
-            let (tx,rx):(Sender<AResult<Data>>,Receiver<AResult<Data>>)=oneshot();
-            inner.get_mut().result_dict.insert(serial,tx);
-            Ok((net.clone(),rx))
         }).await?;
         unsafe {
             self.deref_inner().set_request_sessionid(serial).await?;
@@ -651,14 +654,14 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         }
     }
 
-
     #[inline]
     async fn run(&self, buff: Data) -> Result<(),Box<dyn Error>> {
         let net= self.inner_call(async move|inner|{
-            Ok(inner.get().net
-                .as_ref()
-                .ok_or("not connect".to_string())?
-                .clone())
+            if let Some(ref net)=inner.get().net{
+                Ok(net.clone())
+            }else{
+                Err(AError::StrErr("not connect".into()))
+            }
         }).await?;
         if self.get_mode()==0 {
             net.send(buff).await?;

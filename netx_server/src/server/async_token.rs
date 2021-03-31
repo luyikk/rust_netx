@@ -62,15 +62,17 @@ impl AsyncToken{
 
     #[inline]
     pub (crate) async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->Result<RetResult,Box<dyn Error>> {
-        let  dict= self.controller_fun_register_dict.as_ref()
-            .ok_or(format!("not register cmd:{}", cmd))?;
-        let func=dict.get(&cmd)
-            .ok_or(format!("not found cmd:{}",cmd))?;
-        if func.function_type() ==tt{
-            func.call(data).await
-        }else{
-            Err(format!(" cmd:{} function type error:{}", cmd, tt).into())
+        if let Some(ref dict) = self.controller_fun_register_dict {
+            if let Some(func) = dict.get(&cmd) {
+                return if func.function_type() != tt {
+                     Err(format!(" cmd:{} function type error:{}", cmd, tt).into())
+                }else {
+                     func.call(data).await
+                }
+            }
         }
+        debug!("not found cmd:{}",cmd);
+        return Err(format!("not found cmd:{}", cmd).into());
     }
 
     #[inline]
@@ -201,49 +203,58 @@ impl IAsyncToken for Actor<AsyncToken>{
     #[inline]
     async fn send(&self, buff: Data) -> AResult<usize> {
         unsafe {
-            self.deref_inner()
-                .peer.as_ref()
-                .ok_or(format!("token:{} disconnect", self.get_sessionid()))?
-                .upgrade()
-                .ok_or(format!("token:{} peer upgrade fail", self.get_sessionid()))?
-                .send(buff).await
+            if let Some(ref peer)= self.deref_inner().peer{
+               if let Some(peer)= peer.upgrade(){
+                   return peer.send(buff).await
+               }
+            }
+            Err(AError::StrErr(format!("token:{} tcp disconnect",self.get_sessionid())))
         }
     }
 
     #[inline]
     async fn get_token(&self, sessionid: i64) -> AResult<Option<NetxToken>> {
-        self.inner_call(async move|inner| {
-            inner.get().manager.upgrade()
-                .ok_or("manager upgrade fail".to_string())?
-                .get_token(sessionid).await
+        self.inner_call(async move|inner|{
+            if let Some(manager)= inner.get().manager.upgrade(){
+                manager.get_token(sessionid).await
+            }
+            else {
+                Err(AError::StrErr("manager upgrade fail".into()))
+            }
         }).await
     }
 
     #[inline]
     async fn get_all_tokens(&self) -> AResult<Vec<NetxToken>> {
-        self.inner_call(async move|inner| {
-            inner.get().manager.upgrade()
-                .ok_or("manager upgrade fail".to_string())?
-                .get_all_tokens().await
+        self.inner_call(async move|inner|{
+            if let Some(manager)= inner.get().manager.upgrade(){
+                manager.get_all_tokens().await
+            }
+            else {
+                Err(AError::StrErr("manager upgrade fail".into()))
+            }
         }).await
     }
 
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> AResult<RetResult> {
-        let (peer,rx):(Arc<Actor<TCPPeer>>, Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
-           let peer= inner.get().peer
-                .as_ref()
-                .ok_or("call not connect".to_string())?
-                .upgrade()
-                .ok_or("peer upgrade fail")?;
-            if inner.get_mut().result_dict.contains_key(&serial) {
-                return Err(AError::StrErr("serial is have".into()))
+        let (peer,rx):(Arc<Actor<TCPPeer>>,Receiver<AResult<Data>>)=self.inner_call(async move|inner|{
+            if let Some(ref net)=inner.get().peer{
+                if let Some(peer)= net.upgrade() {
+                    let (tx, rx): (Sender<AResult<Data>>, Receiver<AResult<Data>>) = oneshot();
+                    if inner.get_mut().result_dict.contains_key(&serial) {
+                        return Err(AError::StrErr("serial is have".into()))
+                    }
+                    if inner.get_mut().result_dict.insert(serial, tx).is_none() {
+                        inner.get_mut().request_queue.push_front((serial, Instant::now()));
+                    }
+                    Ok((peer, rx))
+                }else{
+                    Err(AError::StrErr("call peer is null".into()))
+                }
+            }else{
+                Err(AError::StrErr("call not connect".into()))
             }
-            let (tx, rx): (Sender<AResult<Data>>, Receiver<AResult<Data>>) = oneshot();
-            if inner.get_mut().result_dict.insert(serial, tx).is_none() {
-                inner.get_mut().request_queue.push_front((serial, Instant::now()));
-            }
-            Ok((peer, rx))
         }).await?;
 
         let len=buff.len()+4;

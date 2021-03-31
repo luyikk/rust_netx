@@ -30,36 +30,37 @@ unsafe impl<T> Sync for NetXServer<T>{}
 
 impl<T: ICreateController +'static> NetXServer<T> {
    #[inline]
-   pub async fn new(option:ServerOption,impl_controller:T)->Arc<NetXServer<T>> {
-      let serv = Builder::new(&option.addr).set_connect_event(|addr| {
-         info!("{} connect", addr);
+   pub async fn new(option:ServerOption,impl_controller:T)->Arc<NetXServer<T>>{
+      let serv= Builder::new(&option.addr).set_connect_event(|addr|{
+         info!("{} connect",addr);
          true
-      }).set_input_event(async move |mut reader, peer, serv| {
-         let token = match Self::get_peer_token(&mut reader, &peer, &serv).await {
-            Ok(token) => token,
-            Err(er) => {
-               info!("user:{}:{},disconnect it", peer.addr(), er);
+      }).set_input_event(async move|mut reader,peer,serv|{
+         let addr=peer.addr();
+         let token= match Self::get_peer_token(&mut reader, &peer, &serv).await {
+            Ok(token)=>token,
+            Err(er)=>{
+               info!("user:{}:{},disconnect it", addr, er);
                return
             }
          };
 
-         if let Err(er) = Self::read_buff_byline(&mut reader, &peer, &token).await {
-            error!("read buff err:{}", er)
+         if let Err(er)=Self::read_buff_byline(&mut reader,&peer,&token).await{
+            error!("read buff err:{}",er)
          }
-         if let Err(er) = token.call_special_function(SpecialFunctionTag::DISCONNECT as i32).await {
-            error!("call token disconnect err:{}", er)
+         if let Err(er)= token.call_special_function(SpecialFunctionTag::DISCONNECT as i32).await{
+            error!("call token disconnect err:{}",er)
          }
-         if let Err(er) = serv.async_tokens.peer_disconnect(token.get_sessionid()).await {
-            error!("peer disconnect err:{}", er)
+         if let Err(er)= serv.async_tokens.peer_disconnect(token.get_sessionid()).await{
+            error!("peer disconnect err:{}",er)
          }
-      }).build().await;
 
-      let request_out_time = option.request_out_time;
-      let session_save_time = option.session_save_time;
-      Arc::new(NetXServer {
+      }).build().await;
+      let request_out_time=option.request_out_time;
+      let session_save_time=option.session_save_time;
+      Arc::new(NetXServer{
          option,
          serv,
-         async_tokens: AsyncTokenManager::new(impl_controller, request_out_time, session_save_time)
+         async_tokens:AsyncTokenManager::new(impl_controller,request_out_time,session_save_time)
       })
    }
 
@@ -106,6 +107,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
 
    #[inline]
    async fn data_reading(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<(),Box<dyn Error>>{
+
       while let Ok(mut data)=reader.read_buff().await{
          let cmd=data.get_le::<i32>()?;
          match cmd {
@@ -147,7 +149,8 @@ impl<T: ICreateController +'static> NetXServer<T> {
                }
             },
             2500=>{
-               token.set_result(data.get_le::<i64>()?,data).await?;
+               let serial=data.get_le::<i64>()?;
+               token.set_result(serial,data).await?;
             },
             _ => {
                error!("not found cmd:{}",cmd)
@@ -162,6 +165,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       let mut data = Data::with_capacity(1024);
       data.write_to_le(&2500u32);
       data.write_to_le(&serial);
+
       if result.is_error {
          data.write_to_le(&true);
          data.write_to_le(&result.error_id);
@@ -173,6 +177,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
             data.write_to_le(&argument.bytes());
          }
       }
+
       let len = data.len() + 4usize;
       let mut buff = Data::with_capacity(len);
       buff.write_to_le(&(len as u32));
@@ -197,10 +202,11 @@ impl<T: ICreateController +'static> NetXServer<T> {
    }
    #[inline]
    async fn sendto(peer:&Arc<Actor<TCPPeer>>,buff:Data)-> AResult<usize>{
+      let buff=&*buff;
       let len=buff.len()+4;
       let mut data=Data::with_capacity(len);
       data.write_to_le(&(len as u32));
-      data.write(&buff);
+      data.write(buff);
       peer.send(data).await
    }
    #[inline]
