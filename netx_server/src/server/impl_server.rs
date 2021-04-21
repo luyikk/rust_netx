@@ -16,8 +16,8 @@ use bytes::Buf;
 use anyhow::*;
 
 enum SpecialFunctionTag{
-   CONNECT=2147483647,
-   DISCONNECT=2147483646
+   Connect =2147483647,
+   Disconnect =2147483646
 }
 
 pub struct NetXServer<T>{
@@ -48,7 +48,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
          if let Err(er)=Self::read_buff_byline(&mut reader,&peer,&token).await{
             error!("read buff err:{}",er)
          }
-         if let Err(er)= token.call_special_function(SpecialFunctionTag::DISCONNECT as i32).await{
+         if let Err(er)= token.call_special_function(SpecialFunctionTag::Disconnect as i32).await{
             error!("call token disconnect err:{}",er)
          }
          if let Err(er)= serv.async_tokens.peer_disconnect(token.get_sessionid()).await{
@@ -101,14 +101,13 @@ impl<T: ICreateController +'static> NetXServer<T> {
    #[inline]
    async fn read_buff_byline(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<()>{
       token.set_peer(Some(Arc::downgrade(peer))).await?;
-      token.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
+      token.call_special_function(SpecialFunctionTag::Connect as i32).await?;
       Self::data_reading(&mut reader,peer,token).await?;
       Ok(())
    }
 
    #[inline]
    async fn data_reading(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<()>{
-
       while let Ok(mut data)=reader.read_buff().await{
          let cmd=data.get_le::<i32>()?;
          match cmd {

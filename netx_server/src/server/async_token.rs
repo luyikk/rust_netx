@@ -214,43 +214,35 @@ impl IAsyncToken for Actor<AsyncToken>{
     #[inline]
     async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>> {
         self.inner_call(async move|inner|{
-            if let Some(manager)= inner.get().manager.upgrade(){
-                manager.get_token(sessionid).await
-            }
-            else {
-                bail!("manager upgrade fail")
-            }
+            let manager= inner.get().manager.upgrade()
+                .ok_or_else(||anyhow!("manager upgrade fail"))?;
+            manager.get_token(sessionid).await
         }).await
     }
 
     #[inline]
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken>> {
         self.inner_call(async move|inner|{
-            if let Some(manager)= inner.get().manager.upgrade(){
-                manager.get_all_tokens().await
-            }
-            else {
-                bail!("manager upgrade fail")
-            }
+            let manager= inner.get().manager.upgrade()
+                .ok_or_else(||anyhow!("manager upgrade fail"))?;
+            manager.get_all_tokens().await
         }).await
     }
 
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
         let (peer,rx):(Arc<Actor<TCPPeer>>,Receiver<Result<Data>>)=self.inner_call(async move|inner|{
-            if let Some(ref net)=inner.get().peer{
-                if let Some(peer)= net.upgrade() {
-                    let (tx, rx): (Sender<Result<Data>>, Receiver<Result<Data>>) = oneshot();
-                    if inner.get_mut().result_dict.contains_key(&serial) {
-                        bail!("serial is have")
-                    }
-                    if inner.get_mut().result_dict.insert(serial, tx).is_none() {
-                        inner.get_mut().request_queue.push_front((serial, Instant::now()));
-                    }
-                    Ok((peer, rx))
-                }else{
-                    bail!("call peer is null")
+            if let Some(ref net)=inner.get().peer {
+                let peer = net.upgrade()
+                    .ok_or_else(|| anyhow!("call peer is null"))?;
+                let (tx, rx): (Sender<Result<Data>>, Receiver<Result<Data>>) = oneshot();
+                if inner.get_mut().result_dict.contains_key(&serial) {
+                    bail!("serial is have")
                 }
+                if inner.get_mut().result_dict.insert(serial, tx).is_none() {
+                    inner.get_mut().request_queue.push_front((serial, Instant::now()));
+                }
+                Ok((peer, rx))
             }else{
                 bail!("call not connect")
             }
@@ -275,12 +267,7 @@ impl IAsyncToken for Actor<AsyncToken>{
     async fn run(&self, buff: Data) -> Result<()> {
         let peer:Arc<Actor<TCPPeer>>= self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().peer{
-                if let Some(peer)= net.upgrade() {
-                    Ok(peer)
-                }
-                else{
-                    bail!("run peer is null")
-                }
+                Ok(net.upgrade().ok_or_else(||anyhow!("run not connect"))?)
             }else{
                 bail!("run not connect")
             }
@@ -301,14 +288,7 @@ impl IAsyncToken for Actor<AsyncToken>{
         }).await?;
 
         if let Some(tx)=have_tx{
-            return match tx.send(Ok(data)) {
-                Err(_) => {
-                    bail!("close rx")
-                },
-                Ok(_) => {
-                    Ok(())
-                }
-            }
+            return tx.send(Ok(data)).map_err(|_|anyhow!("close rx"));
         }
         else{
             match RetResult::from(data){
