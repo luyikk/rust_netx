@@ -1,15 +1,15 @@
 use netxserver::*;
-use std::error::Error;
+use anyhow::*;
 
 #[build]
 pub trait IClient:Sync+Send{
     #[tag(2000)]
-    async fn add_one(&self,i:i32)->Result<i32,Box<dyn Error>>;
+    async fn add_one(&self,i:i32)->Result<i32>;
     #[tag(2002)]
-    async fn recursive_test(&self,a:i32)->Result<i32,Box<dyn Error>>;
+    async fn recursive_test(&self,a:i32)->Result<i32>;
     #[tag(4000)]
-    async fn run(&self,name:String)->Result<(),Box<dyn Error>>;
+    async fn run(&self,name:String)->Result<()>;
     #[tag(5000)]
-    async fn print2(&self,i:i32,s:String)->Result<(),Box<dyn Error>>;
+    async fn print2(&self,i:i32,s:String)->Result<()>;
 
 }

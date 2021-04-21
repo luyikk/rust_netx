@@ -4,14 +4,14 @@ use data_rw::Data;
 use std::io;
 
 
-#[aqueue::aqueue_trait]
+#[async_trait::async_trait]
 pub trait OwnedReadHalfExt{
     async fn read_string(&mut self)->io::Result<String>;
     async fn read_buff(&mut self)->io::Result<Data>;
     async fn read_buff_by(&mut self,data:&mut Data)->io::Result<usize>;
 }
 
-#[aqueue::aqueue_trait]
+#[async_trait::async_trait]
 impl OwnedReadHalfExt for &mut OwnedReadHalf{
     #[inline]
     async fn read_string(&mut self)->io::Result<String>{

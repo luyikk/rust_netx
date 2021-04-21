@@ -1,12 +1,12 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Weak};
-use aqueue::{Actor, AResult, AError};
+use aqueue::Actor;
 use crate::server::async_token::{AsyncToken, NetxToken};
 use crate::controller::ICreateController;
 use crate::async_token::IAsyncToken;
-use std::error::Error;
 use tokio::time::{sleep, Duration, Instant};
 use log::*;
+use anyhow::*;
 
 pub struct AsyncTokenManager<T>{
     impl_controller:T,
@@ -56,7 +56,7 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
     }
 
     #[inline]
-    async fn check_tokens_request_timeout(&self)->AResult<()>{
+    async fn check_tokens_request_timeout(&self)->Result<()>{
         for token in self.dict.values() {
             token.check_request_timeout(self.request_out_time).await?;
         }
@@ -64,7 +64,7 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
     }
 
     #[inline]
-    async fn check_tokens_disconnect_timeout(&mut self)->AResult<()>{
+    async fn check_tokens_disconnect_timeout(&mut self)->Result<()>{
         while let Some(item) = self.request_disconnect_clear_queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= self.session_save_time {
                 if let Some(token)= self.dict.get(&item.0) {
@@ -97,7 +97,7 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
        chrono::Local::now().timestamp_nanos()
     }
     #[inline]
-    pub async fn create_token(&mut self,manager:Weak<dyn IAsyncTokenManager>)->Result<NetxToken,Box<dyn Error>>{
+    pub async fn create_token(&mut self,manager:Weak<dyn IAsyncTokenManager>)->Result<NetxToken>{
         let sessionid=self.make_new_sessionid();
         let token= Arc::new(Actor::new( AsyncToken::new(sessionid,manager)));
         let controller=self.impl_controller.create_controller(token.clone())?;
@@ -119,55 +119,52 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
     }
 }
 
-#[aqueue::aqueue_trait]
+#[async_trait::async_trait]
 pub trait IAsyncTokenManager:Send+Sync{
-    async fn create_token(&self,manager:Weak<dyn IAsyncTokenManager>)->AResult<NetxToken>;
-    async fn get_token(&self,sessionid:i64)->AResult<Option<NetxToken>>;
-    async fn get_all_tokens(&self)->AResult<Vec<NetxToken>>;
-    async fn check_tokens_request_timeout(&self)->AResult<()>;
-    async fn check_tokens_disconnect_timeout(&self)->AResult<()>;
-    async fn peer_disconnect(&self,sessionid:i64)->AResult<()>;
+    async fn create_token(&self,manager:Weak<dyn IAsyncTokenManager>)->Result<NetxToken>;
+    async fn get_token(&self,sessionid:i64)->Result<Option<NetxToken>>;
+    async fn get_all_tokens(&self)->Result<Vec<NetxToken>>;
+    async fn check_tokens_request_timeout(&self)->Result<()>;
+    async fn check_tokens_disconnect_timeout(&self)->Result<()>;
+    async fn peer_disconnect(&self,sessionid:i64)->Result<()>;
 }
 
-#[aqueue::aqueue_trait]
+#[async_trait::async_trait]
 impl<T: ICreateController +'static> IAsyncTokenManager for Actor<AsyncTokenManager<T>>{
     #[inline]
-    async fn create_token(&self,manager:Weak<dyn IAsyncTokenManager>) -> AResult<NetxToken> {
+    async fn create_token(&self,manager:Weak<dyn IAsyncTokenManager>) -> Result<NetxToken> {
        self.inner_call(async move|inner|{
-           match  inner.get_mut().create_token(manager).await {
-               Ok(r)=>Ok(r),
-               Err(er)=>Err(AError::StrErr(er.to_string()))
-           }
+            inner.get_mut().create_token(manager).await
        }).await
     }
     #[inline]
-    async fn get_token(&self,sessionid:i64) -> AResult<Option<NetxToken>> {
+    async fn get_token(&self,sessionid:i64) -> Result<Option<NetxToken>> {
         self.inner_call(async move|inner|{
             Ok(inner.get().get_token(sessionid))
         }).await
     }
 
     #[inline]
-    async fn get_all_tokens(&self) -> AResult<Vec<NetxToken>> {
+    async fn get_all_tokens(&self) -> Result<Vec<NetxToken>> {
         self.inner_call(async move|inner|{
             Ok(inner.get().get_all_tokens())
         }).await
     }
     #[inline]
-    async fn check_tokens_request_timeout(&self) -> AResult<()> {
+    async fn check_tokens_request_timeout(&self) -> Result<()> {
         self.inner_call(async move|inner|{
             inner.get().check_tokens_request_timeout().await
         }).await
     }
 
-    async fn check_tokens_disconnect_timeout(&self) -> AResult<()> {
+    async fn check_tokens_disconnect_timeout(&self) -> Result<()> {
         self.inner_call(async move|inner|{
             inner.get_mut().check_tokens_disconnect_timeout().await
         }).await
     }
 
     #[inline]
-    async fn peer_disconnect(&self, sessionid: i64) -> AResult<()> {
+    async fn peer_disconnect(&self, sessionid: i64) -> Result<()> {
         self.inner_call(async move|inner|{
             debug!("token {} start disconnect clear ",sessionid);
             inner.get_mut().request_disconnect_clear_queue.push_front((sessionid,Instant::now()));

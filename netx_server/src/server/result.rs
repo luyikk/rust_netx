@@ -1,10 +1,9 @@
 use data_rw::Data;
 use std::io;
-use aqueue::{AResult, AError};
 use std::io::ErrorKind;
 use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
-use std::error::Error;
+use anyhow::*;
 
 #[derive(Debug)]
 pub struct RetResult {
@@ -85,9 +84,9 @@ impl RetResult {
     }
 
     #[inline]
-    pub fn check(self)->AResult<RetResult>{
+    pub fn check(self)->Result<RetResult>{
         if self.is_error{
-            Err(AError::StrErr(format!("{}:{}",self.error_id,self.msg)))
+             bail!("{}:{}",self.error_id,self.msg)
         }else {
             Ok(self)
         }
@@ -102,7 +101,7 @@ impl RetResult {
     }
 
     #[inline]
-    pub fn deserialize<'a,T:Deserialize<'a>+'static>(&'a mut self)->Result<T,Box<dyn Error>>{
+    pub fn deserialize<'a,T:Deserialize<'a>+'static>(&'a mut self)->Result<T>{
         if self.is_empty() {
             return Err(io::Error::new(ErrorKind::Other, "index >= len").into())
         }

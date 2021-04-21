@@ -11,7 +11,7 @@ const CONNECT:i32=2147483647;
 const DISCONNECT:i32=2147483646;
 
 fn have_tag(method:&TraitItemMethod)->Option<i32>{
-    if let Some(tag) =namespace_parameter(&method.attrs,&parse_quote!(tag)){
+    if let Some(tag) =namespace_parameter(&method.attrs[..],&parse_quote!(tag)){
        match tag {
            NestedMeta::Lit(value)=>{
                match value {
@@ -56,28 +56,22 @@ fn get_function_tt(tag_id:i32,func_name:String, rt:Type)->u8{
                 if seq.ident=="Result"{
                     match &seq.arguments{
                         PathArguments::AngleBracketed(arg)=>{
-                            if arg.args.len()==2{
-                                if let GenericArgument::Type(Type::Path(  checkbox))= &arg.args[1] {
-                                    if let Some(checkbox_name)= checkbox.path.segments.first(){
-                                        if checkbox_name.ident=="Box"{
-                                            return if let GenericArgument::Type(Type::Tuple(rt)) = &arg.args[0] {
-                                                if rt.elems.is_empty(){
-                                                    1
-                                                }
-                                                else{
-                                                    2
-                                                }
-                                            } else {
-                                                2
-                                            }
-                                        }
+                            if arg.args.len()==1 {
+                                return if let GenericArgument::Type(Type::Tuple(rt)) = &arg.args[0] {
+                                    if rt.elems.is_empty() {
+                                        1
+                                    } else {
+                                        2
                                     }
+                                } else {
+                                    2
                                 }
                             }
-                            panic!("4 error return type by:{} {},fix like Result<?,Box<dyn Error>>",tag_id,func_name)
+
+                            panic!("4 error return type by:{} {},fix like anyhow::Result<?>",tag_id,func_name)
                         },
                         _=>{
-                            panic!("3 error return type by:{} {},fix like Result<?,Box<dyn Error>>",tag_id,func_name)
+                            panic!("3 error return type by:{} {},fix like anyhow::Result<?>",tag_id,func_name)
                         }
                     }
                 }
@@ -191,7 +185,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
 
         }
 
-        #[aqueue_trait]
+        #[async_trait::async_trait]
         impl<T:SessionSave+'static> #interface_name for #impl_interface_struct_name<Arc<Actor<NetXClient<T>>>>{
             #(#impl_func)*
         }
@@ -267,12 +261,12 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                          controller:Arc<#controller>
                      };
 
-                     #[aqueue_trait]
+                     #[async_trait::async_trait]
                      impl FunctionInfo for #struct_name{
                          #[inline]
                          fn function_type(&self) -> u8 { #tt  }
                          #[inline]
-                         async fn call(&self, mut data: Data) -> Result<RetResult, Box<dyn std::error::Error>> {
+                         async fn call(&self, mut data: Data) -> anyhow::Result<RetResult> {
                              #call
                          }
                      }
@@ -286,12 +280,12 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
             }
         });
         let expanded = quote! {
-            #[aqueue_trait]
+            #[async_trait::async_trait]
             #ast
 
             impl IController for #controller{
                 #[inline]
-                fn register(self:Arc<Self>) -> Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>, Box<dyn std::error::Error>> {
+                fn register(self:Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
                     use data_rw::{Data, ToData};
                     let mut dict=std::collections::HashMap::new();
                     #( #make)*
@@ -306,7 +300,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
     } else {
 
         let expanded = quote! {
-            #[aqueue_trait]
+            #[async_trait::async_trait]
             #ast
 
             #impl_interface
@@ -340,7 +334,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
         }
 
 
-        #[aqueue_trait]
+        #[async_trait::async_trait]
         impl #interface_name for #impl_interface_struct_name<NetxToken>{
             #(#impl_func)*
         }
@@ -373,7 +367,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                     quote! {
                         let args_len=data.get_le::<i32>()? as usize;
                         if args_len!=#args_len{
-                             return Err("args len error".into());
+                             anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         self.controller.#func_name (#(#arg_names,)*).await;
@@ -384,7 +378,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                     quote! {
                         let args_len=data.get_le::<i32>()? as usize;
                         if args_len!=#args_len{
-                             return Err("args len error".into());
+                             anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         self.controller.#func_name (#(#arg_names,)*).await?;
@@ -395,7 +389,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                     quote! {
                         let args_len=data.get_le::<i32>()? as usize;
                         if args_len!=#args_len{
-                             return Err("args len error".into());
+                             anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         let ret=self.controller.#func_name (#(#arg_names,)*).await?;
@@ -416,12 +410,12 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                          controller:Arc<#controller>
                      };
 
-                     #[aqueue_trait]
+                     #[async_trait::async_trait]
                      impl FunctionInfo for #struct_name{
                          #[inline]
                          fn function_type(&self) -> u8 { #tt  }
                          #[inline]
-                         async fn call(&self, mut data: Data) -> Result<RetResult, Box<dyn std::error::Error>> {
+                         async fn call(&self, mut data: Data) -> anyhow::Result<RetResult> {
                              #call
                          }
                      }
@@ -435,12 +429,12 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
             }
         });
         let expanded = quote! {
-            #[aqueue_trait]
+           #[async_trait::async_trait]
             #ast
 
             impl IController for #controller{
                 #[inline]
-                fn register(self:Arc<Self>) -> Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>, Box<dyn std::error::Error>> {
+                fn register(self:Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
                     use data_rw::{Data, ToData};
                     let mut dict=std::collections::HashMap::new();
                     #( #make)*
@@ -455,7 +449,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
     } else {
 
         let expanded = quote! {
-            #[aqueue_trait]
+           #[async_trait::async_trait]
             #ast
 
             #impl_interface
@@ -519,7 +513,7 @@ fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
 pub fn build_impl(_:TokenStream, input: TokenStream)-> TokenStream {
     let ast = parse_macro_input!(input as ItemImpl);
     TokenStream::from(quote! {
-            #[aqueue_trait]
+            #[async_trait::async_trait]
             #ast
         })
 }

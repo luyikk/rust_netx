@@ -1,6 +1,6 @@
 use tcpserver::{TCPPeer, Builder, ITCPServer, IPeer};
 use std::sync::{Arc, Weak};
-use aqueue::{Actor, AResult};
+use aqueue::Actor;
 use tokio::net::tcp::OwnedReadHalf;
 use log::*;
 use tokio::task::JoinHandle;
@@ -13,6 +13,7 @@ use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::async_token::{IAsyncToken, NetxToken};
 use crate::controller::ICreateController;
 use bytes::Buf;
+use anyhow::*;
 
 enum SpecialFunctionTag{
    CONNECT=2147483647,
@@ -65,21 +66,21 @@ impl<T: ICreateController +'static> NetXServer<T> {
    }
 
    #[inline]
-   async fn get_peer_token(mut reader:&mut OwnedReadHalf, peer:&Arc<Actor<TCPPeer>>, serv:&Arc<NetXServer<T>>) ->Result<NetxToken,Box<dyn Error>>{
+   async fn get_peer_token(mut reader:&mut OwnedReadHalf, peer:&Arc<Actor<TCPPeer>>, serv:&Arc<NetXServer<T>>) ->Result<NetxToken>{
       let cmd=reader.read_i32_le().await?;
       if cmd !=1000{
          Self::send_to_key_verify_msg(&peer,true,"not verify key").await?;
-         return Err("not verify key".into())
+          bail!("not verify key")
       }
       let name=reader.read_string().await?;
       if !serv.option.service_name.is_empty() && name !=serv.option.service_name{
          Self::send_to_key_verify_msg(&peer,true,"service name error").await?;
-         return Err(format!("IP:{} service name:{} error",peer.addr(),name).into())
+         bail!("IP:{} service name:{} error",peer.addr(),name)
       }
       let password=reader.read_string().await?;
       if !serv.option.verify_key.is_empty() && password!=serv.option.verify_key{
          Self::send_to_key_verify_msg(&peer,true,"service verify key error").await?;
-         return Err(format!("IP:{} verify key:{} error",peer.addr(),name).into())
+         bail!("IP:{} verify key:{} error",peer.addr(),name)
       }
       Self::send_to_key_verify_msg(&peer,false,"verify success").await?;
       let session=reader.read_i64_le().await?;
@@ -98,7 +99,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
    }
 
    #[inline]
-   async fn read_buff_byline(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<(),Box<dyn Error>>{
+   async fn read_buff_byline(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<()>{
       token.set_peer(Some(Arc::downgrade(peer))).await?;
       token.call_special_function(SpecialFunctionTag::CONNECT as i32).await?;
       Self::data_reading(&mut reader,peer,token).await?;
@@ -106,7 +107,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
    }
 
    #[inline]
-   async fn data_reading(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<(),Box<dyn Error>>{
+   async fn data_reading(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<()>{
 
       while let Ok(mut data)=reader.read_buff().await{
          let cmd=data.get_le::<i32>()?;
@@ -192,7 +193,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       data
    }
    #[inline]
-   async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> AResult<usize> {
+   async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> Result<usize> {
       let mut data=Data::new();
       data.write_to_le(&1000i32);
       data.write_to_le(&is_err);
@@ -201,7 +202,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       Self::sendto(peer,data).await
    }
    #[inline]
-   async fn sendto(peer:&Arc<Actor<TCPPeer>>,buff:Data)-> AResult<usize>{
+   async fn sendto(peer:&Arc<Actor<TCPPeer>>,buff:Data)-> Result<usize>{
       let buff=&*buff;
       let len=buff.len()+4;
       let mut data=Data::with_capacity(len);
@@ -214,7 +215,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       Ok(self.serv.start(self.clone()).await?)
    }
    #[inline]
-   pub async fn start_block(self:&Arc<Self>)->Result<(),Box<dyn Error>>{
+   pub async fn start_block(self:&Arc<Self>)->Result<()>{
       self.serv.start_block(self.clone()).await
    }
 }
