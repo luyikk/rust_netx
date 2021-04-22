@@ -5,7 +5,7 @@ mod user_manager;
 mod interface_client;
 
 use netxserver::*;
-use netxserver::log::LevelFilter;
+use log::LevelFilter;
 use crate::controller::ImplCreateController;
 use std::error::Error;
 

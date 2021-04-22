@@ -1,11 +1,11 @@
-use std::error::Error;
 use netxserver::*;
 use log::*;
 use tcpserver::IPeer;
 use packer::{LogOn, LogOnRes, User};
 use crate::user_manager::{USERMANAGER, IUserManager};
 use crate::interface_client::*;
-
+use anyhow::*;
+use std::sync::Arc;
 
 
 //实现服务器接口和业务,用来给服务器调用
@@ -15,20 +15,20 @@ pub trait IServerController {
     // connect 和 disconnect 在你需要的时候你可以实现它
     // connect and disconnect you can implement it when you need it
     #[tag(connect)]
-    async fn connect(&self)->Result<(),Box<dyn Error>>;
+    async fn connect(&self)->Result<()>;
     #[tag(disconnect)]
-    async fn disconnect(&self)->Result<(),Box<dyn Error>>;
+    async fn disconnect(&self)->Result<()>;
 
     #[tag(1000)]
-    async fn login(&self,msg:LogOn)->Result<LogOnRes,Box<dyn Error>>;
+    async fn login(&self,msg:LogOn)->Result<LogOnRes>;
     #[tag(1001)]
-    async fn get_users(&self)->Result<Vec<User>,Box<dyn Error>>;
+    async fn get_users(&self)->Result<Vec<User>>;
     #[tag(1002)]
-    async fn talk(&self,msg:String)->Result<(),Box<dyn Error>>;
+    async fn talk(&self,msg:String)->Result<()>;
     #[tag(1003)]
-    async fn to(&self,target_nickname:String,msg:String)->Result<(),Box<dyn Error>>;
+    async fn to(&self,target_nickname:String,msg:String)->Result<()>;
     #[tag(1004)]
-    async fn ping(&self,target_nickname:String,time:i64)->Result<i64,Box<dyn Error>>;
+    async fn ping(&self,target_nickname:String,time:i64)->Result<i64>;
 }
 
 pub struct ServerController {
@@ -50,7 +50,7 @@ impl Drop for ServerController {
 #[build_impl]
 impl IServerController for ServerController {
     #[inline]
-    async fn connect(&self) -> Result<(), Box<dyn Error>> {
+    async fn connect(&self) -> Result<()> {
         if let Some(weak) = self.token.get_peer().await? {
             if let Some(peer)=weak.upgrade(){
                 info!("addr:{} session {} connect",peer.addr(),self.token.get_sessionid())
@@ -59,7 +59,7 @@ impl IServerController for ServerController {
         Ok(())
     }
     #[inline]
-    async fn disconnect(&self) -> Result<(), Box<dyn Error>> {
+    async fn disconnect(&self) -> Result<()> {
         let user= USERMANAGER.find(self.token.get_sessionid()).await?;
         if let Some(weak) = self.token.get_peer().await? {
             if let Some(peer)=weak.upgrade(){
@@ -75,7 +75,7 @@ impl IServerController for ServerController {
     }
 
     #[inline]
-    async fn login(&self, msg: LogOn) -> Result<LogOnRes, Box<dyn Error>> {
+    async fn login(&self, msg: LogOn) -> Result<LogOnRes> {
         info!("{} is logon",msg.nickname);
 
         if USERMANAGER.check_nickname(msg.nickname.clone()).await? {
@@ -98,11 +98,11 @@ impl IServerController for ServerController {
     }
 
     #[inline]
-    async fn get_users(&self) -> Result<Vec<User>, Box<dyn Error>> {
+    async fn get_users(&self) -> Result<Vec<User>> {
         Ok(USERMANAGER.get_users().await)
     }
     #[inline]
-    async fn talk(&self, msg: String) -> Result<(), Box<dyn Error>> {
+    async fn talk(&self, msg: String) -> Result<()> {
         let current=USERMANAGER.find(self.token.get_sessionid()).await?;
         if let Some(current_user)=current {
             for user in USERMANAGER.get_users().await {
@@ -117,17 +117,17 @@ impl IServerController for ServerController {
             Ok(())
 
         }else{
-            Err("not login".into())
+            bail!("not login")
         }
     }
     #[inline]
-    async fn to(&self, target_nickname: String, msg: String) -> Result<(), Box<dyn Error>> {
+    async fn to(&self, target_nickname: String, msg: String) -> Result<()> {
         let current_user = USERMANAGER.find(self.token.get_sessionid()).await?.
-            ok_or("not login".to_string())?;
+            context("not login")?;
         let target_user = USERMANAGER.find_by_nickname(target_nickname.clone()).await?.
-            ok_or(format!("not found {}", target_nickname))?;
+            with_context(||format!("not found {}", target_nickname))?;
         let token = self.token.get_token(target_user.sessionid).await?.
-            ok_or(format!("not found {}", target_nickname))?;
+            with_context(||format!("not found {}", target_nickname))?;
 
         let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
         peer.message(current_user.nickname.clone(), msg, true).await;
@@ -135,13 +135,13 @@ impl IServerController for ServerController {
         Ok(())
     }
     #[inline]
-    async fn ping(&self,target_nickname:String,time:i64)->Result<i64,Box<dyn Error>> {
+    async fn ping(&self,target_nickname:String,time:i64)->Result<i64> {
         let current_user = USERMANAGER.find(self.token.get_sessionid()).await?.
-            ok_or("not login".to_string())?;
+            context("not login")?;
         let target_user = USERMANAGER.find_by_nickname(target_nickname.clone()).await?.
-            ok_or(format!("not found {}", target_nickname))?;
+            with_context(||format!("not found {}", target_nickname))?;
         let token = self.token.get_token(target_user.sessionid).await?.
-            ok_or(format!("not found {}", target_nickname))?;
+            with_context(||format!("not found {}", target_nickname))?;
         let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
         Ok(peer.ping(current_user.nickname.clone(), time).await?)
     }
@@ -153,7 +153,7 @@ impl IServerController for ServerController {
 pub struct ImplCreateController;
 impl ICreateController for ImplCreateController{
     #[inline]
-    fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>, Box<dyn Error>> {
+    fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>> {
         Ok(Arc::new(ServerController {
             token
         }))

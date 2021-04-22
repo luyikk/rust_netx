@@ -10,8 +10,9 @@ edition = "2018"
 tokio = { version = "1", features = ["full"] }
 log="0.4"
 env_logger = "0.8.2"
-netxclient="0.1.6"
+netxclient="1.0"
 serde_json = "1.0.61"
 chrono="0.4"
 packer={path="../packer"}
 anyhow="1.0"
+async-trait="0.1"

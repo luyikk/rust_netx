@@ -1,7 +1,6 @@
 use netxclient::*;
-use std::error::Error;
 use std::sync::Weak;
-
+use anyhow::*;
 
 //客户端接口和实现,用来被服务器调用
 //Client interface and implementation, used to be called by the server
@@ -14,13 +13,14 @@ pub trait IClientController {
     async fn message(&self,nickname:String,msg:String,to_me:bool);
 
     #[tag(3001)]
-    async fn ping(&self,nickname:String,time:i64)->Result<i64,Box<dyn Error>>;
+    async fn ping(&self,nickname:String,time:i64)->Result<i64>;
 }
 
 
 pub type Client=Weak<Actor<NetXClient<DefaultSessionStore>>>;
 
 pub struct ClientController{
+    #[allow(dead_code)]
     client:Client //store client,be used
 }
 
@@ -46,7 +46,7 @@ impl IClientController for ClientController{
     }
 
     #[inline]
-    async fn ping(&self, _nickname: String,time:i64) -> Result<i64, Box<dyn Error>> {
+    async fn ping(&self, _nickname: String,time:i64) -> Result<i64> {
         Ok(time)
     }
 }
