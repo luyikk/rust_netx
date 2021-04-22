@@ -70,7 +70,6 @@ impl AsyncToken{
                 }
             }
         }
-        debug!("not found cmd:{}",cmd);
         bail!("not found cmd:{}", cmd)
     }
 
@@ -82,14 +81,7 @@ impl AsyncToken{
     #[inline]
     pub fn set_error(&mut self,serial:i64,err:anyhow::Error)->Result<()>{
         if let Some(tx)= self.result_dict.remove(&serial){
-            match tx.send(Err(err)) {
-                Err(_) => {
-                    bail!("close rx")
-                },
-                Ok(_) => {
-                    Ok(())
-                }
-            }
+            tx.send(Err(err)).map_err(|_|anyhow!("rx is close"))
         }
         else{
             Ok(())
@@ -202,10 +194,10 @@ impl IAsyncToken for Actor<AsyncToken>{
     #[inline]
     async fn send(&self, buff: Data) -> Result<usize> {
         unsafe {
-            if let Some(ref peer)= self.deref_inner().peer{
-               if let Some(peer)= peer.upgrade(){
-                   return peer.send(buff).await
-               }
+            if let Some(ref peer)= self.deref_inner().peer {
+                let peer = peer.upgrade()
+                    .ok_or_else(|| anyhow!("token:{} tcp disconnect",self.get_sessionid()))?;
+                return peer.send(buff).await
             }
             bail!("token:{} tcp disconnect",self.get_sessionid())
         }
