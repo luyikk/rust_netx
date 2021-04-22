@@ -58,9 +58,9 @@ impl RetResult {
     #[inline]
     pub fn from(mut data:Data)->io::Result<RetResult>{
         if data.get_le::<bool>()?{
-            let error_id=data.get_le::<i32>()?;
-            let error_msg=data.get_le::<String>()?;
-            Ok(RetResult::new(true,error_id,error_msg,Vec::new()))
+            Ok(RetResult::new(true,data.get_le::<i32>()?,
+                              data.get_le::<String>()?,
+                              Vec::new()))
         }
         else{
             let len=data.get_le::<i32>()?;
@@ -104,7 +104,7 @@ impl RetResult {
         if self.is_empty() {
             return Err(io::Error::new(ErrorKind::Other, "index >= len").into())
         }
-        Ok(self.arguments[0].msgpack_to()?)
+        self.arguments[0].msgpack_to()
     }
 
 }
