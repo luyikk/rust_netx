@@ -2,9 +2,7 @@
 
 pub mod client;
 pub use client::*;
-pub use std::sync::Arc;
 pub use aqueue;
-pub use aqueue::aqueue_trait;
 pub use aqueue::Actor;
 pub use data_rw;
 pub use paste;

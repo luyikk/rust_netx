@@ -1,10 +1,11 @@
 use std::collections::VecDeque;
 use std::sync::{Weak, Arc};
-use aqueue::{Actor, AError, AResult};
+use aqueue::Actor;
 use crate::client::{NetXClient, SessionSave, INetXClient};
 use std::time::{Instant, Duration};
 use tokio::time::sleep;
 use log::*;
+use anyhow::*;
 
 
 pub struct RequestManager<T>{
@@ -48,7 +49,7 @@ impl<T:SessionSave+'static> RequestManager<T>{
             if item.1.elapsed().as_millis() as u32 >= self.request_out_time {
                 if let Some(client) = self.netx_client.upgrade() {
                     if let Err(er) = client
-                        .set_error(item.0, AError::StrErr(format!("serial:{} time out",item.0))).await {
+                        .set_error(item.0, anyhow!("serial:{} time out",item.0)).await {
                         error!("check err:{}", er);
                     }
                 }
@@ -65,23 +66,23 @@ impl<T:SessionSave+'static> RequestManager<T>{
     }
 }
 
-#[aqueue::aqueue_trait]
+#[async_trait::async_trait]
 pub trait IRequestManager{
-    async fn check(&self)->AResult<()>;
-    async fn set(&self,sessionid:i64)->AResult<()>;
+    async fn check(&self)->Result<()>;
+    async fn set(&self,sessionid:i64)->Result<()>;
 }
 
-#[aqueue::aqueue_trait]
+#[async_trait::async_trait]
 impl <T:SessionSave+'static> IRequestManager for Actor<RequestManager<T>>{
     #[inline]
-    async fn check(&self) -> AResult<()> {
+    async fn check(&self) -> Result<()> {
         self.inner_call(async move|inner|{
             inner.get_mut().check().await;
             Ok(())
         }).await
     }
     #[inline]
-    async fn set(&self,sessionid:i64) -> AResult<()> {
+    async fn set(&self,sessionid:i64) -> Result<()> {
         self.inner_call(async move|inner|{
             inner.get_mut().set(sessionid);
             Ok(())

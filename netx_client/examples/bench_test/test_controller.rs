@@ -1,15 +1,15 @@
 use std::cell::RefCell;
 use netxclient::*;
 use crate::server::*;
-use std::error::Error;
-
+use std::sync::Arc;
+use anyhow::*;
 
 #[build(TestController)]
 pub trait ITestController{
     #[tag(connect)]
-    async fn connect_ok(&self)->Result<(),Box<dyn Error>>;
+    async fn connect_ok(&self)->Result<()>;
     #[tag(disconnect)]
-    async fn disconnect(&self)->Result<(),Box<dyn Error>>;
+    async fn disconnect(&self)->Result<()>;
 
 }
 
@@ -38,12 +38,12 @@ unsafe  impl Send for TestController{}
 #[build_impl]
 impl ITestController for TestController{
     #[inline]
-    async fn connect_ok(&self) -> Result<(), Box<dyn Error>> {
+    async fn connect_ok(&self) -> Result<()> {
         println!("Connect OK");
         Ok(())
     }
     #[inline]
-    async fn disconnect(&self) -> Result<(), Box<dyn Error>> {
+    async fn disconnect(&self) -> Result<()> {
         println!("Disconnect");
         Ok(())
     }

@@ -186,7 +186,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
         }
 
         #[async_trait::async_trait]
-        impl<T:SessionSave+'static> #interface_name for #impl_interface_struct_name<Arc<Actor<NetXClient<T>>>>{
+        impl<T:SessionSave+'static> #interface_name for #impl_interface_struct_name<std::sync::Arc<Actor<NetXClient<T>>>>{
             #(#impl_func)*
         }
 
@@ -218,7 +218,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                     quote! {
                         let args_len=data.get_le::<i32>()? as usize;
                         if args_len!=#args_len{
-                             return Err("args len error".into());
+                             anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         self.controller.#func_name (#(#arg_names,)*).await;
@@ -229,7 +229,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                     quote! {
                         let args_len=data.get_le::<i32>()? as usize;
                         if args_len!=#args_len{
-                             return Err("args len error".into());
+                             anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         self.controller.#func_name (#(#arg_names,)*).await?;
@@ -240,7 +240,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                     quote! {
                         let args_len=data.get_le::<i32>()? as usize;
                         if args_len!=#args_len{
-                             return Err("args len error".into());
+                            anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         let ret=self.controller.#func_name (#(#arg_names,)*).await?;
@@ -258,7 +258,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
             quote! {
                 {
                      struct #struct_name{
-                         controller:Arc<#controller>
+                         controller:std::sync::Arc<#controller>
                      };
 
                      #[async_trait::async_trait]
@@ -285,7 +285,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
 
             impl IController for #controller{
                 #[inline]
-                fn register(self:Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
+                fn register(self:std::sync::Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
                     use data_rw::{Data, ToData};
                     let mut dict=std::collections::HashMap::new();
                     #( #make)*
@@ -407,7 +407,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
             quote! {
                 {
                      struct #struct_name{
-                         controller:Arc<#controller>
+                         controller:std::sync::Arc<#controller>
                      };
 
                      #[async_trait::async_trait]
@@ -434,7 +434,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
 
             impl IController for #controller{
                 #[inline]
-                fn register(self:Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
+                fn register(self:std::sync::Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
                     use data_rw::{Data, ToData};
                     let mut dict=std::collections::HashMap::new();
                     #( #make)*

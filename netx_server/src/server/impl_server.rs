@@ -4,7 +4,6 @@ use aqueue::Actor;
 use tokio::net::tcp::OwnedReadHalf;
 use log::*;
 use tokio::task::JoinHandle;
-use std::error::Error;
 use tokio::io::AsyncReadExt;
 use data_rw::Data;
 use crate::{OwnedReadHalfExt, ServerOption, RetResult};
@@ -210,7 +209,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       peer.send(data).await
    }
    #[inline]
-   pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>,Box<dyn Error>> {
+   pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>> {
       Ok(self.serv.start(self.clone()).await?)
    }
    #[inline]

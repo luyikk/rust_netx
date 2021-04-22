@@ -1,25 +1,25 @@
 use std::cell::RefCell;
 use netxclient::*;
 use crate::server::*;
-use std::error::Error;
-
+use anyhow::*;
+use std::sync::Arc;
 
 #[build(TestController)]
 pub trait ITestController{
     #[tag(connect)]
-    async fn connect_ok(&self)->Result<(),Box<dyn Error>>;
+    async fn connect_ok(&self)->Result<()>;
     #[tag(disconnect)]
-    async fn disconnect(&self)->Result<(),Box<dyn Error>>;
+    async fn disconnect(&self)->Result<()>;
     #[tag(2000)]
-    async fn add_one(&self,i:i32)->Result<i32,Box<dyn Error>>;
+    async fn add_one(&self,i:i32)->Result<i32>;
     #[tag(3000)]
     async fn print(&self,i:i32);
     #[tag(4000)]
-    async fn run(&self,name:String)->Result<(),Box<dyn Error>>;
+    async fn run(&self,name:String)->Result<()>;
     #[tag(5000)]
-    async fn print2(&self,i:i32,s:String)-> Result<(), Box<dyn Error>>;
+    async fn print2(&self,i:i32,s:String)-> Result<()>;
     #[tag(2002)]
-    async fn recursive_test(&self, a:i32)->Result<i32,Box<dyn Error>>;
+    async fn recursive_test(&self, a:i32)->Result<i32>;
 
 }
 
@@ -48,18 +48,18 @@ unsafe  impl Send for TestController{}
 #[build_impl]
 impl ITestController for TestController{
     #[inline]
-    async fn connect_ok(&self) -> Result<(), Box<dyn Error>> {
+    async fn connect_ok(&self) -> Result<()> {
         println!("Connect OK");
         Ok(())
     }
     #[inline]
-    async fn disconnect(&self) -> Result<(), Box<dyn Error>> {
+    async fn disconnect(&self) -> Result<()> {
         println!("Disconnect");
         Ok(())
     }
 
     #[inline]
-    async fn add_one(&self, i: i32) -> Result<i32, Box<dyn Error>> {
+    async fn add_one(&self, i: i32) -> Result<i32> {
         Ok(i+1)
     }
     #[inline]
@@ -67,19 +67,19 @@ impl ITestController for TestController{
         println!("{}",i);
     }
     #[inline]
-    async fn run(&self, name: String) -> Result<(), Box<dyn Error>> {
+    async fn run(&self, name: String) -> Result<()> {
         println!("name:{}",name);
         (*self.name.borrow_mut())=name;
         Ok(())
     }
     #[inline]
-    async fn print2(&self, i: i32, s: String)-> Result<(), Box<dyn Error>> {
+    async fn print2(&self, i: i32, s: String)-> Result<()> {
         println!("{}-{}-{}",i,s,self.name.borrow());
         Ok(())
     }
 
     #[inline]
-    async fn recursive_test(&self,mut a: i32) -> Result<i32, Box<dyn Error>> {
+    async fn recursive_test(&self,mut a: i32) -> Result<i32> {
         a -= 1;
         if a > 0 {
             let x: i32 = self.server.recursive_test(a).await?;

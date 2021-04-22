@@ -9,7 +9,6 @@ impl SessionSave for DefaultSessionStore{
     fn get_sessionid(&self) -> i64 {
         self.sessionid
     }
-
     fn store_sessionid(&mut self,sessionid:i64) {
         self.sessionid=sessionid
     }

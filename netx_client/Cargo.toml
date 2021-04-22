@@ -13,16 +13,16 @@ license = "MIT/Apache-2.0"
 tokio = { version = "1", features = ["full"] }
 bytes="0.6"
 log="0.4"
-tcpclient = "0.3"
+tcpclient = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 paste="1.0"
-aqueue="0.4"
+aqueue="1.0"
 async-trait="0.1"
-data-rw="0.3"
+data-rw="1.0"
 async-oneshot = "0.4"
-netxbuilder="0.2"
-
+netxbuilder={path="../netx_builder"}
+anyhow="1.0"
 
 [dev-dependencies]
 env_logger = "0.8.2"

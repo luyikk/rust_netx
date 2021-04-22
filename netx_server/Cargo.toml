@@ -17,7 +17,7 @@ aqueue="1.0"
 async-trait="0.1"
 anyhow="1.0"
 log="0.4"
-data-rw={path="../../buffer"}
+data-rw="1.0"
 paste="1.0"
 bytes="0.6"
 async-oneshot = "0.4"
