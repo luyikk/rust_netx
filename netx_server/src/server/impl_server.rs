@@ -14,9 +14,10 @@ use crate::controller::ICreateController;
 use bytes::Buf;
 use anyhow::*;
 
-enum SpecialFunctionTag{
+pub (crate) enum SpecialFunctionTag{
    Connect =2147483647,
-   Disconnect =2147483646
+   Disconnect =2147483646,
+   Closed=2147483645
 }
 
 pub struct NetXServer<T>{

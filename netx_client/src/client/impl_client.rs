@@ -26,7 +26,8 @@ pub trait SessionSave{
 
 enum SpecialFunctionTag{
     Connect =2147483647,
-    Disconnect =2147483646
+    Disconnect =2147483646,
+    Closed=2147483645
 }
 
 pub struct NetXClient<T>{
@@ -590,6 +591,9 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     #[inline]
     async fn close(&self) -> Result<()> {
         let net:Result<Arc<Actor<TcpClient>>>= self.inner_call(async move|inner|{
+            if let Err(er)=inner.get().call_special_function(SpecialFunctionTag::Closed as i32).await{
+                error!("call controller Closed err:{}",er)
+            }
             inner.get_mut().controller_fun_register_dict.clear();
             inner.get_mut().net.take().context("not connect")
         }).await;

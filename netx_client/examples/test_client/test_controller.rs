@@ -10,6 +10,8 @@ pub trait ITestController{
     async fn connect_ok(&self)->Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self)->Result<()>;
+    #[tag(closed)]
+    async fn closed(&self)->Result<()>;
     #[tag(2000)]
     async fn add_one(&self,i:i32)->Result<i32>;
     #[tag(3000)]
@@ -55,6 +57,12 @@ impl ITestController for TestController{
     #[inline]
     async fn disconnect(&self) -> Result<()> {
         println!("Disconnect");
+        Ok(())
+    }
+
+    #[inline]
+    async fn closed(&self) -> Result<()> {
+        println!("clean up world");
         Ok(())
     }
 
