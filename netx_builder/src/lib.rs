@@ -9,6 +9,7 @@ use global_info::*;
 
 const CONNECT:i32=2147483647;
 const DISCONNECT:i32=2147483646;
+const CLOSED:i32=2147483645;
 
 fn have_tag(method:&TraitItemMethod)->Option<i32>{
     if let Some(tag) =namespace_parameter(&method.attrs[..],&parse_quote!(tag)){
@@ -29,8 +30,9 @@ fn have_tag(method:&TraitItemMethod)->Option<i32>{
                           match &segment.ident.to_string()[..]{
                               "connect"=> return Some(CONNECT),
                               "disconnect"=>return Some(DISCONNECT),
+                              "closed"=>return Some(CLOSED),
                               _ => {
-                                  panic!("tag error:{},like connect or disconnect?", segment.ident.to_string())
+                                  panic!("tag error:{},like connect or disconnect,closed?", segment.ident.to_string())
                               }
                           }
 

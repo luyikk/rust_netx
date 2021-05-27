@@ -15,6 +15,8 @@ pub trait ITestController{
     async fn connect(&self)->Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self)->Result<()>;
+    #[tag(closed)]
+    async fn closed(&self)->Result<()>;
     #[tag(600)]
     async fn print2(&self,a:i32,b:String)->Result<()>;
     #[tag(700)]
@@ -81,6 +83,12 @@ impl ITestController for TestController{
             }
         }
 
+        Ok(())
+    }
+
+    #[inline]
+    async fn closed(&self) -> Result<()> {
+        println!("clean up world");
         Ok(())
     }
 

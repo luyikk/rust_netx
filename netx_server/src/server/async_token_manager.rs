@@ -7,6 +7,7 @@ use crate::async_token::IAsyncToken;
 use tokio::time::{sleep, Duration, Instant};
 use log::*;
 use anyhow::*;
+use crate::impl_server::SpecialFunctionTag;
 
 pub struct AsyncTokenManager<T>{
     impl_controller:T,
@@ -70,6 +71,9 @@ impl<T: ICreateController +'static> AsyncTokenManager<T>{
                 if let Some(token)= self.dict.get(&item.0) {
                     if token.is_disconnect().await? {
                         if let Some(token) = self.dict.remove(&item.0) {
+                            if let Err(er)= token.call_special_function(SpecialFunctionTag::Closed as i32).await{
+                                error!("call token Closed err:{}",er)
+                            }
                             token.clear_controller_fun_maps().await?;
                             debug!("token {} remove", token.get_sessionid());
                         } else{
