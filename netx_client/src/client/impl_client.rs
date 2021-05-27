@@ -721,7 +721,7 @@ macro_rules! call {
      (@run_not_err $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
                if let Err(err)= $client.connect_network().await{
-                    log::error!{"run {} is error:{}",$cmd,err}
+                    log::error!{"run connect {} is error:{}",$cmd,err}
                }
             }
             use data_rw::Data;
@@ -739,7 +739,7 @@ macro_rules! call {
               }
             )*
             if let Err(err)= $client.run(data).await{
-                 log::error!{"run {} is error:{}",$cmd,err}
+                 log::warn!{"run {} is error:{}",$cmd,err}
             }
     });
     (@checkrun $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({

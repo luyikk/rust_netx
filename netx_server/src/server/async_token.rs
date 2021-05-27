@@ -390,7 +390,7 @@ macro_rules! call_peer {
               }
             )*
             if let Err(err)= $peer.run(data).await{
-                 log::error!{"run {} is error:{}",$cmd,err}
+                 log::warn!{"run {} is error:{}",$cmd,err}
             }
     });
     (@checkrun $peer:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
