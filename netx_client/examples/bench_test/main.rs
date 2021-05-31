@@ -35,7 +35,7 @@ async fn main()->Result<(),Box<dyn Error>> {
                                                   "".into(),
                                                   "123123".into(),
                                                   10000),
-                                DefaultSessionStore::default()).await.unwrap();
+                                DefaultSessionStore::default());
 
 
             client.init(TestController::new(client.clone())).await.unwrap();
