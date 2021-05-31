@@ -17,6 +17,7 @@ use anyhow::*;
 use crate::client::result::RetResult;
 use crate::client::request_manager::{RequestManager,IRequestManager};
 use crate::client::controller::{FunctionInfo, IController};
+use std::cell::RefCell;
 
 
 pub trait SessionSave{
@@ -37,7 +38,7 @@ pub struct NetXClient<T>{
     connect_stats:Option<WReceiver<(bool,String)>>,
     result_dict:HashMap<i64,Sender<Result<Data>>>,
     serial_atomic:AtomicI64,
-    request_manager:Option<Arc<Actor<RequestManager<T>>>>,
+    request_manager:RefCell<Option<Arc<Actor<RequestManager<T>>>>>,
     controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
     mode:u8
 }
@@ -77,7 +78,7 @@ impl ServerOption {
 }
 
 impl<T:SessionSave+'static> NetXClient<T>{
-    pub async fn new(serverinfo: ServerOption, session:T) ->Result<Arc<Actor<NetXClient<T>>>>{
+    pub fn new(serverinfo: ServerOption, session:T) ->Arc<Actor<NetXClient<T>>>{
         let request_out_time_ms=serverinfo.request_out_time_ms;
         let netx_client=Arc::new(Actor::new(NetXClient{
             session,
@@ -86,14 +87,16 @@ impl<T:SessionSave+'static> NetXClient<T>{
             result_dict:HashMap::new(),
             connect_stats:None,
             serial_atomic:AtomicI64::new(1),
-            request_manager:None,
+            request_manager:RefCell::new(None),
             controller_fun_register_dict:HashMap::new(),
             mode:0
         }));
 
         let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
-        netx_client.set_request_manager(request_manager).await?;
-        Ok(netx_client)
+        unsafe {
+            (*netx_client.deref_inner().request_manager.borrow_mut())=Some(request_manager)
+        }
+        netx_client
     }
 
     #[inline]
@@ -344,14 +347,16 @@ impl<T:SessionSave+'static> NetXClient<T>{
 
     #[inline]
     pub fn set_request_manager(&mut self, request:Arc<Actor<RequestManager<T>>>){
-        self.request_manager=Some(request);
+        *self.request_manager.borrow_mut()= Some(request);
     }
 
     #[inline]
-    pub (crate) async fn set_request_sessionid(&self,sessionid:i64)->Result<()>{
-        if let Some(ref request)=self.request_manager{
+    pub (crate) async fn set_request_sessionid(&self,sessionid:i64)->Result<()> {
+        let request=(*self.request_manager.borrow()).clone();
+        if let Some(request) = request {
             return request.set(sessionid).await
         }
+
         Ok(())
     }
 }

@@ -14,6 +14,9 @@ pub struct RequestManager<T>{
     netx_client:Weak<Actor<NetXClient<T>>>
 }
 
+unsafe impl<T> Send for  RequestManager<T>{}
+unsafe impl<T> Sync for  RequestManager<T>{}
+
 impl<T> Drop for RequestManager<T>{
     fn drop(&mut self) {
         debug!("request manager is drop");
