@@ -30,7 +30,7 @@ async fn main()->Result<(),Box<dyn Error>> {
     //use defaultSessionStore. If you want to store sessions, you need impl trail [SessionSave]
     let client =
         NetXClient::new(serverinfo,
-                        DefaultSessionStore::default()).await?;
+                        DefaultSessionStore::default());
     // 初始化控制器,用来被服务器调用
     //init controller,it will be called by server
     client.init(ClientController::new(Arc::downgrade(&client))).await?;
