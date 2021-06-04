@@ -13,11 +13,11 @@ use data_rw::Data;
 use bytes::Buf;
 use log::*;
 use anyhow::*;
+use once_cell::sync::OnceCell;
 
 use crate::client::result::RetResult;
 use crate::client::request_manager::{RequestManager,IRequestManager};
 use crate::client::controller::{FunctionInfo, IController};
-use std::cell::RefCell;
 
 
 pub trait SessionSave{
@@ -38,7 +38,7 @@ pub struct NetXClient<T>{
     connect_stats:Option<WReceiver<(bool,String)>>,
     result_dict:HashMap<i64,Sender<Result<Data>>>,
     serial_atomic:AtomicI64,
-    request_manager:RefCell<Option<Arc<Actor<RequestManager<T>>>>>,
+    request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
     controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
     mode:u8
 }
@@ -87,14 +87,16 @@ impl<T:SessionSave+'static> NetXClient<T>{
             result_dict:HashMap::new(),
             connect_stats:None,
             serial_atomic:AtomicI64::new(1),
-            request_manager:RefCell::new(None),
+            request_manager:OnceCell::new(),
             controller_fun_register_dict:HashMap::new(),
             mode:0
         }));
 
         let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
         unsafe {
-            (*netx_client.deref_inner().request_manager.borrow_mut())=Some(request_manager)
+            if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
+                error!("not set request_manager,request_manager may not be none")
+            }
         }
         netx_client
     }
@@ -345,18 +347,12 @@ impl<T:SessionSave+'static> NetXClient<T>{
         self.result_dict.len()
     }
 
-    #[inline]
-    pub fn set_request_manager(&mut self, request:Arc<Actor<RequestManager<T>>>){
-        *self.request_manager.borrow_mut()= Some(request);
-    }
 
     #[inline]
     pub (crate) async fn set_request_sessionid(&self,sessionid:i64)->Result<()> {
-        let request=(*self.request_manager.borrow()).clone();
-        if let Some(request) = request {
+        if let Some(request) = self.request_manager.get() {
             return request.set(sessionid).await
         }
-
         Ok(())
     }
 }
@@ -380,7 +376,6 @@ pub trait INetXClient<T>{
     async fn get_callback_len(&self) -> Result<usize> ;
     async fn set_result(&self,serial:i64,data:Data)->Result<()>;
     async fn set_error(&self,serial:i64,err:anyhow::Error)->Result<()>;
-    async fn set_request_manager(&self,request:Arc<Actor<RequestManager<T>>>)->Result<()>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
     async fn call_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn close(&self)-> Result<()>;
@@ -564,13 +559,6 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         } else{
             Ok(())
         }
-    }
-    #[inline]
-    async fn set_request_manager(&self, request: Arc<Actor<RequestManager<T>>>) -> Result<()> {
-        self.inner_call(async move|inner|{
-            inner.get_mut().set_request_manager(request);
-            Ok(())
-        }).await
     }
 
     #[inline]
