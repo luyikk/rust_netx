@@ -10,3 +10,4 @@ pub use data_rw;
 pub use paste;
 pub use netxbuilder::{tag, build_server as build,build_impl};
 pub use tcpserver;
+pub use bytes::buf::BufMut;

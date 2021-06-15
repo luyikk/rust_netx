@@ -11,7 +11,7 @@ use crate::server::async_token_manager::AsyncTokenManager;
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::async_token::{IAsyncToken, NetxToken};
 use crate::controller::ICreateController;
-use bytes::Buf;
+use bytes::{Buf, BufMut};
 use anyhow::*;
 
 pub (crate) enum SpecialFunctionTag{
@@ -112,7 +112,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
          let cmd=data.get_le::<i32>()?;
          match cmd {
             2000=>{
-               Self::sendto(peer,Self::send_to_sessionid( token.get_sessionid())).await?;
+               Self::send_to_sessionid( peer,token.get_sessionid()).await?;
             },
             2400 => {
                let tt=data.get_le::<u8>()?;
@@ -129,7 +129,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
                      let run_token=token.clone();
                      tokio::spawn(async move{
                         let res= run_token.run_controller(tt,cmd,data).await;
-                        if let Err(er)= run_token.send(Self::get_result_buff(serial,res)).await{
+                        if let Err(er)= run_token.send(&Self::get_result_buff(serial,res)).await{
                            error!("send buff 1 error:{}",er);
                         }
                      });
@@ -138,7 +138,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
                      let run_token=token.clone();
                      tokio::spawn(async move{
                         let res= run_token.run_controller(tt,cmd,data).await;
-                        if let Err(er)=  run_token.send(Self::get_result_buff(serial,res)).await{
+                        if let Err(er)=  run_token.send(&Self::get_result_buff(serial,res)).await{
                            error!("send buff {} error:{}",serial,er);
                         }
                      });
@@ -163,6 +163,8 @@ impl<T: ICreateController +'static> NetXServer<T> {
    #[inline]
    fn get_result_buff(serial:i64,result:RetResult)->Data {
       let mut data = Data::with_capacity(1024);
+
+      data.write_to_le(&(0u32));
       data.write_to_le(&2500u32);
       data.write_to_le(&serial);
 
@@ -178,37 +180,35 @@ impl<T: ICreateController +'static> NetXServer<T> {
          }
       }
 
-      let len = data.len() + 4usize;
-      let mut buff = Data::with_capacity(len);
-      buff.write_to_le(&(len as u32));
-      buff.write(&data);
-      buff
+
+      let len=data.len();
+      (&mut data[0..4]).put_u32_le(len as u32);
+      data
+
    }
    #[inline]
-   fn send_to_sessionid(sessionid:i64)->Data{
+   async fn send_to_sessionid(peer:&Arc<Actor<TCPPeer>>,sessionid:i64)-> Result<usize>{
       let mut data=Data::new();
+      data.write_to_le(&0u32);
       data.write_to_le(&2000i32);
       data.write_to_le(&sessionid);
-      data
+      let len=data.len();
+      (&mut data[0..4]).put_u32_le(len as u32);
+      peer.send(&data).await
    }
    #[inline]
    async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> Result<usize> {
       let mut data=Data::new();
+      data.write_to_le(&0u32);
       data.write_to_le(&1000i32);
       data.write_to_le(&is_err);
       data.write_to_le(&msg);
       data.write_to_le(&1u8);
-      Self::sendto(peer,data).await
+      let len=data.len();
+      (&mut data[0..4]).put_u32_le(len as u32);
+      peer.send(&data).await
    }
-   #[inline]
-   async fn sendto(peer:&Arc<Actor<TCPPeer>>,buff:Data)-> Result<usize>{
-      let buff=&*buff;
-      let len=buff.len()+4;
-      let mut data=Data::with_capacity(len);
-      data.write_to_le(&(len as u32));
-      data.write(buff);
-      peer.send(data).await
-   }
+
    #[inline]
    pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>> {
       Ok(self.serv.start(self.clone()).await?)

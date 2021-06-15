@@ -112,7 +112,7 @@ pub trait IAsyncToken{
     async fn get_peer(&self)->Result<Option<Weak<Actor<TCPPeer>>>>;
     async fn call_special_function(&self,cmd:i32)->Result<()>;
     async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
-    async fn send(&self, buff: Data) -> Result<usize>;
+    async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize>;
     async fn get_token(&self,sessionid:i64)->Result<Option<NetxToken>>;
     async fn get_all_tokens(&self)->Result<Vec<NetxToken>>;
     async fn call(&self,serial:i64,buff: Data)->Result<RetResult>;
@@ -192,7 +192,7 @@ impl IAsyncToken for Actor<AsyncToken>{
     }
 
     #[inline]
-    async fn send(&self, buff: Data) -> Result<usize> {
+    async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize> {
         unsafe {
             if let Some(ref peer)= self.deref_inner().peer {
                 let peer = peer.upgrade()
@@ -239,12 +239,7 @@ impl IAsyncToken for Actor<AsyncToken>{
                 bail!("call not connect")
             }
         }).await?;
-
-        let len=buff.len()+4;
-        let mut data=Data::with_capacity(len);
-        data.write_to_le(&(len as u32));
-        data.write(&buff);
-        peer.send(data).await?;
+        peer.send(&buff).await?;
         match rx.await {
             Err(_)=>{
                 Err(anyhow!("tx is Close"))
@@ -264,12 +259,7 @@ impl IAsyncToken for Actor<AsyncToken>{
                 bail!("run not connect")
             }
         }).await?;
-
-        let len=buff.len()+4;
-        let mut data=Data::with_capacity(len);
-        data.write_to_le(&(len as u32));
-        data.write(&buff);
-        peer.send(data).await?;
+        peer.send(&buff).await?;
         Ok(())
     }
 
@@ -339,12 +329,15 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
+            data.write_to_le(&0u32);
             data.write_to_le(&2400u32);
             data.write_to_le(&2u8);
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
+            let len=data.len();
+            (&mut data[0..4]).put_u32_le(len as u32);
             let mut ret= $peer.call(serial,data).await?.check()?;
             ret.deserialize()?
     });
@@ -353,12 +346,15 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
+            data.write_to_le(&0u32);
             data.write_to_le(&2400u32);
             data.write_to_le(&2u8);
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
+            let len=data.len();
+            (&mut data[0..4]).put_u32_le(len as u32);
             $peer.call(serial,data).await?
     });
     (@run $peer:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
@@ -366,12 +362,15 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
+            data.write_to_le(&0u32);
             data.write_to_le(&2400u32);
             data.write_to_le(&0u8);
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
+            let len=data.len();
+            (&mut data[0..4]).put_u32_le(len as u32);
             $peer.run(data).await?;
     });
      (@run_not_err $peer:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
@@ -379,6 +378,7 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
+            data.write_to_le(&0u32);
             data.write_to_le(&2400u32);
             data.write_to_le(&0u8);
             data.write_to_le(&$cmd);
@@ -389,6 +389,8 @@ macro_rules! call_peer {
                  log::error!{"msgpack_serialize {} is error:{}",$cmd,err};
               }
             )*
+            let len=data.len();
+            (&mut data[0..4]).put_u32_le(len as u32);
             if let Err(err)= $peer.run(data).await{
                  log::warn!{"run {} is error:{}",$cmd,err}
             }
@@ -398,12 +400,15 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
+            data.write_to_le(&0u32);
             data.write_to_le(&2400u32);
             data.write_to_le(&1u8);
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(data.msgpack_serialize($args)?;)*
+            let len=data.len();
+            (&mut data[0..4]).put_u32_le(len as u32);
             $peer.call(serial,data).await?.check()?;
     });
 

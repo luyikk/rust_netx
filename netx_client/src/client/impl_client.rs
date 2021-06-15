@@ -121,7 +121,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
     async fn read_buffer(netx_client: &mut Arc<Actor<NetXClient<T>>>, set_connect: WSender<(bool, String)>, client: Arc<Actor<TcpClient>>, reader: &mut OwnedReadHalf)->Result<()> {
         let serverinfo = netx_client.get_serviceinfo();
         let mut sessionid = netx_client.get_sessionid();
-        client.send(Self::get_verify_buff(&serverinfo.service_name, &serverinfo.verify_key, &sessionid)).await?;
+        client.send(&Self::get_verify_buff(&serverinfo.service_name, &serverinfo.verify_key, &sessionid)).await?;
         let mut option_connect = Some(set_connect);
         while let Ok(len) = reader.read_u32_le().await {
             let len = (len - 4) as usize;
@@ -136,7 +136,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                             if data.have_len() == 1 && data.get_u8() == 1 {
                                 netx_client.set_mode(1).await?;
                             }
-                            client.send(Self::get_sessionid_buff(netx_client.get_mode())).await?;
+                            client.send(&Self::get_sessionid_buff(netx_client.get_mode())).await?;
                             netx_client.call_special_function(SpecialFunctionTag::Connect as i32).await?;
                             if let Some(set_connect) = option_connect.take() {
                                 if set_connect.send((true, "success".into())).is_err() {
@@ -179,7 +179,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                             let send_client = client.clone();
                             tokio::spawn(async move {
                                 let res = run_netx_client.call_controller(tt, cmd, data).await;
-                                if let Err(er) = send_client.send(Self::get_result_buff(sessionid, res, run_netx_client.get_mode())).await {
+                                if let Err(er) = send_client.send(&Self::get_result_buff(sessionid, res, run_netx_client.get_mode())).await {
                                     error!("send buff 1 error:{}", er);
                                 }
                             });
@@ -189,7 +189,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
                             let send_client = client.clone();
                             tokio::spawn(async move {
                                 let res = run_netx_client.call_controller(tt, cmd, data).await;
-                                if let Err(er) = send_client.send(Self::get_result_buff(sessionid, res, run_netx_client.get_mode())).await {
+                                if let Err(er) = send_client.send(&Self::get_result_buff(sessionid, res, run_netx_client.get_mode())).await {
                                     error!("send buff 2 error:{}", er);
                                 }
                             });
@@ -618,14 +618,14 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             self.deref_inner().set_request_sessionid(serial).await?;
         }
         if self.get_mode()==0 {
-            net.send(buff).await?;
+            net.send(&buff).await?;
         }
         else{
             let len=buff.len()+4;
             let mut data=Data::with_capacity(len);
             data.write_to_le(&(len as u32));
             data.write(&buff);
-            net.send(data).await?;
+            net.send(&data).await?;
         }
         match rx.await {
             Err(_)=>{
@@ -647,14 +647,14 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             }
         }).await?;
         if self.get_mode()==0 {
-            net.send(buff).await?;
+            net.send(&buff).await?;
         }
         else{
             let len=buff.len()+4;
             let mut data=Data::with_capacity(len);
             data.write_to_le(&(len as u32));
             data.write(&buff);
-            net.send(data).await?;
+            net.send(&data).await?;
         }
 
         Ok(())
