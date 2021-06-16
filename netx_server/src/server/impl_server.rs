@@ -1,8 +1,8 @@
-use tcpserver::{Builder, ITCPServer, IPeer};
+use tcpserver::{Builder, ITCPServer, IPeer, TCPPeer};
 use std::sync::{Arc, Weak};
 use log::*;
 use tokio::task::JoinHandle;
-use tokio::io::{AsyncReadExt, AsyncRead, AsyncWrite, ReadHalf};
+use tokio::io::{AsyncReadExt, ReadHalf};
 use data_rw::Data;
 use crate::{ReadHalfExt, ServerOption, RetResult};
 use crate::server::async_token_manager::AsyncTokenManager;
@@ -11,40 +11,92 @@ use crate::async_token::{IAsyncToken, NetxToken};
 use crate::controller::ICreateController;
 use bytes::{Buf, BufMut};
 use anyhow::*;
-use std::marker::PhantomData;
-use std::future::Future;
-use crate::tcpserver::StreamInitType;
+use aqueue::Actor;
+
+cfg_if::cfg_if! {
+if #[cfg(feature = "tls")]{
+   use openssl::ssl::{Ssl,SslAcceptor};
+   use tokio::net::TcpStream;
+   use tokio_openssl::SslStream;
+   use std::time::Duration;
+   use tokio::time::sleep;
+   use std::pin::Pin;
+   pub type NetPeer=Actor<TCPPeer<SslStream<TcpStream>>>;
+   pub type NetReadHalf=ReadHalf<SslStream<TcpStream>>;
+
+}else if #[cfg(feature = "tcp")]{
+   use tokio::net::TcpStream;
+   pub type NetPeer=Actor<TCPPeer<TcpStream>>;
+   pub type NetReadHalf=ReadHalf<TcpStream>;
+}
+}
 
 pub (crate) enum SpecialFunctionTag{
    Connect =2147483647,
    Disconnect =2147483646,
    Closed=2147483645
 }
-
-pub struct NetXServer<T,C>{
+pub struct NetXServer<T>{
    option:ServerOption,
-   serv:Arc<dyn ITCPServer<Arc<NetXServer<T,C>>>>,
+   serv:Arc<dyn ITCPServer<Arc<NetXServer<T>>>>,
    async_tokens:TokenManager<T>,
-   _phantom:PhantomData<C>
 }
-unsafe impl<T,C> Send for NetXServer<T,C>{}
-unsafe impl<T,C> Sync for NetXServer<T,C>{}
+unsafe impl<T> Send for NetXServer<T>{}
+unsafe impl<T> Sync for NetXServer<T>{}
 
 
-impl<T,C> NetXServer<T,C>
-   where T: ICreateController +'static,
-         C: AsyncRead + AsyncWrite + Send +'static{
+impl<T> NetXServer<T>
+   where T: ICreateController +'static{
+
+cfg_if::cfg_if! {
+if #[cfg(feature = "tls")]{
    #[inline]
-   pub async fn new<B>(init_stream:StreamInitType<B>, option:ServerOption,impl_controller:T)->Arc<NetXServer<T,C>>
-   where B: Future<Output = Result<C>> + Send + 'static,{
-
+   pub async fn new(ssl_acceptor:&'static SslAcceptor,option:ServerOption,impl_controller:T)->Arc<NetXServer<T>> {
       let serv = Builder::new(&option.addr).set_connect_event(|addr| {
          info!("{} connect", addr);
          true
       })
-      .set_stream_init(init_stream)
+      .set_stream_init(async move |tcp_stream|{
+         let ssl = Ssl::new(ssl_acceptor.context())?;
+         let mut stream = SslStream::new(ssl, tcp_stream)?;
+         sleep(Duration::from_millis(200)).await;
+         Pin::new(&mut stream).accept().await?;
+         Ok(stream)
+      })
       .set_input_event(async move |mut reader, peer, serv| {
-         let peer:Arc<dyn IPeer>=peer;
+          let addr = peer.addr();
+          let token = match Self::get_peer_token(&mut reader, &peer, &serv).await {
+                Ok(token) => token,
+                Err(er) => {
+                   info!("user:{}:{},disconnect it", addr, er);
+                   return Ok(())
+                }
+          };
+
+          Self::read_buff_byline(&mut reader, &peer, &token).await?;
+          token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
+          serv.async_tokens.peer_disconnect(token.get_sessionid()).await?;
+          Ok(())
+      }).build().await;
+      let request_out_time = option.request_out_time;
+      let session_save_time = option.session_save_time;
+      Arc::new(NetXServer {
+         option,
+         serv,
+         async_tokens: AsyncTokenManager::new(impl_controller, request_out_time, session_save_time)
+      })
+   }
+}else if #[cfg(feature = "tcp")]{
+   #[inline]
+   pub async fn new(option:ServerOption,impl_controller:T)->Arc<NetXServer<T>> {
+      let serv = Builder::new(&option.addr).set_connect_event(|addr| {
+         info!("{} connect", addr);
+         true
+      })
+      .set_stream_init(async move |tcp_stream|{
+         Ok(tcp_stream)
+       })
+      .set_input_event(async move |mut reader, peer, serv| {
          let addr = peer.addr();
          let token = match Self::get_peer_token(&mut reader, &peer, &serv).await {
             Ok(token) => token,
@@ -64,13 +116,12 @@ impl<T,C> NetXServer<T,C>
       Arc::new(NetXServer {
          option,
          serv,
-         async_tokens: AsyncTokenManager::new(impl_controller, request_out_time, session_save_time),
-         _phantom: Default::default()
+         async_tokens: AsyncTokenManager::new(impl_controller, request_out_time, session_save_time)
       })
    }
-
+}}
    #[inline]
-   async fn get_peer_token(mut reader:&mut ReadHalf<C>, peer:&Arc<dyn IPeer>, serv:&Arc<NetXServer<T,C>>) ->Result<NetxToken>{
+   async fn get_peer_token(mut reader:&mut NetReadHalf, peer:&Arc<NetPeer>, serv:&Arc<NetXServer<T>>) ->Result<NetxToken>{
       let cmd=reader.read_i32_le().await?;
       if cmd !=1000{
          Self::send_to_key_verify_msg(&peer,true,"not verify key").await?;
@@ -103,7 +154,7 @@ impl<T,C> NetXServer<T,C>
    }
 
    #[inline]
-   async fn read_buff_byline(mut reader:&mut ReadHalf<C>,peer:&Arc<dyn IPeer>,token:&NetxToken)->Result<()>{
+   async fn read_buff_byline(mut reader:&mut NetReadHalf,peer:&Arc<NetPeer>,token:&NetxToken)->Result<()>{
       token.set_peer(Some(Arc::downgrade(peer))).await?;
       token.call_special_function(SpecialFunctionTag::Connect as i32).await?;
       Self::data_reading(&mut reader,peer,token).await?;
@@ -111,7 +162,7 @@ impl<T,C> NetXServer<T,C>
    }
 
    #[inline]
-   async fn data_reading(mut reader:&mut ReadHalf<C>,peer:&Arc<dyn IPeer>,token:&NetxToken)->Result<()>{
+   async fn data_reading(mut reader:&mut NetReadHalf,peer:&Arc<NetPeer>,token:&NetxToken)->Result<()>{
       while let Ok(mut data)=reader.read_buff().await{
          let cmd=data.get_le::<i32>()?;
          match cmd {
@@ -191,7 +242,7 @@ impl<T,C> NetXServer<T,C>
 
    }
    #[inline]
-   async fn send_to_sessionid(peer:&Arc<dyn IPeer>,sessionid:i64)-> Result<usize>{
+   async fn send_to_sessionid(peer:&Arc<NetPeer>,sessionid:i64)-> Result<usize>{
       let mut data=Data::new();
       data.write_to_le(&0u32);
       data.write_to_le(&2000i32);
@@ -201,7 +252,7 @@ impl<T,C> NetXServer<T,C>
       peer.send(&data).await
    }
    #[inline]
-   async fn send_to_key_verify_msg(peer:&Arc<dyn IPeer>, is_err:bool, msg:&str) -> Result<usize> {
+   async fn send_to_key_verify_msg(peer:&Arc<NetPeer>, is_err:bool, msg:&str) -> Result<usize> {
       let mut data=Data::new();
       data.write_to_le(&0u32);
       data.write_to_le(&1000i32);

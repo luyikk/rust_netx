@@ -5,7 +5,7 @@ use log::*;
 use crate::test_struct::{LogOn, LogOnResult};
 use anyhow::*;
 use std::cell::Cell;
-
+use tcpserver::IPeer;
 
 
 #[build(TestController)]
