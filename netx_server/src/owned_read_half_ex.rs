@@ -1,18 +1,18 @@
-use tokio::net::tcp::OwnedReadHalf;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, ReadHalf, AsyncRead, AsyncWrite};
 use data_rw::Data;
 use std::io;
 
 
 #[async_trait::async_trait]
-pub trait OwnedReadHalfExt{
+pub trait ReadHalfExt{
     async fn read_string(&mut self)->io::Result<String>;
     async fn read_buff(&mut self)->io::Result<Data>;
     async fn read_buff_by(&mut self,data:&mut Data)->io::Result<usize>;
 }
 
 #[async_trait::async_trait]
-impl OwnedReadHalfExt for &mut OwnedReadHalf{
+impl<C> ReadHalfExt for &mut ReadHalf<C>
+    where C: AsyncRead + AsyncWrite + Send +'static{
     #[inline]
     async fn read_string(&mut self)->io::Result<String>{
         let len= self.read_u32_le().await? as usize;

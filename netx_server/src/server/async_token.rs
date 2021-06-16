@@ -2,7 +2,7 @@ use aqueue::Actor;
 use std::collections::{HashMap, VecDeque};
 use crate::controller::FunctionInfo;
 use std::sync::{Arc, Weak};
-use tcpserver::{TCPPeer, IPeer};
+use tcpserver::IPeer;
 use data_rw::Data;
 use crate::RetResult;
 use log::*;
@@ -15,7 +15,7 @@ use anyhow::*;
 pub struct AsyncToken{
     sessionid:i64,
     controller_fun_register_dict:Option<HashMap<i32,Box<dyn FunctionInfo>>>,
-    peer:Option<Weak<Actor<TCPPeer>>>,
+    peer:Option<Weak<dyn IPeer>>,
     manager: Weak<dyn IAsyncTokenManager>,
     result_dict:HashMap<i64,Sender<Result<Data>>>,
     serial_atomic:AtomicI64,
@@ -108,8 +108,8 @@ pub trait IAsyncToken{
     fn new_serial(&self)->i64;
     async fn set_controller_fun_maps(&self,map:HashMap<i32,Box<dyn FunctionInfo>>)->Result<()>;
     async fn clear_controller_fun_maps(&self) ->Result<()>;
-    async fn set_peer(&self,peer:Option<Weak<Actor<TCPPeer>>>)->Result<()>;
-    async fn get_peer(&self)->Result<Option<Weak<Actor<TCPPeer>>>>;
+    async fn set_peer(&self,peer:Option<Weak<dyn IPeer>>)->Result<()>;
+    async fn get_peer(&self)->Result<Option<Weak<dyn IPeer>>>;
     async fn call_special_function(&self,cmd:i32)->Result<()>;
     async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
     async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize>;
@@ -157,7 +157,7 @@ impl IAsyncToken for Actor<AsyncToken>{
     }
 
     #[inline]
-    async fn set_peer(&self, peer: Option<Weak<Actor<TCPPeer>>>) -> Result<()> {
+    async fn set_peer(&self, peer: Option<Weak<dyn IPeer>>) -> Result<()> {
         self.inner_call(async move|inner|{
             inner.get_mut().peer=peer;
             Ok(())
@@ -165,7 +165,7 @@ impl IAsyncToken for Actor<AsyncToken>{
     }
 
     #[inline]
-    async fn get_peer(&self) -> Result<Option<Weak<Actor<TCPPeer>>>> {
+    async fn get_peer(&self) -> Result<Option<Weak<dyn IPeer>>> {
         self.inner_call(async move|inner|{
             Ok(inner.get_mut().peer.clone())
         }).await
@@ -223,7 +223,7 @@ impl IAsyncToken for Actor<AsyncToken>{
 
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
-        let (peer,rx):(Arc<Actor<TCPPeer>>,Receiver<Result<Data>>)=self.inner_call(async move|inner|{
+        let (peer,rx):(Arc<dyn IPeer>,Receiver<Result<Data>>)=self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().peer {
                 let peer = net.upgrade()
                     .ok_or_else(|| anyhow!("call peer is null"))?;
@@ -252,7 +252,7 @@ impl IAsyncToken for Actor<AsyncToken>{
 
     #[inline]
     async fn run(&self, buff: Data) -> Result<()> {
-        let peer:Arc<Actor<TCPPeer>>= self.inner_call(async move|inner|{
+        let peer:Arc<dyn IPeer>= self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().peer{
                 Ok(net.upgrade().ok_or_else(||anyhow!("run not connect"))?)
             }else{

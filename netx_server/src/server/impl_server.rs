@@ -1,18 +1,19 @@
-use tcpserver::{TCPPeer, Builder, ITCPServer, IPeer};
+use tcpserver::{Builder, ITCPServer, IPeer};
 use std::sync::{Arc, Weak};
-use aqueue::Actor;
-use tokio::net::tcp::OwnedReadHalf;
 use log::*;
 use tokio::task::JoinHandle;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncRead, AsyncWrite, ReadHalf};
 use data_rw::Data;
-use crate::{OwnedReadHalfExt, ServerOption, RetResult};
+use crate::{ReadHalfExt, ServerOption, RetResult};
 use crate::server::async_token_manager::AsyncTokenManager;
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::async_token::{IAsyncToken, NetxToken};
 use crate::controller::ICreateController;
 use bytes::{Buf, BufMut};
 use anyhow::*;
+use std::marker::PhantomData;
+use std::future::Future;
+use crate::tcpserver::StreamInitType;
 
 pub (crate) enum SpecialFunctionTag{
    Connect =2147483647,
@@ -20,53 +21,56 @@ pub (crate) enum SpecialFunctionTag{
    Closed=2147483645
 }
 
-pub struct NetXServer<T>{
+pub struct NetXServer<T,C>{
    option:ServerOption,
-   serv:Arc<dyn ITCPServer<Arc<NetXServer<T>>>>,
-   async_tokens:TokenManager<T>
+   serv:Arc<dyn ITCPServer<Arc<NetXServer<T,C>>>>,
+   async_tokens:TokenManager<T>,
+   _phantom:PhantomData<C>
 }
-unsafe impl<T> Send for NetXServer<T>{}
-unsafe impl<T> Sync for NetXServer<T>{}
+unsafe impl<T,C> Send for NetXServer<T,C>{}
+unsafe impl<T,C> Sync for NetXServer<T,C>{}
 
 
-impl<T: ICreateController +'static> NetXServer<T> {
+impl<T,C> NetXServer<T,C>
+   where T: ICreateController +'static,
+         C: AsyncRead + AsyncWrite + Send +'static{
    #[inline]
-   pub async fn new(option:ServerOption,impl_controller:T)->Arc<NetXServer<T>>{
-      let serv= Builder::new(&option.addr).set_connect_event(|addr|{
-         info!("{} connect",addr);
+   pub async fn new<B>(init_stream:StreamInitType<B>, option:ServerOption,impl_controller:T)->Arc<NetXServer<T,C>>
+   where B: Future<Output = Result<C>> + Send + 'static,{
+
+      let serv = Builder::new(&option.addr).set_connect_event(|addr| {
+         info!("{} connect", addr);
          true
-      }).set_input_event(async move|mut reader,peer,serv|{
-         let addr=peer.addr();
-         let token= match Self::get_peer_token(&mut reader, &peer, &serv).await {
-            Ok(token)=>token,
-            Err(er)=>{
+      })
+      .set_stream_init(init_stream)
+      .set_input_event(async move |mut reader, peer, serv| {
+         let peer:Arc<dyn IPeer>=peer;
+         let addr = peer.addr();
+         let token = match Self::get_peer_token(&mut reader, &peer, &serv).await {
+            Ok(token) => token,
+            Err(er) => {
                info!("user:{}:{},disconnect it", addr, er);
-               return
+               return Ok(())
             }
          };
 
-         if let Err(er)=Self::read_buff_byline(&mut reader,&peer,&token).await{
-            error!("read buff err:{}",er)
-         }
-         if let Err(er)= token.call_special_function(SpecialFunctionTag::Disconnect as i32).await{
-            error!("call token disconnect err:{}",er)
-         }
-         if let Err(er)= serv.async_tokens.peer_disconnect(token.get_sessionid()).await{
-            error!("peer disconnect err:{}",er)
-         }
-
+         Self::read_buff_byline(&mut reader, &peer, &token).await?;
+         token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
+         serv.async_tokens.peer_disconnect(token.get_sessionid()).await?;
+         Ok(())
       }).build().await;
-      let request_out_time=option.request_out_time;
-      let session_save_time=option.session_save_time;
-      Arc::new(NetXServer{
+      let request_out_time = option.request_out_time;
+      let session_save_time = option.session_save_time;
+      Arc::new(NetXServer {
          option,
          serv,
-         async_tokens:AsyncTokenManager::new(impl_controller,request_out_time,session_save_time)
+         async_tokens: AsyncTokenManager::new(impl_controller, request_out_time, session_save_time),
+         _phantom: Default::default()
       })
    }
 
    #[inline]
-   async fn get_peer_token(mut reader:&mut OwnedReadHalf, peer:&Arc<Actor<TCPPeer>>, serv:&Arc<NetXServer<T>>) ->Result<NetxToken>{
+   async fn get_peer_token(mut reader:&mut ReadHalf<C>, peer:&Arc<dyn IPeer>, serv:&Arc<NetXServer<T,C>>) ->Result<NetxToken>{
       let cmd=reader.read_i32_le().await?;
       if cmd !=1000{
          Self::send_to_key_verify_msg(&peer,true,"not verify key").await?;
@@ -99,7 +103,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
    }
 
    #[inline]
-   async fn read_buff_byline(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<()>{
+   async fn read_buff_byline(mut reader:&mut ReadHalf<C>,peer:&Arc<dyn IPeer>,token:&NetxToken)->Result<()>{
       token.set_peer(Some(Arc::downgrade(peer))).await?;
       token.call_special_function(SpecialFunctionTag::Connect as i32).await?;
       Self::data_reading(&mut reader,peer,token).await?;
@@ -107,7 +111,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
    }
 
    #[inline]
-   async fn data_reading(mut reader:&mut OwnedReadHalf,peer:&Arc<Actor<TCPPeer>>,token:&NetxToken)->Result<()>{
+   async fn data_reading(mut reader:&mut ReadHalf<C>,peer:&Arc<dyn IPeer>,token:&NetxToken)->Result<()>{
       while let Ok(mut data)=reader.read_buff().await{
          let cmd=data.get_le::<i32>()?;
          match cmd {
@@ -187,7 +191,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
 
    }
    #[inline]
-   async fn send_to_sessionid(peer:&Arc<Actor<TCPPeer>>,sessionid:i64)-> Result<usize>{
+   async fn send_to_sessionid(peer:&Arc<dyn IPeer>,sessionid:i64)-> Result<usize>{
       let mut data=Data::new();
       data.write_to_le(&0u32);
       data.write_to_le(&2000i32);
@@ -197,7 +201,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
       peer.send(&data).await
    }
    #[inline]
-   async fn send_to_key_verify_msg(peer:&Arc<Actor<TCPPeer>>, is_err:bool, msg:&str) -> Result<usize> {
+   async fn send_to_key_verify_msg(peer:&Arc<dyn IPeer>, is_err:bool, msg:&str) -> Result<usize> {
       let mut data=Data::new();
       data.write_to_le(&0u32);
       data.write_to_le(&1000i32);
@@ -210,7 +214,7 @@ impl<T: ICreateController +'static> NetXServer<T> {
    }
 
    #[inline]
-   pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<tokio::io::Result<()>>> {
+   pub async fn start(self:&Arc<Self>) -> Result<JoinHandle<Result<()>>> {
       Ok(self.serv.start(self.clone()).await?)
    }
    #[inline]

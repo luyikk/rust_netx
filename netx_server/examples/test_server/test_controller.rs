@@ -2,7 +2,6 @@ use std::sync::Arc;
 use netxserver::*;
 use crate::client::*;
 use log::*;
-use tcpserver::IPeer;
 use crate::test_struct::{LogOn, LogOnResult};
 use anyhow::*;
 use std::cell::Cell;
