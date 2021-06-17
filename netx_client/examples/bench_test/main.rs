@@ -31,10 +31,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
     for id in 0..config.thread_count {
         let join = tokio::spawn(async move {
-            let client = NetXClient::new(
-                ServerOption::new("127.0.0.1:6666".into(), "".into(), "123123".into(), 10000),
-                DefaultSessionStore::default(),
-            );
+
+            let client = {
+                cfg_if::cfg_if! {
+                if #[cfg(feature = "tls")]{
+
+                        // test tls
+                        use openssl::ssl::{SslMethod,SslConnector};
+                        let mut connector = SslConnector::builder(SslMethod::tls()).unwrap();
+                        connector.set_ca_file("tests/cert.pem").unwrap();
+                        let ssl_connector=connector.build();
+                        NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                                                          "".into(),
+                                                          "123123".into(),
+                                                          5000),
+                                                        DefaultSessionStore::default(),"localhost".to_string(),ssl_connector)
+
+                }else if #[cfg(feature = "tcp")]{
+
+                        // test tcp
+                        NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                                                          "".into(),
+                                                          "123123".into(),
+                                                          5000),
+                                                        DefaultSessionStore::default())
+
+                }}};
 
             client
                 .init(TestController::new(client.clone()))
