@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use aqueue::Actor;
 use tcpclient::{TcpClient, SocketClientTrait};
-use tokio::net::tcp::OwnedReadHalf;
-use tokio::io::AsyncReadExt;
+use tokio::io::{ReadHalf,AsyncReadExt};
 use tokio::time::{Duration, sleep};
 use tokio::sync::watch::{Sender as WSender,Receiver as WReceiver,channel};
 use async_oneshot::{oneshot, Receiver, Sender};
@@ -19,6 +18,48 @@ use crate::client::result::RetResult;
 use crate::client::request_manager::{RequestManager,IRequestManager};
 use crate::client::controller::{FunctionInfo, IController};
 
+cfg_if::cfg_if! {
+if #[cfg(feature = "tls")]{
+   use openssl::ssl::{SslConnector,Ssl};
+   use tokio::net::TcpStream;
+   use tokio_openssl::SslStream;
+   use std::pin::Pin;
+   pub type NetPeer=Actor<TcpClient<SslStream<TcpStream>>>;
+   pub type NetReadHalf=ReadHalf<SslStream<TcpStream>>;
+
+   pub struct NetXClient<T>{
+        ssl_domain:String,
+        ssl_connector:SslConnector,
+        session:T,
+        serverinfo: ServerOption,
+        net:Option<Arc<NetPeer>>,
+        connect_stats:Option<WReceiver<(bool,String)>>,
+        result_dict:HashMap<i64,Sender<Result<Data>>>,
+        serial_atomic:AtomicI64,
+        request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
+        controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
+        mode:u8
+   }
+
+}else if #[cfg(feature = "tcp")]{
+   use tokio::net::TcpStream;
+   pub type NetPeer=Actor<TcpClient<TcpStream>>;
+   pub type NetReadHalf=ReadHalf<TcpStream>;
+
+   pub struct NetXClient<T>{
+        session:T,
+        serverinfo: ServerOption,
+        net:Option<Arc<NetPeer>>,
+        connect_stats:Option<WReceiver<(bool,String)>>,
+        result_dict:HashMap<i64,Sender<Result<Data>>>,
+        serial_atomic:AtomicI64,
+        request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
+        controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
+        mode:u8
+   }
+}}
+
+
 
 pub trait SessionSave{
     fn get_sessionid(&self)->i64;
@@ -31,17 +72,7 @@ enum SpecialFunctionTag{
     Closed=2147483645
 }
 
-pub struct NetXClient<T>{
-    session:T,
-    serverinfo: ServerOption,
-    net:Option<Arc<Actor<TcpClient>>>,
-    connect_stats:Option<WReceiver<(bool,String)>>,
-    result_dict:HashMap<i64,Sender<Result<Data>>>,
-    serial_atomic:AtomicI64,
-    request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
-    controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
-    mode:u8
-}
+
 
 unsafe impl <T> Send for NetXClient<T>{}
 unsafe impl <T> Sync for NetXClient<T>{}
@@ -78,6 +109,34 @@ impl ServerOption {
 }
 
 impl<T:SessionSave+'static> NetXClient<T>{
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "tls")] {
+
+    pub fn new(serverinfo: ServerOption, session:T,ssl_domain:String,ssl_connector:SslConnector) ->Arc<Actor<NetXClient<T>>>{
+        let request_out_time_ms=serverinfo.request_out_time_ms;
+        let netx_client=Arc::new(Actor::new(NetXClient{
+            ssl_domain,
+            ssl_connector,
+            session,
+            serverinfo,
+            net:None,
+            result_dict:HashMap::new(),
+            connect_stats:None,
+            serial_atomic:AtomicI64::new(1),
+            request_manager:OnceCell::new(),
+            controller_fun_register_dict:HashMap::new(),
+            mode:0
+        }));
+
+        let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
+        unsafe {
+            if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
+                error!("not set request_manager,request_manager may not be none")
+            }
+        }
+        netx_client
+    }} else if #[cfg(feature = "tcp")]{
+
     pub fn new(serverinfo: ServerOption, session:T) ->Arc<Actor<NetXClient<T>>>{
         let request_out_time_ms=serverinfo.request_out_time_ms;
         let netx_client=Arc::new(Actor::new(NetXClient{
@@ -99,7 +158,8 @@ impl<T:SessionSave+'static> NetXClient<T>{
             }
         }
         netx_client
-    }
+    }}
+}
 
     #[inline]
     pub fn init<C:IController+Sync+Send+'static>(&mut self,controller:C){
@@ -108,7 +168,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
     #[allow(clippy::type_complexity)]
-    async fn input_buffer((mut netx_client,set_connect):(Arc<Actor<NetXClient<T>>>, WSender<(bool, String)>), client:Arc<Actor<TcpClient>>, mut reader:OwnedReadHalf) ->Result<bool>{
+    async fn input_buffer((mut netx_client,set_connect):(Arc<Actor<NetXClient<T>>>, WSender<(bool, String)>), client:Arc<NetPeer>, mut reader:NetReadHalf) ->Result<bool>{
         if let Err(er)=Self::read_buffer(&mut netx_client, set_connect, client, &mut reader).await{
             error!("read buffer err:{}",er);
         }
@@ -118,7 +178,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
         Ok(true)
     }
 
-    async fn read_buffer(netx_client: &mut Arc<Actor<NetXClient<T>>>, set_connect: WSender<(bool, String)>, client: Arc<Actor<TcpClient>>, reader: &mut OwnedReadHalf)->Result<()> {
+    async fn read_buffer(netx_client: &mut Arc<Actor<NetXClient<T>>>, set_connect: WSender<(bool, String)>, client: Arc<NetPeer>, reader: &mut NetReadHalf)->Result<()> {
         let serverinfo = netx_client.get_serviceinfo();
         let mut sessionid = netx_client.get_sessionid();
         client.send(&Self::get_verify_buff(&serverinfo.service_name, &serverinfo.verify_key, &sessionid)).await?;
@@ -311,6 +371,12 @@ impl<T:SessionSave+'static> NetXClient<T>{
         self.serverinfo.clone()
     }
 
+    #[cfg(feature = "tls")]
+    #[inline]
+    pub fn get_ssl(&self)->Result<Ssl>{
+        Ok(self.ssl_connector.configure()?.into_ssl(&self.ssl_domain)?)
+    }
+
     #[inline]
     pub fn get_sessionid(&self)->i64{
         self.session.get_sessionid()
@@ -322,7 +388,7 @@ impl<T:SessionSave+'static> NetXClient<T>{
     }
 
     #[inline]
-    pub fn set_network_client(&mut self, client:Arc<Actor<TcpClient>>){
+    pub fn set_network_client(&mut self, client:Arc<NetPeer>){
         self.net=Some(client);
     }
 
@@ -362,16 +428,18 @@ impl<T:SessionSave+'static> NetXClient<T>{
 pub trait INetXClient<T>{
     async fn init<C:IController+Sync+Send+'static>(&self,controller:C)->Result<()>;
     async fn connect_network(self:&Arc<Self>)->Result<()>;
+    #[cfg(feature = "tls")]
+    fn get_ssl(&self)->Result<Ssl>;
     fn get_address(&self)->String;
     fn get_serviceinfo(&self)-> ServerOption;
     fn get_sessionid(&self)->i64;
     fn get_mode(&self)->u8;
     fn new_serial(&self)->i64;
     fn is_connect(&self)->bool;
-    async fn get_peer(&self)->Result<Option<Arc<Actor<TcpClient>>>>;
+    async fn get_peer(&self)->Result<Option<Arc<NetPeer>>>;
     async fn store_sessionid(&self,sessionid:i64)->Result<()>;
     async fn set_mode(&self,mode:u8)->Result<()>;
-    async fn set_network_client(&self,client:Arc<Actor<TcpClient>>)->Result<()>;
+    async fn set_network_client(&self,client:Arc<NetPeer>)->Result<()>;
     async fn reset_connect_stats(&self)->Result<()>;
     async fn get_callback_len(&self) -> Result<usize> ;
     async fn set_result(&self,serial:i64,data:Data)->Result<()>;
@@ -411,7 +479,20 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
             }
 
             let (set_connect, wait_connect) = channel((false, "not connect".to_string()));
-            let client=TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client.clone(), set_connect)).await?;
+
+            let client={
+            cfg_if::cfg_if! {
+            if#[cfg(feature = "tls")]{
+                let ssl=netx_client.get_ssl()?;
+                TcpClient::connect_stream_type(netx_client.get_address(),async move|tcp_stream|{
+                     let mut stream = SslStream::new(ssl, tcp_stream)?;
+                     Pin::new(&mut stream).connect().await?;
+                     Ok(stream)
+                },NetXClient::input_buffer, (netx_client, set_connect)).await?
+            }else if #[cfg(feature = "tcp")]{
+                TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client, set_connect)).await?
+            }}};
+
             let ref_inner = inner.get_mut();
             ref_inner.set_network_client(client);
             ref_inner.connect_stats = Some(wait_connect.clone());
@@ -434,6 +515,14 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
         }
 
         Ok(())
+    }
+
+    #[cfg(feature = "tls")]
+    #[inline]
+    fn get_ssl(&self) -> Result<Ssl> {
+        unsafe {
+            self.deref_inner().get_ssl()
+        }
     }
 
     #[inline]
@@ -479,7 +568,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
     }
 
     #[inline]
-    async fn get_peer(&self) -> Result<Option<Arc<Actor<TcpClient>>>> {
+    async fn get_peer(&self) -> Result<Option<Arc<NetPeer>>> {
         self.inner_call(async move|inner|{
             Ok(inner.get().net.clone())
         }).await
@@ -503,7 +592,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
 
 
     #[inline]
-    async fn set_network_client(&self, client: Arc<Actor<TcpClient>>) -> Result<()> {
+    async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()> {
         self.inner_call(async move|inner|{
             inner.get_mut().set_network_client(client);
             Ok(())
@@ -583,7 +672,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
 
     #[inline]
     async fn close(&self) -> Result<()> {
-        let net:Result<Arc<Actor<TcpClient>>>= self.inner_call(async move|inner|{
+        let net:Result<Arc<NetPeer>>= self.inner_call(async move|inner|{
             if let Err(er)=inner.get().call_special_function(SpecialFunctionTag::Closed as i32).await{
                 error!("call controller Closed err:{}",er)
             }
@@ -602,7 +691,7 @@ impl<T:SessionSave+'static> INetXClient<T> for Actor<NetXClient<T>>{
 
     #[inline]
     async fn call(&self,serial:i64,buff: Data) -> Result<RetResult> {
-        let (net,rx):(Arc<Actor<TcpClient>>,Receiver<Result<Data>>)=self.inner_call(async move|inner|{
+        let (net,rx):(Arc<NetPeer>,Receiver<Result<Data>>)=self.inner_call(async move|inner|{
             if let Some(ref net)=inner.get().net{
                 let (tx,rx):(Sender<Result<Data>>,Receiver<Result<Data>>)=oneshot();
                 if inner.get_mut().result_dict.contains_key(&serial){

@@ -20,11 +20,32 @@ async fn main()->Result<(),Box<dyn Error>> {
     env_logger::Builder::default().filter_level(LevelFilter::Debug).init();
 
     let client =
-        NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
-                                          "".into(),
-                                          "123123".into(),
-                                            5000),
-                        DefaultSessionStore::default());
+        {
+            cfg_if::cfg_if! {
+            if #[cfg(feature = "tls")]{
+
+                    // test tls
+                    use openssl::ssl::{SslMethod,SslConnector};
+                    let mut connector = SslConnector::builder(SslMethod::tls())?;
+                    connector.set_ca_file("tests/cert.pem")?;
+                    let ssl_connector=connector.build();
+                    NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                                                      "".into(),
+                                                      "123123".into(),
+                                                      5000),
+                                                    DefaultSessionStore::default(),"localhost".to_string(),ssl_connector)
+
+            }else if #[cfg(feature = "tcp")]{
+
+                    // test tcp
+                    NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                                                      "".into(),
+                                                      "123123".into(),
+                                                      5000),
+                                                    DefaultSessionStore::default())
+
+                }}
+        };
 
 
     client.init(TestController::new(client.clone())).await?;
