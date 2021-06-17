@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-netxserver="1.0"
+netxserver="1.2"
 log="0.4"
 env_logger = "0.8.2"
 serde_json = "1.0.61"
