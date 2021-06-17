@@ -1,12 +1,12 @@
 #![feature(async_closure)]
-mod test_controller;
 mod client;
+mod test_controller;
 mod test_struct;
 
-use std::error::Error;
-use netxserver::{NetXServer, ServerOption};
 use crate::test_controller::ImplCreateController;
 use log::LevelFilter;
+use netxserver::{NetXServer, ServerOption};
+use std::error::Error;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

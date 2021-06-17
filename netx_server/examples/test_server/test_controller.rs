@@ -1,84 +1,85 @@
-use std::sync::Arc;
-use netxserver::*;
 use crate::client::*;
-use log::*;
 use crate::test_struct::{LogOn, LogOnResult};
 use anyhow::*;
+use log::*;
+use netxserver::*;
 use std::cell::Cell;
+use std::sync::Arc;
 use tcpserver::IPeer;
 
-
 #[build(TestController)]
-pub trait ITestController{
+pub trait ITestController {
     #[tag(connect)]
-    async fn connect(&self)->Result<()>;
+    async fn connect(&self) -> Result<()>;
     #[tag(disconnect)]
-    async fn disconnect(&self)->Result<()>;
+    async fn disconnect(&self) -> Result<()>;
     #[tag(closed)]
-    async fn closed(&self)->Result<()>;
+    async fn closed(&self) -> Result<()>;
     #[tag(600)]
-    async fn print2(&self,a:i32,b:String)->Result<()>;
+    async fn print2(&self, a: i32, b: String) -> Result<()>;
     #[tag(700)]
-    async fn run_test(&self,a:String)->Result<()>;
+    async fn run_test(&self, a: String) -> Result<()>;
     #[tag(800)]
-    async fn print(&self,a:i32)->Result<()>;
+    async fn print(&self, a: i32) -> Result<()>;
     #[tag(1000)]
-    async fn add(&self,a:i32,b:i32)->Result<i32>;
+    async fn add(&self, a: i32, b: i32) -> Result<i32>;
     #[tag(1003)]
-    async fn to_client_add_one(&self,a:i32)->Result<i32>;
+    async fn to_client_add_one(&self, a: i32) -> Result<i32>;
     #[tag(1005)]
-    async fn recursive_test(&self, a:i32)->Result<i32>;
+    async fn recursive_test(&self, a: i32) -> Result<i32>;
     #[tag(5001)]
-    async fn test(&self,msg:String,i:i32);
+    async fn test(&self, msg: String, i: i32);
     #[tag(10000)]
-    async fn logon(&self,info:LogOn)->Result<(bool,String)>;
+    async fn logon(&self, info: LogOn) -> Result<(bool, String)>;
     #[tag(10001)]
-    async fn logon2(&self,info:(String,String))->Result<LogOnResult>;
+    async fn logon2(&self, info: (String, String)) -> Result<LogOnResult>;
     #[tag(999)]
-    async fn add_one(&self,a:i32)->Result<i32>;
+    async fn add_one(&self, a: i32) -> Result<i32>;
     #[tag(2500)]
-    async fn get_all_count(&self)->Result<i64>;
+    async fn get_all_count(&self) -> Result<i64>;
 }
 
-pub struct TestController{
-    token:NetxToken,
-    client:Box<dyn IClient>,
-    count:Cell<i64>
+pub struct TestController {
+    token: NetxToken,
+    client: Box<dyn IClient>,
+    count: Cell<i64>,
 }
 
-unsafe impl Send for TestController{}
-unsafe impl Sync for TestController{}
+unsafe impl Send for TestController {}
+unsafe impl Sync for TestController {}
 
-impl Drop for TestController{
+impl Drop for TestController {
     #[inline]
     fn drop(&mut self) {
-        info!("controller:{} is drop",self.token.get_sessionid())
+        info!("controller:{} is drop", self.token.get_sessionid())
     }
 }
 
-
-
 #[build_impl]
-impl ITestController for TestController{
+impl ITestController for TestController {
     #[inline]
     async fn connect(&self) -> Result<()> {
-       info!("{} is connect",self.token.get_sessionid());
+        info!("{} is connect", self.token.get_sessionid());
 
-       if let Some(wk)= self.token.get_peer().await?{
-           if let Some(peer)=wk.upgrade(){
-               info!("{} addr is {} ",self.token.get_sessionid(),peer.addr())
-           }
-       }
-       Ok(())
+        if let Some(wk) = self.token.get_peer().await? {
+            if let Some(peer) = wk.upgrade() {
+                info!("{} addr is {} ", self.token.get_sessionid(), peer.addr())
+            }
+        }
+        Ok(())
     }
 
     #[inline]
     async fn disconnect(&self) -> Result<()> {
-        info!("{} is disconnect",self.token.get_sessionid());
+        info!("{} is disconnect", self.token.get_sessionid());
 
-        if let Some(wk)= self.token.get_peer().await?{
-            if let Some(peer)=wk.upgrade(){
-                info!("{} disconnect addr is {} ",self.token.get_sessionid(),peer.addr())
+        if let Some(wk) = self.token.get_peer().await? {
+            if let Some(peer) = wk.upgrade() {
+                info!(
+                    "{} disconnect addr is {} ",
+                    self.token.get_sessionid(),
+                    peer.addr()
+                )
             }
         }
 
@@ -92,8 +93,8 @@ impl ITestController for TestController{
     }
 
     #[inline]
-    async fn print2(&self, a: i32, b:String) -> Result<()> {
-        self.client.print2(a,b).await
+    async fn print2(&self, a: i32, b: String) -> Result<()> {
+        self.client.print2(a, b).await
     }
 
     #[inline]
@@ -103,12 +104,12 @@ impl ITestController for TestController{
 
     #[inline]
     async fn print(&self, a: i32) -> Result<()> {
-        println!("print {}",a);
+        println!("print {}", a);
         Ok(())
     }
     #[inline]
     async fn add(&self, a: i32, b: i32) -> Result<i32> {
-        Ok(a+b)
+        Ok(a + b)
     }
     #[inline]
     async fn to_client_add_one(&self, a: i32) -> Result<i32> {
@@ -126,34 +127,37 @@ impl ITestController for TestController{
     }
 
     #[inline]
-    async fn test(&self, msg: String,i:i32) {
-        println!("{} {}",msg,i);
+    async fn test(&self, msg: String, i: i32) {
+        println!("{} {}", msg, i);
     }
 
     #[inline]
-    async fn logon(&self, info: LogOn) -> Result<(bool,String)> {
-        assert_eq!(info,LogOn{
-            username:"username".into(),
-            password:"password".into()
-        });
+    async fn logon(&self, info: LogOn) -> Result<(bool, String)> {
+        assert_eq!(
+            info,
+            LogOn {
+                username: "username".into(),
+                password: "password".into()
+            }
+        );
 
-        Ok((true,"1 Ok".to_string()))
+        Ok((true, "1 Ok".to_string()))
     }
 
-    async fn logon2(&self, (username,password): (String, String)) -> Result<LogOnResult> {
-        assert_eq!(username,"username");
-        assert_eq!(password,"password");
+    async fn logon2(&self, (username, password): (String, String)) -> Result<LogOnResult> {
+        assert_eq!(username, "username");
+        assert_eq!(password, "password");
 
-        Ok(LogOnResult{
+        Ok(LogOnResult {
             success: true,
-            msg: "2 Ok".to_string()
+            msg: "2 Ok".to_string(),
         })
     }
 
     #[inline]
     async fn add_one(&self, a: i32) -> Result<i32> {
-        self.count.set(self.count.get()+1);
-        Ok(a+1)
+        self.count.set(self.count.get() + 1);
+        Ok(a + 1)
     }
 
     #[inline]
@@ -165,11 +169,10 @@ impl ITestController for TestController{
 pub struct ImplCreateController;
 impl ICreateController for ImplCreateController {
     fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>> {
-       Ok(Arc::new(TestController{
-           client: impl_interface!(token=>IClient),
-           token,
-           count:Cell::new(0)
-       }))
+        Ok(Arc::new(TestController {
+            client: impl_interface!(token=>IClient),
+            token,
+            count: Cell::new(0),
+        }))
     }
 }
-

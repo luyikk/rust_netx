@@ -1,95 +1,92 @@
-use aqueue::Actor;
-use std::collections::{HashMap, VecDeque};
+use crate::async_token_manager::IAsyncTokenManager;
 use crate::controller::FunctionInfo;
+use crate::{NetPeer, RetResult};
+use anyhow::*;
+use aqueue::Actor;
+use async_oneshot::{oneshot, Receiver, Sender};
+use data_rw::Data;
+use log::*;
+use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Weak};
 use tcpserver::IPeer;
-use data_rw::Data;
-use crate::{RetResult, NetPeer};
-use log::*;
-use crate::async_token_manager::IAsyncTokenManager;
-use async_oneshot::{oneshot, Sender, Receiver};
-use std::sync::atomic::{AtomicI64, Ordering};
 use tokio::time::Instant;
-use anyhow::*;
 
-
-pub struct AsyncToken{
-    sessionid:i64,
-    controller_fun_register_dict:Option<HashMap<i32,Box<dyn FunctionInfo>>>,
-    peer:Option<Weak<NetPeer>>,
+pub struct AsyncToken {
+    sessionid: i64,
+    controller_fun_register_dict: Option<HashMap<i32, Box<dyn FunctionInfo>>>,
+    peer: Option<Weak<NetPeer>>,
     manager: Weak<dyn IAsyncTokenManager>,
-    result_dict:HashMap<i64,Sender<Result<Data>>>,
-    serial_atomic:AtomicI64,
-    request_queue:VecDeque<(i64,Instant)>,
+    result_dict: HashMap<i64, Sender<Result<Data>>>,
+    serial_atomic: AtomicI64,
+    request_queue: VecDeque<(i64, Instant)>,
 }
 
-unsafe impl Send for AsyncToken{}
-unsafe impl Sync for AsyncToken{}
+unsafe impl Send for AsyncToken {}
+unsafe impl Sync for AsyncToken {}
 
-pub type NetxToken=Arc<Actor<AsyncToken>>;
+pub type NetxToken = Arc<Actor<AsyncToken>>;
 
-impl AsyncToken{
-    pub(crate) fn new(sessionid:i64,manager: Weak<dyn IAsyncTokenManager>)->AsyncToken{
-        AsyncToken{
+impl AsyncToken {
+    pub(crate) fn new(sessionid: i64, manager: Weak<dyn IAsyncTokenManager>) -> AsyncToken {
+        AsyncToken {
             sessionid,
-            controller_fun_register_dict:None,
-            peer:None,
+            controller_fun_register_dict: None,
+            peer: None,
             manager,
             result_dict: Default::default(),
-            serial_atomic:AtomicI64::new(1),
-            request_queue:Default::default()
+            serial_atomic: AtomicI64::new(1),
+            request_queue: Default::default(),
         }
     }
 }
 
-impl Drop for AsyncToken{
+impl Drop for AsyncToken {
     fn drop(&mut self) {
-        debug!("token sessionid:{} drop",self.sessionid);
+        debug!("token sessionid:{} drop", self.sessionid);
     }
 }
 
-impl AsyncToken{
-
+impl AsyncToken {
     #[inline]
-    pub(crate) async fn call_special_function(&self,cmd:i32)->Result<()>{
+    pub(crate) async fn call_special_function(&self, cmd: i32) -> Result<()> {
         if let Some(ref dict) = self.controller_fun_register_dict {
             if let Some(func) = dict.get(&cmd) {
-                func.call(Data::with_len(4,0)).await?;
+                func.call(Data::with_len(4, 0)).await?;
             }
         }
         Ok(())
     }
 
     #[inline]
-    pub (crate) async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->Result<RetResult> {
+    pub(crate) async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> Result<RetResult> {
         if let Some(ref dict) = self.controller_fun_register_dict {
             if let Some(func) = dict.get(&cmd) {
                 return if func.function_type() != tt {
-                     bail!(" cmd:{} function type error:{}", cmd, tt)
-                }else {
-                     func.call(data).await
-                }
+                    bail!(" cmd:{} function type error:{}", cmd, tt)
+                } else {
+                    func.call(data).await
+                };
             }
         }
         bail!("not found cmd:{}", cmd)
     }
 
     #[inline]
-    pub (crate) fn new_serial(&self)->i64{
-        self.serial_atomic.fetch_add(1,Ordering::Acquire)
+    pub(crate) fn new_serial(&self) -> i64 {
+        self.serial_atomic.fetch_add(1, Ordering::Acquire)
     }
 
     #[inline]
-    pub fn set_error(&mut self,serial:i64,err:anyhow::Error)->Result<()>{
-        if let Some(tx)= self.result_dict.remove(&serial){
-            tx.send(Err(err)).map_err(|_|anyhow!("rx is close"))
-        }
-        else{
+    pub fn set_error(&mut self, serial: i64, err: anyhow::Error) -> Result<()> {
+        if let Some(tx) = self.result_dict.remove(&serial) {
+            tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))
+        } else {
             Ok(())
         }
     }
     #[inline]
-    pub fn check_request_timeout(&mut self,request_out_time:u32){
+    pub fn check_request_timeout(&mut self, request_out_time: u32) {
         while let Some(item) = self.request_queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= request_out_time {
                 if let Err(er) = self.set_error(item.0, anyhow!("time out")) {
@@ -104,89 +101,101 @@ impl AsyncToken{
 }
 
 #[async_trait::async_trait]
-pub trait IAsyncToken{
-    fn get_sessionid(&self)->i64;
-    fn new_serial(&self)->i64;
-    async fn set_controller_fun_maps(&self,map:HashMap<i32,Box<dyn FunctionInfo>>)->Result<()>;
-    async fn clear_controller_fun_maps(&self) ->Result<()>;
-    async fn set_peer(&self,peer:Option<Weak<NetPeer>>)->Result<()>;
-    async fn get_peer(&self)->Result<Option<Weak<NetPeer>>>;
-    async fn call_special_function(&self,cmd:i32)->Result<()>;
-    async fn run_controller(&self, tt:u8,cmd:i32,data:Data)->RetResult;
+pub trait IAsyncToken {
+    fn get_sessionid(&self) -> i64;
+    fn new_serial(&self) -> i64;
+    async fn set_controller_fun_maps(&self, map: HashMap<i32, Box<dyn FunctionInfo>>)
+        -> Result<()>;
+    async fn clear_controller_fun_maps(&self) -> Result<()>;
+    async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()>;
+    async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
+    async fn call_special_function(&self, cmd: i32) -> Result<()>;
+    async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> RetResult;
     async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize>;
-    async fn get_token(&self,sessionid:i64)->Result<Option<NetxToken>>;
-    async fn get_all_tokens(&self)->Result<Vec<NetxToken>>;
-    async fn call(&self,serial:i64,buff: Data)->Result<RetResult>;
-    async fn run(&self,buff: Data) -> Result<()>;
-    async fn set_result(&self,serial:i64,data:Data)->Result<()>;
-    async fn set_error(&self,serial:i64,err:anyhow::Error)->Result<()>;
-    async fn check_request_timeout(&self,request_out_time:u32)->Result<()>;
-    async fn is_disconnect(&self) ->Result<bool>;
-
+    async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>>;
+    async fn get_all_tokens(&self) -> Result<Vec<NetxToken>>;
+    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
+    async fn run(&self, buff: Data) -> Result<()>;
+    async fn set_result(&self, serial: i64, data: Data) -> Result<()>;
+    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
+    async fn check_request_timeout(&self, request_out_time: u32) -> Result<()>;
+    async fn is_disconnect(&self) -> Result<bool>;
 }
 
 #[async_trait::async_trait]
-impl IAsyncToken for Actor<AsyncToken>{
+impl IAsyncToken for Actor<AsyncToken> {
     #[inline]
     fn get_sessionid(&self) -> i64 {
-        unsafe {
-            self.deref_inner().sessionid
-        }
+        unsafe { self.deref_inner().sessionid }
     }
 
     #[inline]
     fn new_serial(&self) -> i64 {
-        unsafe {
-            self.deref_inner().new_serial()
-        }
+        unsafe { self.deref_inner().new_serial() }
     }
 
     #[inline]
-    async fn set_controller_fun_maps(&self, map: HashMap<i32, Box<dyn FunctionInfo>>) -> Result<()> {
-        self.inner_call(async move|inner|{
-            inner.get_mut().controller_fun_register_dict=Some(map);
+    async fn set_controller_fun_maps(
+        &self,
+        map: HashMap<i32, Box<dyn FunctionInfo>>,
+    ) -> Result<()> {
+        self.inner_call(async move |inner| {
+            inner.get_mut().controller_fun_register_dict = Some(map);
             Ok(())
-        }).await
+        })
+        .await
     }
 
     #[inline]
     async fn clear_controller_fun_maps(&self) -> Result<()> {
-        self.inner_call(async move|inner|{
-            inner.get_mut().controller_fun_register_dict=None;
+        self.inner_call(async move |inner| {
+            inner.get_mut().controller_fun_register_dict = None;
             Ok(())
-        }).await
+        })
+        .await
     }
 
     #[inline]
     async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()> {
-        self.inner_call(async move|inner|{
-            inner.get_mut().peer=peer;
+        self.inner_call(async move |inner| {
+            inner.get_mut().peer = peer;
             Ok(())
-        }).await
+        })
+        .await
     }
 
     #[inline]
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>> {
-        self.inner_call(async move|inner|{
-            Ok(inner.get_mut().peer.clone())
-        }).await
+        self.inner_call(async move |inner| Ok(inner.get_mut().peer.clone()))
+            .await
     }
 
     #[inline]
     async fn call_special_function(&self, cmd: i32) -> Result<()> {
-       unsafe{
-           self.deref_inner().call_special_function(cmd).await
-       }
+        unsafe { self.deref_inner().call_special_function(cmd).await }
     }
 
     #[inline]
-    async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> RetResult{
+    async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> RetResult {
         unsafe {
-            match self.deref_inner().run_controller(tt,cmd,data).await{
-                Ok(res)=>res,
-                Err(err)=>{
-                    error!("sessionid:{} call cmd:{} error:{}",self.get_sessionid(),cmd, err);
-                    RetResult::error(-1,format!("sessionid:{} call cmd:{} error:{}",self.get_sessionid(),cmd, err))
+            match self.deref_inner().run_controller(tt, cmd, data).await {
+                Ok(res) => res,
+                Err(err) => {
+                    error!(
+                        "sessionid:{} call cmd:{} error:{}",
+                        self.get_sessionid(),
+                        cmd,
+                        err
+                    );
+                    RetResult::error(
+                        -1,
+                        format!(
+                            "sessionid:{} call cmd:{} error:{}",
+                            self.get_sessionid(),
+                            cmd,
+                            err
+                        ),
+                    )
                 }
             }
         }
@@ -195,98 +204,106 @@ impl IAsyncToken for Actor<AsyncToken>{
     #[inline]
     async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize> {
         unsafe {
-            if let Some(ref peer)= self.deref_inner().peer {
-                let peer = peer.upgrade()
-                    .ok_or_else(|| anyhow!("token:{} tcp disconnect",self.get_sessionid()))?;
-                return peer.send(buff).await
+            if let Some(ref peer) = self.deref_inner().peer {
+                let peer = peer
+                    .upgrade()
+                    .ok_or_else(|| anyhow!("token:{} tcp disconnect", self.get_sessionid()))?;
+                return peer.send(buff).await;
             }
-            bail!("token:{} tcp disconnect",self.get_sessionid())
+            bail!("token:{} tcp disconnect", self.get_sessionid())
         }
     }
 
     #[inline]
     async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>> {
-        self.inner_call(async move|inner|{
-            let manager= inner.get().manager.upgrade()
-                .ok_or_else(||anyhow!("manager upgrade fail"))?;
+        self.inner_call(async move |inner| {
+            let manager = inner
+                .get()
+                .manager
+                .upgrade()
+                .ok_or_else(|| anyhow!("manager upgrade fail"))?;
             manager.get_token(sessionid).await
-        }).await
+        })
+        .await
     }
 
     #[inline]
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken>> {
-        self.inner_call(async move|inner|{
-            let manager= inner.get().manager.upgrade()
-                .ok_or_else(||anyhow!("manager upgrade fail"))?;
+        self.inner_call(async move |inner| {
+            let manager = inner
+                .get()
+                .manager
+                .upgrade()
+                .ok_or_else(|| anyhow!("manager upgrade fail"))?;
             manager.get_all_tokens().await
-        }).await
+        })
+        .await
     }
 
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
-        let (peer,rx):(Arc<NetPeer>,Receiver<Result<Data>>)=self.inner_call(async move|inner|{
-            if let Some(ref net)=inner.get().peer {
-                let peer = net.upgrade()
-                    .ok_or_else(|| anyhow!("call peer is null"))?;
-                let (tx, rx): (Sender<Result<Data>>, Receiver<Result<Data>>) = oneshot();
-                if inner.get_mut().result_dict.contains_key(&serial) {
-                    bail!("serial is have")
+        let (peer, rx): (Arc<NetPeer>, Receiver<Result<Data>>) = self
+            .inner_call(async move |inner| {
+                if let Some(ref net) = inner.get().peer {
+                    let peer = net.upgrade().ok_or_else(|| anyhow!("call peer is null"))?;
+                    let (tx, rx): (Sender<Result<Data>>, Receiver<Result<Data>>) = oneshot();
+                    if inner.get_mut().result_dict.contains_key(&serial) {
+                        bail!("serial is have")
+                    }
+                    if inner.get_mut().result_dict.insert(serial, tx).is_none() {
+                        inner
+                            .get_mut()
+                            .request_queue
+                            .push_front((serial, Instant::now()));
+                    }
+                    Ok((peer, rx))
+                } else {
+                    bail!("call not connect")
                 }
-                if inner.get_mut().result_dict.insert(serial, tx).is_none() {
-                    inner.get_mut().request_queue.push_front((serial, Instant::now()));
-                }
-                Ok((peer, rx))
-            }else{
-                bail!("call not connect")
-            }
-        }).await?;
+            })
+            .await?;
         peer.send(&buff).await?;
         match rx.await {
-            Err(_)=>{
-                Err(anyhow!("tx is Close"))
-            },
-            Ok(data)=> {
-                Ok(RetResult::from(data?)?)
-            }
+            Err(_) => Err(anyhow!("tx is Close")),
+            Ok(data) => Ok(RetResult::from(data?)?),
         }
     }
 
     #[inline]
     async fn run(&self, buff: Data) -> Result<()> {
-        let peer:Arc<NetPeer>= self.inner_call(async move|inner|{
-            if let Some(ref net)=inner.get().peer{
-                Ok(net.upgrade().ok_or_else(||anyhow!("run not connect"))?)
-            }else{
-                bail!("run not connect")
-            }
-        }).await?;
+        let peer: Arc<NetPeer> = self
+            .inner_call(async move |inner| {
+                if let Some(ref net) = inner.get().peer {
+                    Ok(net.upgrade().ok_or_else(|| anyhow!("run not connect"))?)
+                } else {
+                    bail!("run not connect")
+                }
+            })
+            .await?;
         peer.send(&buff).await?;
         Ok(())
     }
 
     #[inline]
     async fn set_result(&self, serial: i64, data: Data) -> Result<()> {
-        let have_tx:Option<Sender<Result<Data>>>= self.inner_call(async move|inner|{
-            Ok(inner.get_mut().result_dict.remove(&serial))
-        }).await?;
+        let have_tx: Option<Sender<Result<Data>>> = self
+            .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
+            .await?;
 
-        if let Some(tx)=have_tx{
-            return tx.send(Ok(data)).map_err(|_|anyhow!("close rx"));
-        }
-        else{
-            match RetResult::from(data){
-                Ok(res)=>{
-                    match res.check(){
-                        Ok(_)=>{
-                            error!("not found 2 {}",serial)
-                        },
-                        Err(err)=> {
-                            error!("{}",err)
-                        }
+        if let Some(tx) = have_tx {
+            return tx.send(Ok(data)).map_err(|_| anyhow!("close rx"));
+        } else {
+            match RetResult::from(data) {
+                Ok(res) => match res.check() {
+                    Ok(_) => {
+                        error!("not found 2 {}", serial)
+                    }
+                    Err(err) => {
+                        error!("{}", err)
                     }
                 },
-                Err(er)=>{
-                    error!("not found {} :{}",serial,er)
+                Err(er) => {
+                    error!("not found {} :{}", serial, er)
                 }
             }
         }
@@ -295,30 +312,30 @@ impl IAsyncToken for Actor<AsyncToken>{
 
     #[inline]
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
-        self.inner_call(async move|inner|{
-             inner.get_mut().set_error(serial,err)
-        }).await
+        self.inner_call(async move |inner| inner.get_mut().set_error(serial, err))
+            .await
     }
 
     #[inline]
     async fn check_request_timeout(&self, request_out_time: u32) -> Result<()> {
-        self.inner_call(async move|inner|{
+        self.inner_call(async move |inner| {
             inner.get_mut().check_request_timeout(request_out_time);
             Ok(())
-        }).await
+        })
+        .await
     }
     #[inline]
     async fn is_disconnect(&self) -> Result<bool> {
-        self.inner_call(async move|inner|{
-            if let Some(ref peer)= inner.get().peer{
-                if let Some(peer)= peer.upgrade(){
-                    return peer.is_disconnect().await
+        self.inner_call(async move |inner| {
+            if let Some(ref peer) = inner.get().peer {
+                if let Some(peer) = peer.upgrade() {
+                    return peer.is_disconnect().await;
                 }
             }
             Ok(true)
-        }).await
+        })
+        .await
     }
-
 }
 
 #[macro_export]
@@ -417,9 +434,9 @@ macro_rules! call_peer {
 
 #[macro_export]
 macro_rules! impl_interface {
-    ($token:expr=>$interface:ty) => (
-      paste::paste!{
-            Box::new([<___impl_ $interface _call>]::new($token.clone()))  as  Box<dyn $interface>
-      }
-    )
+    ($token:expr=>$interface:ty) => {
+        paste::paste! {
+              Box::new([<___impl_ $interface _call>]::new($token.clone()))  as  Box<dyn $interface>
+        }
+    };
 }
