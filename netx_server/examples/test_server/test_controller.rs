@@ -99,7 +99,7 @@ impl ITestController for TestController {
 
     #[inline]
     async fn run_test(&self, a: String) -> Result<()> {
-        self.client.run(a.to_string()).await
+        self.client.run(a).await
     }
 
     #[inline]
