@@ -10,5 +10,5 @@ pub trait IClient: Sync + Send {
     #[tag(4000)]
     async fn run(&self, name: String) -> Result<()>;
     #[tag(5000)]
-    async fn print2(&self, i: i32, s: Option<String>) -> Result<()>;
+    async fn print2(&self, i: i32, s: String) -> Result<()>;
 }
