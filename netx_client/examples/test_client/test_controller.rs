@@ -19,7 +19,7 @@ pub trait ITestController {
     #[tag(4000)]
     async fn run(&self, name: String) -> Result<()>;
     #[tag(5000)]
-    async fn print2(&self, i: i32, s: String) -> Result<()>;
+    async fn print2(&self, i: i32, s: Option<String>) -> Result<()>;
     #[tag(2002)]
     async fn recursive_test(&self, a: i32) -> Result<i32>;
 }
@@ -80,8 +80,8 @@ impl ITestController for TestController {
         Ok(())
     }
     #[inline]
-    async fn print2(&self, i: i32, s: String) -> Result<()> {
-        println!("{}-{}-{}", i, s, self.name.borrow());
+    async fn print2(&self, i: i32, s: Option<String>) -> Result<()> {
+        println!("{}-{:?}-{}", i, s, self.name.borrow());
         Ok(())
     }
 

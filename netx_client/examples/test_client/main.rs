@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     assert_eq!(x, 2);
 
     // call!(@checkrun client=>600;6,"my name is");
-    server.print2(6, "my name is".into()).await?;
+    server.print2(6, Some("my name is".into())).await?;
 
     let start = Instant::now();
 
