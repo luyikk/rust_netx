@@ -8,7 +8,7 @@ pub trait IClient: Sync + Send {
     #[tag(2002)]
     async fn recursive_test(&self, a: i32) -> Result<i32>;
     #[tag(4000)]
-    async fn run(&self, name: String) -> Result<()>;
+    async fn run(&self, name: Option<String>) -> Result<Option<String>>;
     #[tag(5000)]
     async fn print2(&self, i: i32, s: String) -> Result<()>;
 }

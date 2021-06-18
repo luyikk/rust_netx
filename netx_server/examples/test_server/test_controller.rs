@@ -18,7 +18,7 @@ pub trait ITestController {
     #[tag(600)]
     async fn print2(&self, a: i32, b: String) -> Result<()>;
     #[tag(700)]
-    async fn run_test(&self, a: String) -> Result<()>;
+    async fn run_test(&self, a: Option<String>) -> Result<()>;
     #[tag(800)]
     async fn print(&self, a: i32) -> Result<()>;
     #[tag(1000)]
@@ -98,8 +98,10 @@ impl ITestController for TestController {
     }
 
     #[inline]
-    async fn run_test(&self, a: String) -> Result<()> {
-        self.client.run(a).await
+    async fn run_test(&self, a: Option<String>) -> Result<()> {
+        let p= self.client.run(a).await?;
+        println!("{:?}",p);
+        Ok(())
     }
 
     #[inline]

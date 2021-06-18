@@ -11,7 +11,7 @@ pub trait IServer: Sync + Send {
     #[tag(600)]
     async fn print2(&self, a: i32, b:  String) -> Result<()>;
     #[tag(700)]
-    async fn run_test(&self, a: String) -> Result<()>;
+    async fn run_test(&self, a: Option<String>) -> Result<()>;
     #[tag(5001)]
     async fn test(&self, msg:String, i: i32);
     #[tag(1003)]

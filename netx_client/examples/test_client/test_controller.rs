@@ -17,7 +17,7 @@ pub trait ITestController {
     #[tag(3000)]
     async fn print(&self, i: i32);
     #[tag(4000)]
-    async fn run(&self, name: String) -> Result<()>;
+    async fn run(&self, name: Option<String>) -> Result<Option<String>>;
     #[tag(5000)]
     async fn print2(&self, i: i32, s: String) -> Result<()>;
     #[tag(2002)]
@@ -74,10 +74,13 @@ impl ITestController for TestController {
         println!("{}", i);
     }
     #[inline]
-    async fn run(&self, name: String) -> Result<()> {
-        println!("name:{}", name);
-        (*self.name.borrow_mut()) = name;
-        Ok(())
+    async fn run(&self, name: Option<String>) -> Result<Option<String>> {
+        if let Some(name)=name {
+            println!("name:{:?}", name);
+            (*self.name.borrow_mut()) = name.clone();
+            return Ok(Some(name))
+        }
+        Ok(None)
     }
     #[inline]
     async fn print2(&self, i: i32, s: String) -> Result<()> {
