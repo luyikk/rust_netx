@@ -45,7 +45,7 @@ impl RetResult {
 
     #[inline]
     pub fn add_arg_buff<T: Serialize>(&mut self, p: T) {
-        match Data::msgpack_from(p) {
+        match Data::pack_from(p) {
             Ok(data) => {
                 self.arguments.push(data);
             }
@@ -106,7 +106,7 @@ impl RetResult {
         if self.is_empty() {
             return Err(io::Error::new(ErrorKind::Other, "index >= len").into());
         }
-        self.arguments[0].msgpack_to()
+        self.arguments[0].pack_to()
     }
 }
 

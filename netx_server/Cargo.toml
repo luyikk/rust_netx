@@ -10,7 +10,7 @@ license = "MIT/Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default=["tcp"]
+default=["tcp","data-rw/rmp"]
 tls=["openssl","openssl-sys","tokio-openssl"]
 tcp=[]
 
@@ -22,11 +22,11 @@ aqueue="1.1"
 async-trait="0.1"
 anyhow="1.0"
 log="0.4"
-data-rw="1.0"
+data-rw="1.2"
 paste="1.0"
 bytes="0.6"
 async-oneshot = "0.4"
-netxbuilder="1.0"
+netxbuilder="1.1"
 chrono="0.4"
 cfg-if = "1.0"
 openssl = { version="0.10",optional = true}

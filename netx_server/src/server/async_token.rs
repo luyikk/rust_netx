@@ -353,7 +353,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.msgpack_serialize($args)?;)*
+            $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
             let mut ret= $peer.call(serial,data).await?.check()?;
@@ -370,7 +370,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.msgpack_serialize($args)?;)*
+            $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
             $peer.call(serial,data).await?
@@ -386,7 +386,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.msgpack_serialize($args)?;)*
+            $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
             $peer.run(data).await?;
@@ -403,8 +403,8 @@ macro_rules! call_peer {
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
             $(
-              if let Err(err)=  data.msgpack_serialize($args){
-                 log::error!{"msgpack_serialize {} is error:{}",$cmd,err};
+              if let Err(err)=  data.pack_serialize($args){
+                 log::error!{"pack_serialize {} is error:{}",$cmd,err};
               }
             )*
             let len=data.len();
@@ -424,7 +424,7 @@ macro_rules! call_peer {
             data.write_to_le(&$cmd);
             data.write_to_le(&serial);
             data.write_to_le(&args_count);
-            $(data.msgpack_serialize($args)?;)*
+            $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
             $peer.call(serial,data).await?.check()?;
