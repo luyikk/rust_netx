@@ -56,14 +56,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     server.print(5).await?;
 
     // call!(@checkrun client=>700;"joy");
-    server.run_test(Some("jon".into())).await?;
+    server.run_test(Some("jon")).await?;
 
     //let x:i32=call!(client=>1003;1);
     let x = server.to_client_add_one(1).await?;
     assert_eq!(x, 2);
 
+
     // call!(@checkrun client=>600;6,"my name is");
-    server.print2(6, "my name is".into()).await?;
+    server.print2(6, "my name is").await?;
 
     let start = Instant::now();
 

@@ -94,7 +94,7 @@ impl ITestController for TestController {
 
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
-        self.client.print2(a, b).await
+        self.client.print2(a, &b).await
     }
 
     #[inline]

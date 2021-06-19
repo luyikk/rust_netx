@@ -9,11 +9,11 @@ pub trait IServer: Sync + Send {
     #[tag(800)]
     async fn print(&self, a: i32) -> Result<()>;
     #[tag(600)]
-    async fn print2(&self, a: i32, b:  String) -> Result<()>;
+    async fn print2(&self, a: i32, b:  &str) -> Result<()>;
     #[tag(700)]
-    async fn run_test(&self, a: Option<String>) -> Result<()>;
+    async fn run_test(&self, a: Option<&str>) -> Result<()>;
     #[tag(5001)]
-    async fn test(&self, msg:String, i: i32);
+    async fn test(&self, msg:&str, i: i32);
     #[tag(1003)]
     async fn to_client_add_one(&self, a: i32) -> Result<i32>;
     #[tag(1005)]
