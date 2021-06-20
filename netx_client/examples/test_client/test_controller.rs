@@ -78,7 +78,6 @@ impl ITestController for TestController {
         if let Some(name)=name {
             println!("name:{:?}", name);
             (*self.name.borrow_mut()) = name.clone();
-            return Ok(Some(name))
         }
         Ok(None)
     }

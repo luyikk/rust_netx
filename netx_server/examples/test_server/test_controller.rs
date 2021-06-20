@@ -25,6 +25,12 @@ pub trait ITestController {
     #[tag(4)]
     async fn test_struct(&self,foo:Foo)->Result<Foo>;
 
+    #[tag(5)]
+    async fn test_base_type2(&self,v:(i64,u64,f32,f64))->Result<(i64,u64,f32,f64)>;
+    #[tag(6)]
+    async fn test_base_type3(&self,v:(bool,i8,u8,i16,u16,i32,u32))->Result<(bool,i8,u8,i16,u16,i32,u32)>;
+
+
     #[tag(600)]
     async fn print2(&self, a: i32, b: String) -> Result<()>;
     #[tag(700)]
@@ -124,6 +130,16 @@ impl ITestController for TestController {
         Ok(foo)
     }
 
+    async fn test_base_type2(&self, v: (i64, u64, f32, f64)) -> Result<(i64, u64, f32, f64)> {
+        println!("{:?}", v);
+        Ok(v)
+    }
+
+    async fn test_base_type3(&self, v: (bool, i8, u8, i16, u16, i32, u32)) -> Result<(bool, i8, u8, i16, u16, i32, u32)> {
+        println!("{:?}", v);
+        Ok(v)
+    }
+
 
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
@@ -132,6 +148,7 @@ impl ITestController for TestController {
 
     #[inline]
     async fn run_test(&self, a: Option<String>) -> Result<()> {
+        println!("{:?}",a);
         let p= self.client.run(a).await?;
         println!("{:?}",p);
         Ok(())

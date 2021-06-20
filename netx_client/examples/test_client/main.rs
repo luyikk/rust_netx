@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         server.print(5).await?;
 
         // call!(@checkrun client=>700;"joy");
-        server.run_test(Some("jon")).await?;
+        server.run_test(Some("joy")).await?;
 
         //let x:i32=call!(client=>1003;1);
         let x = server.to_client_add_one(1).await?;
