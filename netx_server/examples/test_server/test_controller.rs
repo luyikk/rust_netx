@@ -1,5 +1,5 @@
 use crate::client::*;
-use crate::test_struct::{LogOn, LogOnResult};
+use crate::test_struct::{LogOn, LogOnResult, Foo};
 use anyhow::*;
 use log::*;
 use netxserver::*;
@@ -15,6 +15,16 @@ pub trait ITestController {
     async fn disconnect(&self) -> Result<()>;
     #[tag(closed)]
     async fn closed(&self) -> Result<()>;
+
+    #[tag(1)]
+    async fn test_base_type(&self,v:(bool,i8,u8,i16,u16,i32,u32,i64,u64,f32,f64))->Result<(bool,i8,u8,i16,u16,i32,u32,i64,u64,f32,f64)>;
+    #[tag(2)]
+    async fn test_string(&self,v:(String,Option<String>,Option<String>))->Result<(String,Option<String>,Option<String>)>;
+    #[tag(3)]
+    async fn test_buff(&self,v:(Vec<u8>,Option<Vec<u8>>,Option<Vec<u8>>))->Result<(Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>)>;
+    #[tag(4)]
+    async fn test_struct(&self,foo:Foo)->Result<Foo>;
+
     #[tag(600)]
     async fn print2(&self, a: i32, b: String) -> Result<()>;
     #[tag(700)]
@@ -91,6 +101,29 @@ impl ITestController for TestController {
         println!("clean up world");
         Ok(())
     }
+
+    #[inline]
+    async fn test_base_type(&self, v: (bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64)) -> Result<(bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64)> {
+        println!("{:?}", v);
+        Ok(v)
+    }
+
+    #[inline]
+    async fn test_string(&self, v: (String, Option<String>, Option<String>)) -> Result<(String, Option<String>, Option<String>)> {
+        println!("{:?}", v);
+        Ok(v)
+    }
+
+    async fn test_buff(&self, v: (Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>)) -> Result<(Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>)> {
+        println!("{:?}", v);
+        Ok(v)
+    }
+
+    async fn test_struct(&self, foo: Foo) -> Result<Foo> {
+        println!("{:?}", foo);
+        Ok(foo)
+    }
+
 
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
