@@ -218,7 +218,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
             let call= match tt{
                 0=>{
                     quote! {
-                        let args_len=data.get_le::<i32>()? as usize;
+                        let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
@@ -229,7 +229,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                 }
                 1=>{
                     quote! {
-                        let args_len=data.get_le::<i32>()? as usize;
+                        let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
@@ -240,7 +240,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                 }
                 2=>{
                     quote! {
-                        let args_len=data.get_le::<i32>()? as usize;
+                        let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                             anyhow::bail!("args len error")
                         }
@@ -268,7 +268,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
                          #[inline]
                          fn function_type(&self) -> u8 { #tt  }
                          #[inline]
-                         async fn call(&self, mut data: Data) -> anyhow::Result<RetResult> {
+                         async fn call(&self, mut data: DataOwnedReader) -> anyhow::Result<RetResult> {
                              #call
                          }
                      }
@@ -288,7 +288,7 @@ pub fn build_client(args:TokenStream, input: TokenStream) -> TokenStream {
             impl IController for #controller{
                 #[inline]
                 fn register(self:std::sync::Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
-                    use data_rw::{Data, ToData};
+                    use data_rw::{Data, DataOwnedReader};
                     let mut dict=std::collections::HashMap::new();
                     #( #make)*
                     Ok(dict)
@@ -367,7 +367,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
             let call= match tt{
                 0=>{
                     quote! {
-                        let args_len=data.get_le::<i32>()? as usize;
+                        let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
@@ -378,7 +378,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                 }
                 1=>{
                     quote! {
-                        let args_len=data.get_le::<i32>()? as usize;
+                        let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
@@ -389,7 +389,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                 }
                 2=>{
                     quote! {
-                        let args_len=data.get_le::<i32>()? as usize;
+                        let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
@@ -417,7 +417,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
                          #[inline]
                          fn function_type(&self) -> u8 { #tt  }
                          #[inline]
-                         async fn call(&self, mut data: Data) -> anyhow::Result<RetResult> {
+                         async fn call(&self, mut data: DataOwnedReader) -> anyhow::Result<RetResult> {
                              #call
                          }
                      }
@@ -437,7 +437,7 @@ pub fn build_server(args:TokenStream, input: TokenStream) -> TokenStream {
             impl IController for #controller{
                 #[inline]
                 fn register(self:std::sync::Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
-                    use data_rw::{Data, ToData};
+                    use data_rw::{Data,DataOwnedReader};
                     let mut dict=std::collections::HashMap::new();
                     #( #make)*
                     Ok(dict)

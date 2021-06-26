@@ -1,5 +1,5 @@
 use anyhow::*;
-use data_rw::Data;
+use data_rw::{Data, DataOwnedReader};
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::ops::{Index, IndexMut};
@@ -10,12 +10,12 @@ pub struct RetResult {
     pub is_error: bool,
     pub error_id: i32,
     pub msg: String,
-    pub arguments: Vec<Data>,
+    pub arguments: Vec<DataOwnedReader>,
 }
 
 impl RetResult {
     #[inline]
-    pub fn new(is_error: bool, error_id: i32, msg: String, args: Vec<Data>) -> RetResult {
+    pub fn new(is_error: bool, error_id: i32, msg: String, args: Vec<DataOwnedReader>) -> RetResult {
         RetResult {
             is_error,
             error_id,
@@ -47,7 +47,7 @@ impl RetResult {
     pub fn add_arg_buff<T: Serialize>(&mut self, p: T) {
         match Data::pack_from(p) {
             Ok(data) => {
-                self.arguments.push(data);
+                self.arguments.push(DataOwnedReader::new(data.into()));
             }
             Err(er) => {
                 log::error!("Data serialize error：{} {}", er, line!())
@@ -55,19 +55,19 @@ impl RetResult {
         }
     }
     #[inline]
-    pub fn from(mut data: Data) -> io::Result<RetResult> {
-        if data.get_le::<bool>()? {
+    pub fn from(mut dr: DataOwnedReader) -> Result<RetResult> {
+        if dr.read_fixed::<bool>()? {
             Ok(RetResult::new(
                 true,
-                data.get_le::<i32>()?,
-                data.get_le::<String>()?,
+                dr.read_fixed::<i32>()?,
+                dr.read_fixed_str()?.to_string(),
                 Vec::new(),
             ))
         } else {
-            let len = data.get_le::<i32>()?;
+            let len = dr.read_fixed::<i32>()?;
             let mut buffs = Vec::with_capacity(len as usize);
             for _ in 0..len {
-                buffs.push(Data::from(data.get_le::<Vec<u8>>()?));
+                buffs.push(DataOwnedReader::new(dr.read_fixed_buf()?.to_vec()));
             }
             Ok(RetResult::new(false, 0, "success".into(), buffs))
         }
@@ -93,7 +93,7 @@ impl RetResult {
     }
 
     #[inline]
-    pub fn get(&mut self, index: usize) -> io::Result<&mut Data> {
+    pub fn get(&mut self, index: usize) -> io::Result<&mut DataOwnedReader> {
         if index >= self.len() {
             return Err(io::Error::new(ErrorKind::Other, "index >= len"));
         }
@@ -110,7 +110,7 @@ impl RetResult {
 }
 
 impl Index<usize> for RetResult {
-    type Output = Data;
+    type Output = DataOwnedReader;
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
         &self.arguments[index]

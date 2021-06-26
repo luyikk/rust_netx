@@ -1,6 +1,6 @@
 use crate::client::RetResult;
 use anyhow::*;
-use data_rw::Data;
+use data_rw::DataOwnedReader;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -19,5 +19,5 @@ impl IController for DefaultController {
 #[async_trait::async_trait]
 pub trait FunctionInfo: Send + Sync {
     fn function_type(&self) -> u8;
-    async fn call(&self, data: Data) -> Result<RetResult>;
+    async fn call(&self, dr: DataOwnedReader) -> Result<RetResult>;
 }

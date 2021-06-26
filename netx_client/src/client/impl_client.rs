@@ -1,8 +1,7 @@
 use anyhow::*;
 use aqueue::Actor;
 use async_oneshot::{oneshot, Receiver, Sender};
-use bytes::Buf;
-use data_rw::Data;
+use data_rw::{Data, DataOwnedReader};
 use log::*;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -17,6 +16,7 @@ use tokio::time::{sleep, Duration};
 use crate::client::controller::{FunctionInfo, IController};
 use crate::client::request_manager::{IRequestManager, RequestManager};
 use crate::client::result::RetResult;
+
 
 cfg_if::cfg_if! {
 if #[cfg(feature = "tls")]{
@@ -51,7 +51,7 @@ if #[cfg(feature = "tls")]{
         serverinfo: ServerOption,
         net:Option<Arc<NetPeer>>,
         connect_stats:Option<WReceiver<(bool,String)>>,
-        result_dict:HashMap<i64,Sender<Result<Data>>>,
+        result_dict:HashMap<i64,Sender<Result<DataOwnedReader>>>,
         serial_atomic:AtomicI64,
         request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
         controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
@@ -204,14 +204,16 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         let mut option_connect = Some(set_connect);
         while let Ok(len) = reader.read_u32_le().await {
             let len = (len - 4) as usize;
-            let mut data = Data::with_len(len, 0);
-            reader.read_exact(&mut data).await?;
-            let cmd = data.get_le::<i32>()?;
+            let mut buff = vec![0; len];
+            reader.read_exact(&mut buff).await?;
+            let mut dr=DataOwnedReader::new(buff);
+            let cmd = dr.read_fixed::<i32>()?;
             match cmd {
-                1000 => match data.get_le::<bool>()? {
+                1000 => match dr.read_fixed::<bool>()? {
                     false => {
-                        info!("{} {}", serverinfo, data.get_le::<String>()?);
-                        if data.have_len() == 1 && data.get_u8() == 1 {
+                        info!("{} {}", serverinfo, dr.read_fixed_str()?);
+                        if (dr.len()- dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
+                            debug!("mode 1");
                             netx_client.set_mode(1).await?;
                         }
                         client
@@ -228,10 +230,10 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                         }
                     }
                     true => {
-                        let err = data.get_le::<String>()?;
+                        let err = dr.read_fixed_str()?;
                         error!("connect {} error:{}", serverinfo, err);
                         if let Some(set_connect) = option_connect.take() {
-                            if set_connect.send((false, err)).is_err() {
+                            if set_connect.send((false, err.to_string())).is_err() {
                                 error!("talk connect rx is close");
                             }
                             drop(set_connect);
@@ -240,26 +242,26 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                     }
                 },
                 2000 => {
-                    sessionid = data.get_le::<i64>()?;
+                    sessionid = dr.read_fixed::<i64>()?;
                     info!("{} save sessionid:{}", serverinfo, sessionid);
                     netx_client.store_sessionid(sessionid).await?;
                 }
                 2400 => {
-                    let tt = data.get_le::<u8>()?;
-                    let cmd = data.get_le::<i32>()?;
-                    let sessionid = data.get_le::<i64>()?;
+                    let tt = dr.read_fixed::<u8>()?;
+                    let cmd = dr.read_fixed::<i32>()?;
+                    let sessionid = dr.read_fixed::<i64>()?;
                     match tt {
                         0 => {
                             let run_netx_client = netx_client.clone();
                             tokio::spawn(async move {
-                                let _ = run_netx_client.call_controller(tt, cmd, data).await;
+                                let _ = run_netx_client.call_controller(tt, cmd, dr).await;
                             });
                         }
                         1 => {
                             let run_netx_client = netx_client.clone();
                             let send_client = client.clone();
                             tokio::spawn(async move {
-                                let res = run_netx_client.call_controller(tt, cmd, data).await;
+                                let res = run_netx_client.call_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
                                     .send(&Self::get_result_buff(
                                         sessionid,
@@ -276,7 +278,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             let run_netx_client = netx_client.clone();
                             let send_client = client.clone();
                             tokio::spawn(async move {
-                                let res = run_netx_client.call_controller(tt, cmd, data).await;
+                                let res = run_netx_client.call_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
                                     .send(&Self::get_result_buff(
                                         sessionid,
@@ -295,11 +297,11 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                     }
                 }
                 2500 => {
-                    let serial = data.get_le::<i64>()?;
-                    netx_client.set_result(serial, data).await?;
+                    let serial = dr.read_fixed::<i64>()?;
+                    netx_client.set_result(serial, dr).await?;
                 }
                 _ => {
-                    error!("{} Unknown command:{}->{:?}", serverinfo, cmd, data);
+                    error!("{} Unknown command:{}->{:?}", serverinfo, cmd, dr);
                     break;
                 }
             }
@@ -311,18 +313,18 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     #[inline]
     pub(crate) async fn call_special_function(&self, cmd: i32) -> Result<()> {
         if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
-            func.call(Data::with_len(4, 0)).await?;
+            func.call(DataOwnedReader::new(vec![0;4])).await?;
         }
         Ok(())
     }
 
     #[inline]
-    pub(crate) async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> Result<RetResult> {
+    pub(crate) async fn run_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> Result<RetResult> {
         return if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
             if func.function_type() != tt {
                 bail!(" cmd:{} function type error:{}", cmd, tt)
             } else {
-                func.call(data).await
+                func.call(dr).await
             }
         } else {
             bail!("not found cmd:{}", cmd)
@@ -332,23 +334,23 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     #[inline]
     fn get_verify_buff(service_name: &str, verify_key: &str, sessionid: &i64) -> Data {
         let mut data = Data::with_capacity(128);
-        data.write_to_le(&1000);
-        data.write_to_le(&service_name);
-        data.write_to_le(&verify_key);
-        data.write_to_le(sessionid);
+        data.write_fixed(1000);
+        data.write_fixed(service_name);
+        data.write_fixed(verify_key);
+        data.write_fixed(sessionid);
         data
     }
 
     fn get_sessionid_buff(mode: u8) -> Data {
         let mut buff = Data::with_capacity(32);
-        buff.write_to_le(&2000);
+        buff.write_fixed(2000);
         if mode == 0 {
             buff
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
-            data.write_to_le(&(len as u32));
-            data.write(&buff);
+            data.write_fixed(len as u32);
+            data.write_buf(&buff);
             data
         }
     }
@@ -356,17 +358,17 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     #[inline]
     fn get_result_buff(sessionid: i64, result: RetResult, mode: u8) -> Data {
         let mut data = Data::with_capacity(1024);
-        data.write_to_le(&2500u32);
-        data.write_to_le(&sessionid);
+        data.write_fixed(2500u32);
+        data.write_fixed(sessionid);
         if result.is_error {
-            data.write_to_le(&true);
-            data.write_to_le(&result.error_id);
-            data.write_to_le(&result.msg);
+            data.write_fixed(true);
+            data.write_fixed(result.error_id);
+            data.write_fixed(result.msg);
         } else {
-            data.write_to_le(&false);
-            data.write_to_le(&(result.arguments.len() as u32));
+            data.write_fixed(false);
+            data.write_fixed(result.arguments.len() as u32);
             for argument in result.arguments {
-                data.write_to_le(&argument.bytes());
+                data.write_fixed(argument.into_inner());
             }
         }
 
@@ -375,8 +377,8 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         } else {
             let len = data.len() + 4usize;
             let mut buff = Data::with_capacity(len);
-            buff.write_to_le(&(len as u32));
-            buff.write(&data);
+            buff.write_fixed(len as u32);
+            buff.write_buf(&data);
             buff
         }
     }
@@ -470,10 +472,10 @@ pub trait INetXClient<T> {
     async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()>;
     async fn reset_connect_stats(&self) -> Result<()>;
     async fn get_callback_len(&self) -> Result<usize>;
-    async fn set_result(&self, serial: i64, data: Data) -> Result<()>;
+    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
-    async fn call_controller(&self, tt: u8, cmd: i32, data: Data) -> RetResult;
+    async fn call_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
     async fn close(&self) -> Result<()>;
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
     async fn run(&self, buff: Data) -> Result<()>;
@@ -630,8 +632,8 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn set_result(&self, serial: i64, data: Data) -> Result<()> {
-        let have_tx: Option<Sender<Result<Data>>> = self
+    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()> {
+        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
             .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
             .await?;
 
@@ -650,7 +652,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
     #[inline]
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
-        let have_tx: Option<Sender<Result<Data>>> = self
+        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
             .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
             .await?;
         if let Some(tx) = have_tx {
@@ -667,9 +669,9 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn call_controller(&self, tt: u8, cmd: i32, data: Data) -> RetResult {
+    async fn call_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
         unsafe {
-            match self.deref_inner().run_controller(tt, cmd, data).await {
+            match self.deref_inner().run_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
                     error!("call controller error:{}", err);
@@ -706,10 +708,10 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
 
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
-        let (net, rx): (Arc<NetPeer>, Receiver<Result<Data>>) = self
+        let (net, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
             .inner_call(async move |inner| {
                 if let Some(ref net) = inner.get().net {
-                    let (tx, rx): (Sender<Result<Data>>, Receiver<Result<Data>>) = oneshot();
+                    let (tx, rx): (Sender<Result<DataOwnedReader>>, Receiver<Result<DataOwnedReader>>) = oneshot();
                     if inner.get_mut().result_dict.contains_key(&serial) {
                         bail!("serial is have")
                     }
@@ -728,8 +730,8 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
-            data.write_to_le(&(len as u32));
-            data.write(&buff);
+            data.write_fixed(len as u32);
+            data.write_buf(&buff);
             net.send(&data).await?;
         }
         match rx.await {
@@ -756,8 +758,8 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
-            data.write_to_le(&(len as u32));
-            data.write(&buff);
+            data.write_fixed(len as u32);
+            data.write_buf(&buff);
             net.send(&data).await?;
         }
 
@@ -777,11 +779,11 @@ macro_rules! call {
             let mut data=Data::with_capacity(128);
             let args_count=call!(@count $($args),*) as i32;
             let serial=$client.new_serial();
-            data.write_to_le(&2400u32);
-            data.write_to_le(&2u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(2400u32);
+            data.write_fixed(2u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             let mut ret= $client.call(serial,data).await?.check()?;
             ret.deserialize()?
@@ -794,11 +796,11 @@ macro_rules! call {
             let mut data=Data::with_capacity(128);
             let args_count=call!(@count $($args),*) as i32;
             let serial=$client.new_serial();
-            data.write_to_le(&2400u32);
-            data.write_to_le(&2u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(2400u32);
+            data.write_fixed(2u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             $client.call(serial,data).await?
     });
@@ -810,11 +812,11 @@ macro_rules! call {
             let mut data=Data::with_capacity(128);
             let args_count=call!(@count $($args),*) as i32;
             let serial=$client.new_serial();
-            data.write_to_le(&2400u32);
-            data.write_to_le(&0u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(2400u32);
+            data.write_fixed(0u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             $client.run(data).await?;
     });
@@ -828,11 +830,11 @@ macro_rules! call {
             let mut data=Data::with_capacity(128);
             let args_count=call!(@count $($args),*) as i32;
             let serial=$client.new_serial();
-            data.write_to_le(&2400u32);
-            data.write_to_le(&0u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(2400u32);
+            data.write_fixed(0u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(
               if let Err(err)=  data.pack_serialize($args){
                  log::error!{"pack_serialize {} is error:{}",$cmd,err};
@@ -850,11 +852,11 @@ macro_rules! call {
             let mut data=Data::with_capacity(128);
             let args_count=call!(@count $($args),*) as i32;
             let serial=$client.new_serial();
-            data.write_to_le(&2400u32);
-            data.write_to_le(&1u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(2400u32);
+            data.write_fixed(1u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             $client.call(serial,data).await?.check()?;
 

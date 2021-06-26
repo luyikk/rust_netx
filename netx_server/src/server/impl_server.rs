@@ -5,7 +5,7 @@ use crate::server::async_token_manager::AsyncTokenManager;
 use crate::{ReadHalfExt, RetResult, ServerOption};
 use anyhow::*;
 use aqueue::Actor;
-use bytes::{Buf, BufMut};
+use bytes::BufMut;
 use data_rw::Data;
 use log::*;
 use std::sync::{Arc, Weak};
@@ -128,20 +128,20 @@ where
     ) -> Result<NetxToken> {
         let cmd = reader.read_i32_le().await?;
         if cmd != 1000 {
-            Self::send_to_key_verify_msg(&peer, true, "not verify key").await?;
+            Self::send_to_key_verify_msg(peer, true, "not verify key").await?;
             bail!("not verify key")
         }
         let name = reader.read_string().await?;
         if !serv.option.service_name.is_empty() && name != serv.option.service_name {
-            Self::send_to_key_verify_msg(&peer, true, "service name error").await?;
+            Self::send_to_key_verify_msg(peer, true, "service name error").await?;
             bail!("IP:{} service name:{} error", peer.addr(), name)
         }
         let password = reader.read_string().await?;
         if !serv.option.verify_key.is_empty() && password != serv.option.verify_key {
-            Self::send_to_key_verify_msg(&peer, true, "service verify key error").await?;
+            Self::send_to_key_verify_msg(peer, true, "service verify key error").await?;
             bail!("IP:{} verify key:{} error", peer.addr(), name)
         }
-        Self::send_to_key_verify_msg(&peer, false, "verify success").await?;
+        Self::send_to_key_verify_msg(peer, false, "verify success").await?;
         let session = reader.read_i64_le().await?;
         let token = if session == 0 {
             serv.async_tokens
@@ -183,27 +183,27 @@ where
         peer: &Arc<NetPeer>,
         token: &NetxToken,
     ) -> Result<()> {
-        while let Ok(mut data) = reader.read_buff().await {
-            let cmd = data.get_le::<i32>()?;
+        while let Ok(mut dr) = reader.read_buff().await {
+            let cmd = dr.read_fixed::<i32>()?;
             match cmd {
                 2000 => {
                     Self::send_to_sessionid(peer, token.get_sessionid()).await?;
                 }
                 2400 => {
-                    let tt = data.get_le::<u8>()?;
-                    let cmd = data.get_le::<i32>()?;
-                    let serial = data.get_le::<i64>()?;
+                    let tt = dr.read_fixed::<u8>()?;
+                    let cmd = dr.read_fixed::<i32>()?;
+                    let serial = dr.read_fixed::<i64>()?;
                     match tt {
                         0 => {
                             let run_token = token.clone();
                             tokio::spawn(async move {
-                                let _ = run_token.run_controller(tt, cmd, data).await;
+                                let _ = run_token.run_controller(tt, cmd, dr).await;
                             });
                         }
                         1 => {
                             let run_token = token.clone();
                             tokio::spawn(async move {
-                                let res = run_token.run_controller(tt, cmd, data).await;
+                                let res = run_token.run_controller(tt, cmd, dr).await;
                                 if let Err(er) =
                                     run_token.send(&Self::get_result_buff(serial, res)).await
                                 {
@@ -214,7 +214,7 @@ where
                         2 => {
                             let run_token = token.clone();
                             tokio::spawn(async move {
-                                let res = run_token.run_controller(tt, cmd, data).await;
+                                let res = run_token.run_controller(tt, cmd, dr).await;
                                 if let Err(er) =
                                     run_token.send(&Self::get_result_buff(serial, res)).await
                                 {
@@ -228,8 +228,8 @@ where
                     }
                 }
                 2500 => {
-                    let serial = data.get_le::<i64>()?;
-                    token.set_result(serial, data).await?;
+                    let serial = dr.read_fixed::<i64>()?;
+                    token.set_result(serial, dr).await?;
                 }
                 _ => {
                     error!("not found cmd:{}", cmd)
@@ -243,19 +243,19 @@ where
     fn get_result_buff(serial: i64, result: RetResult) -> Data {
         let mut data = Data::with_capacity(1024);
 
-        data.write_to_le(&(0u32));
-        data.write_to_le(&2500u32);
-        data.write_to_le(&serial);
+        data.write_fixed(0u32);
+        data.write_fixed(2500u32);
+        data.write_fixed(serial);
 
         if result.is_error {
-            data.write_to_le(&true);
-            data.write_to_le(&result.error_id);
-            data.write_to_le(&result.msg);
+            data.write_fixed(true);
+            data.write_fixed(result.error_id);
+            data.write_fixed(result.msg);
         } else {
-            data.write_to_le(&false);
-            data.write_to_le(&(result.arguments.len() as u32));
+            data.write_fixed(false);
+            data.write_fixed(result.arguments.len() as u32);
             for argument in result.arguments {
-                data.write_to_le(&argument.bytes());
+                data.write_fixed(argument.into_inner());
             }
         }
 
@@ -266,9 +266,9 @@ where
     #[inline]
     async fn send_to_sessionid(peer: &Arc<NetPeer>, sessionid: i64) -> Result<usize> {
         let mut data = Data::new();
-        data.write_to_le(&0u32);
-        data.write_to_le(&2000i32);
-        data.write_to_le(&sessionid);
+        data.write_fixed(0u32);
+        data.write_fixed(2000i32);
+        data.write_fixed(sessionid);
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
         peer.send(&data).await
@@ -276,11 +276,11 @@ where
     #[inline]
     async fn send_to_key_verify_msg(peer: &Arc<NetPeer>, is_err: bool, msg: &str) -> Result<usize> {
         let mut data = Data::new();
-        data.write_to_le(&0u32);
-        data.write_to_le(&1000i32);
-        data.write_to_le(&is_err);
-        data.write_to_le(&msg);
-        data.write_to_le(&1u8);
+        data.write_fixed(0u32);
+        data.write_fixed(1000i32);
+        data.write_fixed(is_err);
+        data.write_fixed(msg);
+        data.write_fixed(1u8);
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
         peer.send(&data).await

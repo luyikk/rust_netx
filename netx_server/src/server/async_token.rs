@@ -4,7 +4,7 @@ use crate::{NetPeer, RetResult};
 use anyhow::*;
 use aqueue::Actor;
 use async_oneshot::{oneshot, Receiver, Sender};
-use data_rw::Data;
+use data_rw::{Data, DataOwnedReader};
 use log::*;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -17,7 +17,7 @@ pub struct AsyncToken {
     controller_fun_register_dict: Option<HashMap<i32, Box<dyn FunctionInfo>>>,
     peer: Option<Weak<NetPeer>>,
     manager: Weak<dyn IAsyncTokenManager>,
-    result_dict: HashMap<i64, Sender<Result<Data>>>,
+    result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
     serial_atomic: AtomicI64,
     request_queue: VecDeque<(i64, Instant)>,
 }
@@ -52,20 +52,20 @@ impl AsyncToken {
     pub(crate) async fn call_special_function(&self, cmd: i32) -> Result<()> {
         if let Some(ref dict) = self.controller_fun_register_dict {
             if let Some(func) = dict.get(&cmd) {
-                func.call(Data::with_len(4, 0)).await?;
+                func.call(DataOwnedReader::new(vec![0;4])).await?;
             }
         }
         Ok(())
     }
 
     #[inline]
-    pub(crate) async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> Result<RetResult> {
+    pub(crate) async fn run_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> Result<RetResult> {
         if let Some(ref dict) = self.controller_fun_register_dict {
             if let Some(func) = dict.get(&cmd) {
                 return if func.function_type() != tt {
                     bail!(" cmd:{} function type error:{}", cmd, tt)
                 } else {
-                    func.call(data).await
+                    func.call(dr).await
                 };
             }
         }
@@ -110,13 +110,13 @@ pub trait IAsyncToken {
     async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()>;
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
-    async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> RetResult;
+    async fn run_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
     async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize>;
     async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>>;
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken>>;
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
     async fn run(&self, buff: Data) -> Result<()>;
-    async fn set_result(&self, serial: i64, data: Data) -> Result<()>;
+    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     async fn check_request_timeout(&self, request_out_time: u32) -> Result<()>;
     async fn is_disconnect(&self) -> Result<bool>;
@@ -176,9 +176,9 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn run_controller(&self, tt: u8, cmd: i32, data: Data) -> RetResult {
+    async fn run_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
         unsafe {
-            match self.deref_inner().run_controller(tt, cmd, data).await {
+            match self.deref_inner().run_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
                     error!(
@@ -242,11 +242,11 @@ impl IAsyncToken for Actor<AsyncToken> {
 
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
-        let (peer, rx): (Arc<NetPeer>, Receiver<Result<Data>>) = self
+        let (peer, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
             .inner_call(async move |inner| {
                 if let Some(ref net) = inner.get().peer {
                     let peer = net.upgrade().ok_or_else(|| anyhow!("call peer is null"))?;
-                    let (tx, rx): (Sender<Result<Data>>, Receiver<Result<Data>>) = oneshot();
+                    let (tx, rx): (Sender<Result<DataOwnedReader>>, Receiver<Result<DataOwnedReader>>) = oneshot();
                     if inner.get_mut().result_dict.contains_key(&serial) {
                         bail!("serial is have")
                     }
@@ -285,15 +285,15 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn set_result(&self, serial: i64, data: Data) -> Result<()> {
-        let have_tx: Option<Sender<Result<Data>>> = self
+    async fn set_result(&self, serial: i64, dr: DataOwnedReader) -> Result<()> {
+        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
             .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
             .await?;
 
         if let Some(tx) = have_tx {
-            return tx.send(Ok(data)).map_err(|_| anyhow!("close rx"));
+            return tx.send(Ok(dr)).map_err(|_| anyhow!("close rx"));
         } else {
-            match RetResult::from(data) {
+            match RetResult::from(dr) {
                 Ok(res) => match res.check() {
                     Ok(_) => {
                         error!("not found 2 {}", serial)
@@ -347,12 +347,12 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
-            data.write_to_le(&0u32);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&2u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(0u32);
+            data.write_fixed(2400u32);
+            data.write_fixed(2u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
@@ -364,12 +364,12 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
-            data.write_to_le(&0u32);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&2u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(0u32);
+            data.write_fixed(2400u32);
+            data.write_fixed(2u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
@@ -380,12 +380,12 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
-            data.write_to_le(&0u32);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&0u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(0u32);
+            data.write_fixed(2400u32);
+            data.write_fixed(0u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
@@ -396,12 +396,12 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
-            data.write_to_le(&0u32);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&0u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(0u32);
+            data.write_fixed(2400u32);
+            data.write_fixed(0u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(
               if let Err(err)=  data.pack_serialize($args){
                  log::error!{"pack_serialize {} is error:{}",$cmd,err};
@@ -418,12 +418,12 @@ macro_rules! call_peer {
             let mut data=Data::with_capacity(128);
             let args_count=call_peer!(@count $($args),*) as i32;
             let serial=$peer.new_serial();
-            data.write_to_le(&0u32);
-            data.write_to_le(&2400u32);
-            data.write_to_le(&1u8);
-            data.write_to_le(&$cmd);
-            data.write_to_le(&serial);
-            data.write_to_le(&args_count);
+            data.write_fixed(0u32);
+            data.write_fixed(2400u32);
+            data.write_fixed(1u8);
+            data.write_fixed($cmd);
+            data.write_fixed(serial);
+            data.write_fixed(args_count);
             $(data.pack_serialize($args)?;)*
             let len=data.len();
             (&mut data[0..4]).put_u32_le(len as u32);
