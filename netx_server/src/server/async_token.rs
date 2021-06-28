@@ -79,7 +79,7 @@ impl AsyncToken {
 
     #[inline]
     pub fn set_error(&mut self, serial: i64, err: anyhow::Error) -> Result<()> {
-        if let Some(tx) = self.result_dict.remove(&serial) {
+        if let Some(mut tx) = self.result_dict.remove(&serial) {
             tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))
         } else {
             Ok(())
@@ -290,7 +290,7 @@ impl IAsyncToken for Actor<AsyncToken> {
             .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
             .await?;
 
-        if let Some(tx) = have_tx {
+        if let Some(mut tx) = have_tx {
             return tx.send(Ok(dr)).map_err(|_| anyhow!("close rx"));
         } else {
             match RetResult::from(dr) {

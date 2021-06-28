@@ -637,7 +637,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
             .await?;
 
-        if let Some(tx) = have_tx {
+        if let Some(mut tx) = have_tx {
             tx.send(Ok(data)).map_err(|_| anyhow!("rx is close"))?;
         } else {
             match RetResult::from(data) {
@@ -655,7 +655,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
             .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
             .await?;
-        if let Some(tx) = have_tx {
+        if let Some(mut tx) = have_tx {
             tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))?;
             Ok(())
         } else {
