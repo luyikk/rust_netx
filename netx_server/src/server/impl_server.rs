@@ -205,7 +205,7 @@ where
                             tokio::spawn(async move {
                                 let res = run_token.run_controller(tt, cmd, dr).await;
                                 if let Err(er) =
-                                    run_token.send(&Self::get_result_buff(serial, res)).await
+                                    run_token.send(Self::get_result_buff(serial, res).into_inner()).await
                                 {
                                     error!("send buff 1 error:{}", er);
                                 }
@@ -216,7 +216,7 @@ where
                             tokio::spawn(async move {
                                 let res = run_token.run_controller(tt, cmd, dr).await;
                                 if let Err(er) =
-                                    run_token.send(&Self::get_result_buff(serial, res)).await
+                                    run_token.send(Self::get_result_buff(serial, res).into_inner()).await
                                 {
                                     error!("send buff {} error:{}", serial, er);
                                 }
@@ -271,7 +271,7 @@ where
         data.write_fixed(sessionid);
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
-        peer.send(&data).await
+        peer.send(data.into_inner()).await
     }
     #[inline]
     async fn send_to_key_verify_msg(peer: &Arc<NetPeer>, is_err: bool, msg: &str) -> Result<usize> {
@@ -283,7 +283,7 @@ where
         data.write_fixed(1u8);
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
-        peer.send(&data).await
+        peer.send(data.into_inner()).await
     }
 
     #[inline]

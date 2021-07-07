@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Weak};
 use tcpserver::IPeer;
 use tokio::time::Instant;
+use std::ops::Deref;
 
 pub struct AsyncToken {
     sessionid: i64,
@@ -111,7 +112,7 @@ pub trait IAsyncToken {
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
     async fn run_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
-    async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize>;
+    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<usize>;
     async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>>;
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken>>;
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
@@ -202,7 +203,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn send<'a>(&'a self, buff: &'a [u8]) -> Result<usize> {
+    async fn  send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<usize> {
         unsafe {
             if let Some(ref peer) = self.deref_inner().peer {
                 let peer = peer
@@ -262,7 +263,7 @@ impl IAsyncToken for Actor<AsyncToken> {
                 }
             })
             .await?;
-        peer.send(&buff).await?;
+        peer.send(buff.into_inner()).await?;
         match rx.await {
             Err(_) => Err(anyhow!("tx is Close")),
             Ok(data) => Ok(RetResult::from(data?)?),
@@ -280,7 +281,7 @@ impl IAsyncToken for Actor<AsyncToken> {
                 }
             })
             .await?;
-        peer.send(&buff).await?;
+        peer.send(buff.into_inner()).await?;
         Ok(())
     }
 
