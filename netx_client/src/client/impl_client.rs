@@ -34,7 +34,7 @@ if #[cfg(feature = "tls")]{
         serverinfo: ServerOption,
         net:Option<Arc<NetPeer>>,
         connect_stats:Option<WReceiver<(bool,String)>>,
-        result_dict:HashMap<i64,Sender<Result<Data>>>,
+        result_dict:HashMap<i64,Sender<Result<DataOwnedReader>>>,
         serial_atomic:AtomicI64,
         request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
         controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
