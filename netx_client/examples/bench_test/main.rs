@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
                                                           "".into(),
                                                           "123123".into(),
-                                                          5000),
+                                                          60000),
                                                         DefaultSessionStore::default(),"localhost".to_string(),ssl_connector)
 
                 }else if #[cfg(feature = "tcp")]{
@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
                                                           "".into(),
                                                           "123123".into(),
-                                                          5000),
+                                                          60000),
                                                         DefaultSessionStore::default())
 
                 }}};
@@ -68,7 +68,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let start = Instant::now();
 
             for i in 0..config.count {
-                let _ = server.add(1, i as i32).await.unwrap();
+                if let Err(er)= server.add(1, i as i32).await{
+                    error!("{}",er);
+                }
             }
 
             info!("task:{} use {} ms", id, start.elapsed().as_millis());
