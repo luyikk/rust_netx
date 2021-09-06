@@ -37,9 +37,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if #[cfg(feature = "tls")]{
 
                         // test tls
-                        use openssl::ssl::{SslMethod,SslConnector};
+                       use openssl::ssl::{SslMethod,SslConnector,SslFiletype};
                         let mut connector = SslConnector::builder(SslMethod::tls()).unwrap();
-                        connector.set_ca_file("tests/cert.pem").unwrap();
+                        connector.set_ca_file("tests/chain.cert.pem").unwrap();
+                        connector.set_private_key_file("tests/client-key.pem", SslFiletype::PEM).unwrap();
+                        connector.set_certificate_chain_file("tests/client-cert.pem").unwrap();
+                        connector.check_private_key().unwrap();
                         let ssl_connector=connector.build();
                         NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
                                                           "".into(),
