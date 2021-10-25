@@ -10,12 +10,14 @@ use std::error::Error;
 use structopt::StructOpt;
 use test_controller::TestController;
 
-#[derive(StructOpt, Debug, Copy, Clone)]
+#[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "netx bench client")]
 struct Config {
+    ipaddress:String,
     thread_count: u32,
     count: u32,
 }
+
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -27,9 +29,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::Builder::default()
         .filter_level(LevelFilter::Info)
         .init();
+
     let mut join_array = Vec::with_capacity(config.thread_count as usize);
     let start = Instant::now();
+    let count=config.count;
     for id in 0..config.thread_count {
+        let ipaddress=config.ipaddress.clone();
         let join = tokio::spawn(async move {
 
             let client = {
@@ -44,7 +49,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         connector.set_certificate_chain_file("tests/client-cert.pem").unwrap();
                         connector.check_private_key().unwrap();
                         let ssl_connector=connector.build();
-                        NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                        NetXClient::new(ServerOption::new(format!("{}:6666",ipaddress),
                                                           "".into(),
                                                           "123123".into(),
                                                           60000),
@@ -53,7 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }else if #[cfg(feature = "tcp")]{
 
                         // test tcp
-                        NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                        NetXClient::new(ServerOption::new(format!("{}:6666",ipaddress),
                                                           "".into(),
                                                           "123123".into(),
                                                           60000),
@@ -70,7 +75,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let start = Instant::now();
 
-            for i in 0..config.count {
+            for i in 0..count {
                 if let Err(er)= server.add(1, i as i32).await{
                     error!("{}",er);
                 }
