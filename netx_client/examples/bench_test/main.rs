@@ -63,7 +63,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                                           "123123".into(),
                                                           60000),
                                                         DefaultSessionStore::default())
-
                 }}};
 
             client
