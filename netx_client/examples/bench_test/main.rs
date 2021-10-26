@@ -72,17 +72,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .unwrap();
             client.connect_network().await.unwrap();
             let server: Box<dyn IServer> = impl_interface!(client=>IServer);
-
             let start = Instant::now();
-
             for i in 0..count {
                 if let Err(er)= server.add(1, i as i32).await{
                     error!("{}",er);
                 }
             }
-
             info!("task:{} use {} ms", id, start.elapsed().as_millis());
-
             client.close().await.unwrap();
         });
 
@@ -95,7 +91,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let ms = start.elapsed().as_millis();
     let all_count = config.thread_count as u128 * config.count as u128;
-
     info!("all time:{} ms,TPS:{} ", ms, all_count / ms * 1000);
     Ok(())
 }
