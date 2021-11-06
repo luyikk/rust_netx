@@ -158,8 +158,9 @@ impl<T: ICreateController + 'static> IAsyncTokenManager for Actor<AsyncTokenMana
     }
     #[inline]
     async fn check_tokens_request_timeout(&self) -> Result<()> {
-        self.inner_call(async move |inner| inner.get().check_tokens_request_timeout().await)
-            .await
+        unsafe {
+            self.deref_inner().check_tokens_request_timeout().await
+        }
     }
 
     async fn check_tokens_disconnect_timeout(&self) -> Result<()> {
