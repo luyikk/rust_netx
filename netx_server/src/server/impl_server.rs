@@ -165,7 +165,7 @@ where
 
     #[inline]
     async fn read_buff_byline(
-        mut reader: &mut NetReadHalf,
+        reader: &mut NetReadHalf,
         peer: &Arc<NetPeer>,
         token: &NetxToken,
     ) -> Result<()> {
@@ -173,7 +173,7 @@ where
         token
             .call_special_function(SpecialFunctionTag::Connect as i32)
             .await?;
-        Self::data_reading(&mut reader, peer, token).await?;
+        Self::data_reading(reader, peer, token).await?;
         Ok(())
     }
 
