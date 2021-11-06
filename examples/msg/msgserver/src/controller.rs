@@ -143,9 +143,7 @@ impl IServerController for ServerController {
         let token = self.token.get_token(target_user.sessionid).await?.
             with_context(||format!("not found {}", target_nickname))?;
         let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
-        let v=peer.ping(current_user.nickname.clone(), time).await?;
-        debug!("ping time:{}",time);
-        Ok(v)
+        Ok(peer.ping(current_user.nickname.clone(), time).await?)
     }
 }
 
