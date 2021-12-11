@@ -1,6 +1,6 @@
 use packer::*;
 use netxclient::*;
-use anyhow::*;
+use anyhow::Result;
 
 //服务器接口,调用服务器需要使用它
 //server interface,it is required to call the server

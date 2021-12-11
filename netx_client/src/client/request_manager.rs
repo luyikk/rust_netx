@@ -1,5 +1,5 @@
 use crate::client::{INetXClient, NetXClient, SessionSave};
-use anyhow::*;
+use anyhow::{anyhow, Result};
 use aqueue::Actor;
 use log::*;
 use std::collections::VecDeque;

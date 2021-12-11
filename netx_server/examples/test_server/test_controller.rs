@@ -1,6 +1,6 @@
 use crate::client::*;
 use crate::test_struct::{LogOn, LogOnResult, Foo};
-use anyhow::*;
+use anyhow::Result;
 use log::*;
 use netxserver::*;
 use std::cell::Cell;

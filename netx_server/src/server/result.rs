@@ -1,4 +1,4 @@
-use anyhow::*;
+use anyhow::{bail, Result};
 use data_rw::{Data, DataOwnedReader};
 use serde::{Deserialize, Serialize};
 use std::io;

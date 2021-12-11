@@ -1,5 +1,5 @@
 use crate::server::*;
-use anyhow::*;
+use anyhow::Result;
 use netxclient::*;
 use std::cell::RefCell;
 use std::sync::Arc;

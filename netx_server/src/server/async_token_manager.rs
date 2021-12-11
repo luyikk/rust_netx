@@ -2,7 +2,7 @@ use crate::async_token::IAsyncToken;
 use crate::controller::ICreateController;
 use crate::impl_server::SpecialFunctionTag;
 use crate::server::async_token::{AsyncToken, NetxToken};
-use anyhow::*;
+use anyhow::Result;
 use aqueue::Actor;
 use log::*;
 use std::collections::{HashMap, VecDeque};

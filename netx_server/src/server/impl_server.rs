@@ -3,7 +3,7 @@ use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::controller::ICreateController;
 use crate::server::async_token_manager::AsyncTokenManager;
 use crate::{ReadHalfExt, RetResult, ServerOption};
-use anyhow::*;
+use anyhow::{bail, Result};
 use aqueue::Actor;
 use bytes::BufMut;
 use data_rw::Data;

@@ -1,6 +1,6 @@
 use netxclient::*;
 use std::sync::Weak;
-use anyhow::*;
+use anyhow::Result;
 
 //客户端接口和实现,用来被服务器调用
 //Client interface and implementation, used to be called by the server
