@@ -2,7 +2,7 @@ mod interface_server;
 mod controller;
 
 use std::error::Error;
-use netxclient::*;
+use netxclient::prelude::*;
 use packer::*;
 
 

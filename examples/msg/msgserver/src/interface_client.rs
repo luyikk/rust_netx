@@ -1,4 +1,4 @@
-use netxserver::*;
+use netxserver::prelude::*;
 use anyhow::Result;
 
 // client interface

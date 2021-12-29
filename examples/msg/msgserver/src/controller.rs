@@ -1,4 +1,4 @@
-use netxserver::*;
+use netxserver::prelude::*;
 use log::*;
 use tcpserver::IPeer;
 use packer::{LogOn, LogOnRes, User};

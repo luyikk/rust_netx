@@ -1,5 +1,5 @@
 use packer::User;
-use netxserver::Actor;
+use netxserver::prelude::Actor;
 use lazy_static::*;
 use anyhow::Result;
 

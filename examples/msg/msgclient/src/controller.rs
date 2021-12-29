@@ -1,4 +1,4 @@
-use netxclient::*;
+use netxclient::prelude::*;
 use std::sync::Weak;
 use anyhow::Result;
 
