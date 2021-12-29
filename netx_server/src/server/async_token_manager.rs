@@ -2,7 +2,7 @@ use crate::async_token::IAsyncToken;
 use crate::controller::ICreateController;
 use crate::impl_server::SpecialFunctionTag;
 use crate::server::async_token::{AsyncToken, NetxToken};
-use anyhow::*;
+use anyhow::Result;
 use aqueue::Actor;
 use log::*;
 use std::collections::{HashMap, VecDeque};
@@ -60,7 +60,7 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
 
     #[inline]
     async fn check_tokens_request_timeout(&self) -> Result<()> {
-        for token in self.dict.values() {
+        for token in self.dict.values().cloned() {
             token.check_request_timeout(self.request_out_time).await?;
         }
         Ok(())
@@ -158,8 +158,9 @@ impl<T: ICreateController + 'static> IAsyncTokenManager for Actor<AsyncTokenMana
     }
     #[inline]
     async fn check_tokens_request_timeout(&self) -> Result<()> {
-        self.inner_call(async move |inner| inner.get().check_tokens_request_timeout().await)
-            .await
+        unsafe {
+            self.deref_inner().check_tokens_request_timeout().await
+        }
     }
 
     async fn check_tokens_disconnect_timeout(&self) -> Result<()> {

@@ -1,5 +1,5 @@
 use netxserver::*;
-use anyhow::*;
+use anyhow::Result;
 
 // client interface
 // 客户端接口

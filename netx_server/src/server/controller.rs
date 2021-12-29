@@ -1,6 +1,6 @@
 use crate::async_token::NetxToken;
 use crate::result::RetResult;
-use anyhow::*;
+use anyhow::Result;
 use data_rw::DataOwnedReader;
 use std::collections::HashMap;
 use std::sync::Arc;

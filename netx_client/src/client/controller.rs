@@ -1,5 +1,5 @@
 use crate::client::RetResult;
-use anyhow::*;
+use anyhow::Result;
 use data_rw::DataOwnedReader;
 use std::collections::HashMap;
 use std::sync::Arc;

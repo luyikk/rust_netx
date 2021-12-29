@@ -3,7 +3,7 @@ use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::controller::ICreateController;
 use crate::server::async_token_manager::AsyncTokenManager;
 use crate::{ReadHalfExt, RetResult, ServerOption};
-use anyhow::*;
+use anyhow::{bail, Result};
 use aqueue::Actor;
 use bytes::BufMut;
 use data_rw::Data;
@@ -165,7 +165,7 @@ where
 
     #[inline]
     async fn read_buff_byline(
-        mut reader: &mut NetReadHalf,
+        reader: &mut NetReadHalf,
         peer: &Arc<NetPeer>,
         token: &NetxToken,
     ) -> Result<()> {
@@ -173,7 +173,7 @@ where
         token
             .call_special_function(SpecialFunctionTag::Connect as i32)
             .await?;
-        Self::data_reading(&mut reader, peer, token).await?;
+        Self::data_reading(reader, peer, token).await?;
         Ok(())
     }
 

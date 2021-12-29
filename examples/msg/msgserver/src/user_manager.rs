@@ -1,7 +1,7 @@
 use packer::User;
 use netxserver::Actor;
 use lazy_static::*;
-use anyhow::*;
+use anyhow::Result;
 
 lazy_static!{
     //为了方便实现,使用了actor

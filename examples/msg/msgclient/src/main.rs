@@ -63,7 +63,7 @@ async fn main()->Result<(),Box<dyn Error>> {
             std::io::stdin().read_line(&mut input)?;
             input = input.trim().to_string();
 
-            let args:Vec<&str>= input.split(' ').collect();
+            let args:Vec<&str>= input.split(&[' ','\t'][..]).collect();
             if args.len()>0{
                 match args[0]{
                     "--help"=> print_cmd(),
@@ -80,11 +80,25 @@ async fn main()->Result<(),Box<dyn Error>> {
                     },
                     "--ping"=>{
                         if args.len()>=2 {
-                          match  server.ping(args[1].to_string(),
-                                             chrono::Local::now().timestamp_nanos()).await{
-                              Ok(time)=> println!("{}ms",(chrono::Local::now().timestamp_nanos()-time) as f64 /1000000f64),
-                              Err(err)=> println!("error:{}",err)
-                          }
+                            let count={
+                                if args.len()>=3{
+                                    if let Ok(v)=args[2].trim().parse::<i32>(){
+                                        v
+                                    }else{
+                                        1
+                                    }
+                                }else {
+                                    1
+                                }
+                            };
+
+                            for _ in 0..count {
+                                match server.ping(args[1].to_string(),
+                                                  chrono::Local::now().timestamp_nanos()).await {
+                                    Ok(time) => println!("{} ms", (chrono::Local::now().timestamp_nanos() - time) as f64 / 1000000f64),
+                                    Err(err) => println!("error:{}", err)
+                                }
+                            }
                         }
                     }
                     _=>{

@@ -1,5 +1,5 @@
 use crate::test_struct::{LogOn, LogOnResult, Foo};
-use anyhow::*;
+use anyhow::Result;
 use netxclient::prelude::*;
 
 #[build]
