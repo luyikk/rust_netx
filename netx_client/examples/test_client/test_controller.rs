@@ -1,8 +1,7 @@
 use crate::server::*;
 use anyhow::*;
-use netxclient::*;
+use netxclient::prelude::*;
 use std::cell::RefCell;
-use std::sync::Arc;
 
 #[build(TestController)]
 pub trait ITestController {
@@ -24,17 +23,16 @@ pub trait ITestController {
     async fn recursive_test(&self, a: i32) -> Result<i32>;
 }
 
-type Client = Arc<Actor<NetXClient<DefaultSessionStore>>>;
 
 #[allow(dead_code)]
 pub struct TestController {
-    client: Client,
+    client: NetxClientArcDef,
     server: Box<dyn IServer>,
     name: RefCell<String>,
 }
 
 impl TestController {
-    pub fn new(client: Client) -> TestController {
+    pub fn new(client: NetxClientArcDef) -> TestController {
         TestController {
             server: impl_interface!(client=>IServer),
             client,

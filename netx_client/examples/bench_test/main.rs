@@ -1,7 +1,7 @@
 mod server;
 mod test_controller;
 
-use netxclient::*;
+use netxclient::prelude::*;
 use std::time::Instant;
 
 use log::*;

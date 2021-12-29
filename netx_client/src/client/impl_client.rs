@@ -16,6 +16,7 @@ use tokio::time::{sleep, Duration};
 use crate::client::controller::{FunctionInfo, IController};
 use crate::client::request_manager::{IRequestManager, RequestManager};
 use crate::client::result::RetResult;
+use crate::client::NetxClientArc;
 
 
 cfg_if::cfg_if! {
@@ -113,7 +114,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "tls")] {
 
-        pub fn new(serverinfo: ServerOption, session:T,ssl_domain:String,ssl_connector:SslConnector) ->Arc<Actor<NetXClient<T>>>{
+        pub fn new(serverinfo: ServerOption, session:T,ssl_domain:String,ssl_connector:SslConnector) ->NetxClientArc<T>{
             let request_out_time_ms=serverinfo.request_out_time_ms;
             let netx_client=Arc::new(Actor::new(NetXClient{
                 ssl_domain,
@@ -138,7 +139,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             netx_client
         }} else if #[cfg(feature = "tcp")]{
 
-        pub fn new(serverinfo: ServerOption, session:T) ->Arc<Actor<NetXClient<T>>>{
+        pub fn new(serverinfo: ServerOption, session:T) ->NetxClientArc<T>{
             let request_out_time_ms=serverinfo.request_out_time_ms;
             let netx_client=Arc::new(Actor::new(NetXClient{
                 session,
@@ -170,7 +171,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
 
     #[allow(clippy::type_complexity)]
     async fn input_buffer(
-        (mut netx_client, set_connect): (Arc<Actor<NetXClient<T>>>, WSender<(bool, String)>),
+        (mut netx_client, set_connect): (NetxClientArc<T>, WSender<(bool, String)>),
         client: Arc<NetPeer>,
         mut reader: NetReadHalf,
     ) -> Result<bool> {
@@ -187,7 +188,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     async fn read_buffer(
-        netx_client: &mut Arc<Actor<NetXClient<T>>>,
+        netx_client: &mut NetxClientArc<T>,
         set_connect: WSender<(bool, String)>,
         client: Arc<NetPeer>,
         reader: &mut NetReadHalf,

@@ -1,6 +1,6 @@
 use crate::test_struct::{LogOn, LogOnResult, Foo};
 use anyhow::*;
-use netxclient::*;
+use netxclient::prelude::*;
 
 #[build]
 pub trait IServer: Sync + Send {
