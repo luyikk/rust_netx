@@ -179,10 +179,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         {
             error!("read buffer err:{}", er);
         }
-        netx_client
-            .call_special_function(SpecialFunctionTag::Disconnect as i32)
-            .await?;
-        netx_client.close().await?;
+        netx_client.clean_connect().await?;
         info! {"disconnect to {}", netx_client.get_serviceinfo()};
         Ok(true)
     }
@@ -477,6 +474,7 @@ pub trait INetXClient<T> {
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
     async fn call_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
+    async fn clean_connect(&self)->Result<()>;
     async fn close(&self) -> Result<()>;
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
     async fn run(&self, buff: Data) -> Result<()>;
@@ -678,6 +676,30 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
                     error!("call controller error:{}", err);
                     RetResult::error(1, format!("call controller err:{}", err))
                 }
+            }
+        }
+    }
+
+    #[inline]
+    async fn clean_connect(&self)->Result<()>{
+        let net: Result<Arc<NetPeer>> = self
+            .inner_call(async move |inner| {
+                if let Err(er) = inner
+                    .get()
+                    .call_special_function(SpecialFunctionTag::Disconnect as i32)
+                    .await
+                {
+                    error!("call controller Closed err:{}", er)
+                }
+                inner.get_mut().net.take().context("not connect")
+            })
+            .await;
+        match net {
+            Err(_) => Ok(()),
+            Ok(net) => {
+                net.disconnect().await?;
+                sleep(Duration::from_millis(100)).await;
+                Ok(())
             }
         }
     }
