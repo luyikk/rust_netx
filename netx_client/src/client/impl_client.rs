@@ -181,6 +181,9 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         }
         netx_client.clean_connect().await?;
         info! {"disconnect to {}", netx_client.get_serviceinfo()};
+        netx_client
+            .call_special_function(SpecialFunctionTag::Disconnect as i32)
+            .await?;
         Ok(true)
     }
 
@@ -684,13 +687,6 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     async fn clean_connect(&self)->Result<()>{
         let net: Result<Arc<NetPeer>> = self
             .inner_call(async move |inner| {
-                if let Err(er) = inner
-                    .get()
-                    .call_special_function(SpecialFunctionTag::Disconnect as i32)
-                    .await
-                {
-                    error!("call controller Closed err:{}", er)
-                }
                 inner.get_mut().net.take().context("not connect")
             })
             .await;
