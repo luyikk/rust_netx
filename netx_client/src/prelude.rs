@@ -5,7 +5,6 @@ pub use netxbuilder::{build_client as build, build_impl, tag};
 pub use paste;
 pub use tcpclient;
 pub use crate::client::*;
-pub use crate::impl_interface;
-pub use crate::call;
+pub use crate::{impl_interface,call,impl_owned_interface};
 
 

@@ -873,3 +873,12 @@ macro_rules! impl_interface {
         }
     };
 }
+
+#[macro_export]
+macro_rules! impl_owned_interface {
+    ($client:expr=>$interface:ty) => {
+        paste::paste! {
+              Box::new([<___impl_ $interface _call>]::new($client))  as  Box<dyn $interface>
+        }
+    };
+}

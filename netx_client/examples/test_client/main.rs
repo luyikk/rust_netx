@@ -108,8 +108,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         for i in 0..100000 {
             //call!(@result client=>1000;1,2);
-            let v = server.add(1, i).await?;
-            println!("{}",v);
+            //let v =
+            server.add(1, i).await?;
+            //println!("{}",v);
         }
 
         //let r:i32=call!(client=>1005;10000);
