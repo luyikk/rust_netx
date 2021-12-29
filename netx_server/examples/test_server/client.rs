@@ -1,5 +1,5 @@
 use anyhow::Result;
-use netxserver::*;
+use netxserver::prelude::*;
 
 #[build]
 pub trait IClient: Sync + Send {

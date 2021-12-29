@@ -2,7 +2,7 @@ use crate::client::*;
 use crate::test_struct::{LogOn, LogOnResult, Foo};
 use anyhow::Result;
 use log::*;
-use netxserver::*;
+use netxserver::prelude::*;
 use std::cell::Cell;
 use std::sync::Arc;
 use tcpserver::IPeer;

@@ -5,7 +5,7 @@ mod test_struct;
 
 use crate::test_controller::ImplCreateController;
 use log::LevelFilter;
-use netxserver::{NetXServer, ServerOption};
+use netxserver::prelude::*;
 use std::error::Error;
 
 #[global_allocator]
