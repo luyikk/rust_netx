@@ -18,7 +18,6 @@ use crate::client::request_manager::{IRequestManager, RequestManager};
 use crate::client::result::RetResult;
 use crate::client::NetxClientArc;
 
-
 cfg_if::cfg_if! {
 if #[cfg(feature = "tls")]{
    use openssl::ssl::{SslConnector,Ssl};
@@ -196,24 +195,23 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         let serverinfo = netx_client.get_serviceinfo();
         let mut sessionid = netx_client.get_sessionid();
         client
-            .send(Self::get_verify_buff(
-                &serverinfo.service_name,
-                &serverinfo.verify_key,
-                &sessionid,
-            ).into_inner())
+            .send(
+                Self::get_verify_buff(&serverinfo.service_name, &serverinfo.verify_key, &sessionid)
+                    .into_inner(),
+            )
             .await?;
         let mut option_connect = Some(set_connect);
         while let Ok(len) = reader.read_u32_le().await {
             let len = (len - 4) as usize;
             let mut buff = vec![0; len];
             reader.read_exact(&mut buff).await?;
-            let mut dr=DataOwnedReader::new(buff);
+            let mut dr = DataOwnedReader::new(buff);
             let cmd = dr.read_fixed::<i32>()?;
             match cmd {
                 1000 => match dr.read_fixed::<bool>()? {
                     false => {
                         info!("{} {}", serverinfo, dr.read_fixed_str()?);
-                        if (dr.len()- dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
+                        if (dr.len() - dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
                             debug!("mode 1");
                             netx_client.set_mode(1).await?;
                         }
@@ -264,11 +262,14 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             tokio::spawn(async move {
                                 let res = run_netx_client.call_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
-                                    .send(Self::get_result_buff(
-                                        sessionid,
-                                        res,
-                                        run_netx_client.get_mode(),
-                                    ).into_inner())
+                                    .send(
+                                        Self::get_result_buff(
+                                            sessionid,
+                                            res,
+                                            run_netx_client.get_mode(),
+                                        )
+                                        .into_inner(),
+                                    )
                                     .await
                                 {
                                     error!("send buff 1 error:{}", er);
@@ -281,11 +282,14 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             tokio::spawn(async move {
                                 let res = run_netx_client.call_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
-                                    .send(Self::get_result_buff(
-                                        sessionid,
-                                        res,
-                                        run_netx_client.get_mode(),
-                                    ).into_inner())
+                                    .send(
+                                        Self::get_result_buff(
+                                            sessionid,
+                                            res,
+                                            run_netx_client.get_mode(),
+                                        )
+                                        .into_inner(),
+                                    )
                                     .await
                                 {
                                     error!("send buff 2 error:{}", er);
@@ -314,13 +318,18 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     #[inline]
     pub(crate) async fn call_special_function(&self, cmd: i32) -> Result<()> {
         if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
-            func.call(DataOwnedReader::new(vec![0;4])).await?;
+            func.call(DataOwnedReader::new(vec![0; 4])).await?;
         }
         Ok(())
     }
 
     #[inline]
-    pub(crate) async fn run_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> Result<RetResult> {
+    pub(crate) async fn run_controller(
+        &self,
+        tt: u8,
+        cmd: i32,
+        dr: DataOwnedReader,
+    ) -> Result<RetResult> {
         return if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
             if func.function_type() != tt {
                 bail!(" cmd:{} function type error:{}", cmd, tt)
@@ -477,7 +486,7 @@ pub trait INetXClient<T> {
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
     async fn call_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
-    async fn clean_connect(&self)->Result<()>;
+    async fn clean_connect(&self) -> Result<()>;
     async fn close(&self) -> Result<()>;
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
     async fn run(&self, buff: Data) -> Result<()>;
@@ -684,11 +693,9 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn clean_connect(&self)->Result<()>{
+    async fn clean_connect(&self) -> Result<()> {
         let net: Result<Arc<NetPeer>> = self
-            .inner_call(async move |inner| {
-                inner.get_mut().net.take().context("not connect")
-            })
+            .inner_call(async move |inner| inner.get_mut().net.take().context("not connect"))
             .await;
         match net {
             Err(_) => Ok(()),
@@ -730,7 +737,10 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
         let (net, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
             .inner_call(async move |inner| {
                 if let Some(ref net) = inner.get().net {
-                    let (tx, rx): (Sender<Result<DataOwnedReader>>, Receiver<Result<DataOwnedReader>>) = oneshot();
+                    let (tx, rx): (
+                        Sender<Result<DataOwnedReader>>,
+                        Receiver<Result<DataOwnedReader>>,
+                    ) = oneshot();
                     if inner.get_mut().result_dict.contains_key(&serial) {
                         bail!("serial is have")
                     }

@@ -24,10 +24,9 @@ where
     #[inline]
     async fn read_buff(&mut self) -> io::Result<DataOwnedReader> {
         let len = (self.read_u32_le().await? - 4) as usize;
-        let mut data =vec![0;len];
+        let mut data = vec![0; len];
         let r = self.read_exact(&mut data).await?;
         debug_assert_eq!(len, r);
         Ok(DataOwnedReader::new(data))
     }
-
 }

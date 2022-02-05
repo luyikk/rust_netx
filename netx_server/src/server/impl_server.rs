@@ -36,10 +36,15 @@ pub(crate) enum SpecialFunctionTag {
     Disconnect = 2147483646,
     Closed = 2147483645,
 }
-pub struct NetXServer<T> {
+
+struct NetXServerInner<T> {
     option: ServerOption,
-    serv: Arc<dyn ITCPServer<Arc<NetXServer<T>>>>,
     async_tokens: TokenManager<T>,
+}
+
+pub struct NetXServer<T> {
+    inner: Arc<NetXServerInner<T>>,
+    serv: Arc<dyn ITCPServer<Arc<NetXServerInner<T>>>>,
 }
 unsafe impl<T> Send for NetXServer<T> {}
 unsafe impl<T> Sync for NetXServer<T> {}
@@ -51,7 +56,14 @@ where
     cfg_if::cfg_if! {
     if #[cfg(feature = "tls")]{
        #[inline]
-       pub async fn new(ssl_acceptor:&'static SslAcceptor,option:ServerOption,impl_controller:T)->Arc<NetXServer<T>> {
+       pub async fn new(ssl_acceptor:&'static SslAcceptor,option:ServerOption,impl_controller:T)->NetXServer<T> {
+          let request_out_time = option.request_out_time;
+          let session_save_time = option.session_save_time;
+          let async_tokens= AsyncTokenManager::new(impl_controller, request_out_time, session_save_time);
+          let inner=Arc::new(NetXServerInner{
+                    option,
+                    async_tokens
+                });
           let serv = Builder::new(&option.addr).set_connect_event(|addr| {
              info!("{} connect", addr);
              true
@@ -63,9 +75,9 @@ where
              Pin::new(&mut stream).accept().await?;
              Ok(stream)
           })
-          .set_input_event(async move |mut reader, peer, serv| {
+          .set_input_event(async move |mut reader, peer, inner| {
               let addr = peer.addr();
-              let token = match Self::get_peer_token(&mut reader, &peer, &serv).await {
+              let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
                     Ok(token) => token,
                     Err(er) => {
                        info!("user:{}:{},disconnect it", addr, er);
@@ -75,30 +87,34 @@ where
 
               Self::read_buff_byline(&mut reader, &peer, &token).await?;
               token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
-              serv.async_tokens.peer_disconnect(token.get_sessionid()).await?;
+              inner.async_tokens.peer_disconnect(token.get_sessionid()).await?;
               Ok(())
           }).build().await;
-          let request_out_time = option.request_out_time;
-          let session_save_time = option.session_save_time;
-          Arc::new(NetXServer {
-             option,
-             serv,
-             async_tokens: AsyncTokenManager::new(impl_controller, request_out_time, session_save_time)
-          })
+          NetXServer {
+             inner,
+             serv
+          }
        }
     }else if #[cfg(feature = "tcp")]{
        #[inline]
-       pub async fn new(option:ServerOption,impl_controller:T)->Arc<NetXServer<T>> {
-          let serv = Builder::new(&option.addr).set_connect_event(|addr| {
+       pub async fn new(option:ServerOption,impl_controller:T)->NetXServer<T> {
+          let request_out_time = option.request_out_time;
+          let session_save_time = option.session_save_time;
+          let async_tokens= AsyncTokenManager::new(impl_controller, request_out_time, session_save_time);
+          let inner=Arc::new(NetXServerInner{
+                    option,
+                    async_tokens
+                });
+          let serv = Builder::new(&inner.option.addr).set_connect_event(|addr| {
              info!("{} connect", addr);
              true
           })
           .set_stream_init(async move |tcp_stream|{
              Ok(tcp_stream)
            })
-          .set_input_event(async move |mut reader, peer, serv| {
+          .set_input_event(async move |mut reader, peer, inner| {
              let addr = peer.addr();
-             let token = match Self::get_peer_token(&mut reader, &peer, &serv).await {
+             let token = match Self::get_peer_token(&mut reader, &peer,&inner).await {
                 Ok(token) => token,
                 Err(er) => {
                    info!("user:{}:{},disconnect it", addr, er);
@@ -108,23 +124,20 @@ where
 
              Self::read_buff_byline(&mut reader, &peer, &token).await?;
              token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
-             serv.async_tokens.peer_disconnect(token.get_sessionid()).await?;
+             inner.async_tokens.peer_disconnect(token.get_sessionid()).await?;
              Ok(())
           }).build().await;
-          let request_out_time = option.request_out_time;
-          let session_save_time = option.session_save_time;
-          Arc::new(NetXServer {
-             option,
-             serv,
-             async_tokens: AsyncTokenManager::new(impl_controller, request_out_time, session_save_time)
-          })
+          NetXServer {
+             inner,
+             serv
+          }
        }
     }}
     #[inline]
     async fn get_peer_token(
         mut reader: &mut NetReadHalf,
         peer: &Arc<NetPeer>,
-        serv: &Arc<NetXServer<T>>,
+        inner: &Arc<NetXServerInner<T>>,
     ) -> Result<NetxToken> {
         let cmd = reader.read_i32_le().await?;
         if cmd != 1000 {
@@ -132,28 +145,30 @@ where
             bail!("not verify key")
         }
         let name = reader.read_string().await?;
-        if !serv.option.service_name.is_empty() && name != serv.option.service_name {
+        if !inner.option.service_name.is_empty() && name != inner.option.service_name {
             Self::send_to_key_verify_msg(peer, true, "service name error").await?;
             bail!("IP:{} service name:{} error", peer.addr(), name)
         }
         let password = reader.read_string().await?;
-        if !serv.option.verify_key.is_empty() && password != serv.option.verify_key {
+        if !inner.option.verify_key.is_empty() && password != inner.option.verify_key {
             Self::send_to_key_verify_msg(peer, true, "service verify key error").await?;
             bail!("IP:{} verify key:{} error", peer.addr(), name)
         }
         Self::send_to_key_verify_msg(peer, false, "verify success").await?;
         let session = reader.read_i64_le().await?;
         let token = if session == 0 {
-            serv.async_tokens
-                .create_token(Arc::downgrade(&serv.async_tokens) as Weak<dyn IAsyncTokenManager>)
+            inner
+                .async_tokens
+                .create_token(Arc::downgrade(&inner.async_tokens) as Weak<dyn IAsyncTokenManager>)
                 .await?
         } else {
-            match serv.async_tokens.get_token(session).await? {
+            match inner.async_tokens.get_token(session).await? {
                 Some(token) => token,
                 None => {
-                    serv.async_tokens
+                    inner
+                        .async_tokens
                         .create_token(
-                            Arc::downgrade(&serv.async_tokens) as Weak<dyn IAsyncTokenManager>
+                            Arc::downgrade(&inner.async_tokens) as Weak<dyn IAsyncTokenManager>
                         )
                         .await?
                 }
@@ -187,7 +202,7 @@ where
             let cmd = dr.read_fixed::<i32>()?;
             match cmd {
                 2000 => {
-                    Self::send_to_sessionid(peer, token.get_sessionid()).await?;
+                    Self::send_to_session_id(peer, token.get_sessionid()).await?;
                 }
                 2400 => {
                     let tt = dr.read_fixed::<u8>()?;
@@ -204,8 +219,9 @@ where
                             let run_token = token.clone();
                             tokio::spawn(async move {
                                 let res = run_token.run_controller(tt, cmd, dr).await;
-                                if let Err(er) =
-                                    run_token.send(Self::get_result_buff(serial, res).into_inner()).await
+                                if let Err(er) = run_token
+                                    .send(Self::get_result_buff(serial, res).into_inner())
+                                    .await
                                 {
                                     error!("send buff 1 error:{}", er);
                                 }
@@ -215,8 +231,9 @@ where
                             let run_token = token.clone();
                             tokio::spawn(async move {
                                 let res = run_token.run_controller(tt, cmd, dr).await;
-                                if let Err(er) =
-                                    run_token.send(Self::get_result_buff(serial, res).into_inner()).await
+                                if let Err(er) = run_token
+                                    .send(Self::get_result_buff(serial, res).into_inner())
+                                    .await
                                 {
                                     error!("send buff {} error:{}", serial, er);
                                 }
@@ -264,11 +281,11 @@ where
         data
     }
     #[inline]
-    async fn send_to_sessionid(peer: &Arc<NetPeer>, sessionid: i64) -> Result<usize> {
+    async fn send_to_session_id(peer: &Arc<NetPeer>, session_id: i64) -> Result<usize> {
         let mut data = Data::new();
         data.write_fixed(0u32);
         data.write_fixed(2000i32);
-        data.write_fixed(sessionid);
+        data.write_fixed(session_id);
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
         peer.send(data.into_inner()).await
@@ -287,11 +304,11 @@ where
     }
 
     #[inline]
-    pub async fn start(self: &Arc<Self>) -> Result<JoinHandle<Result<()>>> {
-        Ok(self.serv.start(self.clone()).await?)
+    pub async fn start(&self) -> Result<JoinHandle<Result<()>>> {
+        Ok(self.serv.start(self.inner.clone()).await?)
     }
     #[inline]
-    pub async fn start_block(self: &Arc<Self>) -> Result<()> {
-        self.serv.start_block(self.clone()).await
+    pub async fn start_block(&self) -> Result<()> {
+        self.serv.start_block(self.inner.clone()).await
     }
 }

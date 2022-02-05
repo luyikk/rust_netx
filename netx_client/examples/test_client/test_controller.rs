@@ -23,7 +23,6 @@ pub trait ITestController {
     async fn recursive_test(&self, a: i32) -> Result<i32>;
 }
 
-
 #[allow(dead_code)]
 pub struct TestController {
     server: Box<dyn IServer>,
@@ -71,7 +70,7 @@ impl ITestController for TestController {
     }
     #[inline]
     async fn run(&self, name: Option<String>) -> Result<Option<String>> {
-        if let Some(name)=name {
+        if let Some(name) = name {
             println!("name:{:?}", name);
             (*self.name.borrow_mut()) = name.clone();
         }
