@@ -170,11 +170,11 @@ impl<T: SessionSave + 'static> NetXClient<T> {
 
     #[allow(clippy::type_complexity)]
     async fn input_buffer(
-        (mut netx_client, set_connect): (NetxClientArc<T>, WSender<(bool, String)>),
+        (netx_client, set_connect): (NetxClientArc<T>, WSender<(bool, String)>),
         client: Arc<NetPeer>,
         mut reader: NetReadHalf,
     ) -> Result<bool> {
-        if let Err(er) = Self::read_buffer(&mut netx_client, set_connect, client, &mut reader).await
+        if let Err(er) = Self::read_buffer(&netx_client, set_connect, client, &mut reader).await
         {
             error!("read buffer err:{}", er);
         }
@@ -187,7 +187,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     async fn read_buffer(
-        netx_client: &mut NetxClientArc<T>,
+        netx_client: &NetxClientArc<T>,
         set_connect: WSender<(bool, String)>,
         client: Arc<NetPeer>,
         reader: &mut NetReadHalf,

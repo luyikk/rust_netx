@@ -60,7 +60,7 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
 
     #[inline]
     async fn check_tokens_request_timeout(&self) -> Result<()> {
-        for token in self.dict.values().cloned() {
+        for token in self.dict.values() {
             token.check_request_timeout(self.request_out_time).await?;
         }
         Ok(())
