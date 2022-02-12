@@ -15,7 +15,12 @@ pub struct RetResult {
 
 impl RetResult {
     #[inline]
-    pub fn new(is_error: bool, error_id: i32, msg: String, args: Vec<DataOwnedReader>) -> RetResult {
+    pub fn new(
+        is_error: bool,
+        error_id: i32,
+        msg: String,
+        args: Vec<DataOwnedReader>,
+    ) -> RetResult {
         RetResult {
             is_error,
             error_id,

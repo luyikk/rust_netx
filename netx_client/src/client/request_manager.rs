@@ -83,7 +83,7 @@ pub trait IRequestManager {
 impl<T: SessionSave + 'static> IRequestManager for Actor<RequestManager<T>> {
     #[inline]
     async fn check(&self) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner|async move  {
             inner.get_mut().check().await;
             Ok(())
         })
@@ -91,7 +91,7 @@ impl<T: SessionSave + 'static> IRequestManager for Actor<RequestManager<T>> {
     }
     #[inline]
     async fn set(&self, sessionid: i64) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call( |inner|async move {
             inner.get_mut().set(sessionid);
             Ok(())
         })

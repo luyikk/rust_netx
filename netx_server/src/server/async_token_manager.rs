@@ -142,35 +142,35 @@ pub trait IAsyncTokenManager: Send + Sync {
 impl<T: ICreateController + 'static> IAsyncTokenManager for Actor<AsyncTokenManager<T>> {
     #[inline]
     async fn create_token(&self, manager: Weak<dyn IAsyncTokenManager>) -> Result<NetxToken> {
-        self.inner_call(async move |inner| inner.get_mut().create_token(manager).await)
+        self.inner_call(|inner| async move { inner.get_mut().create_token(manager).await })
             .await
     }
     #[inline]
     async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>> {
-        self.inner_call(async move |inner| Ok(inner.get().get_token(sessionid)))
+        self.inner_call(|inner| async move { Ok(inner.get().get_token(sessionid)) })
             .await
     }
 
     #[inline]
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken>> {
-        self.inner_call(async move |inner| Ok(inner.get().get_all_tokens()))
+        self.inner_call(|inner| async move { Ok(inner.get().get_all_tokens()) })
             .await
     }
     #[inline]
     async fn check_tokens_request_timeout(&self) -> Result<()> {
-        unsafe {
-            self.deref_inner().check_tokens_request_timeout().await
-        }
+        unsafe { self.deref_inner().check_tokens_request_timeout().await }
     }
 
     async fn check_tokens_disconnect_timeout(&self) -> Result<()> {
-        self.inner_call(async move |inner| inner.get_mut().check_tokens_disconnect_timeout().await)
-            .await
+        self.inner_call(
+            |inner| async move { inner.get_mut().check_tokens_disconnect_timeout().await },
+        )
+        .await
     }
 
     #[inline]
     async fn peer_disconnect(&self, sessionid: i64) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             debug!("token {} start disconnect clear ", sessionid);
             inner
                 .get_mut()

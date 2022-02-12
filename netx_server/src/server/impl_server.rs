@@ -93,10 +93,10 @@ where
              info!("{} connect", addr);
              true
           })
-          .set_stream_init(async move |tcp_stream|{
+          .set_stream_init( |tcp_stream| async move{
              Ok(tcp_stream)
            })
-          .set_input_event(async move |mut reader, peer, serv| {
+          .set_input_event(|mut reader, peer, serv| async move  {
              let addr = peer.addr();
              let token = match Self::get_peer_token(&mut reader, &peer, &serv).await {
                 Ok(token) => token,
@@ -204,8 +204,9 @@ where
                             let run_token = token.clone();
                             tokio::spawn(async move {
                                 let res = run_token.run_controller(tt, cmd, dr).await;
-                                if let Err(er) =
-                                    run_token.send(Self::get_result_buff(serial, res).into_inner()).await
+                                if let Err(er) = run_token
+                                    .send(Self::get_result_buff(serial, res).into_inner())
+                                    .await
                                 {
                                     error!("send buff 1 error:{}", er);
                                 }
@@ -215,8 +216,9 @@ where
                             let run_token = token.clone();
                             tokio::spawn(async move {
                                 let res = run_token.run_controller(tt, cmd, dr).await;
-                                if let Err(er) =
-                                    run_token.send(Self::get_result_buff(serial, res).into_inner()).await
+                                if let Err(er) = run_token
+                                    .send(Self::get_result_buff(serial, res).into_inner())
+                                    .await
                                 {
                                     error!("send buff {} error:{}", serial, er);
                                 }

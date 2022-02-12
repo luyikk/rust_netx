@@ -7,11 +7,11 @@ use async_oneshot::{oneshot, Receiver, Sender};
 use data_rw::{Data, DataOwnedReader};
 use log::*;
 use std::collections::{HashMap, VecDeque};
+use std::ops::Deref;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Weak};
 use tcpserver::IPeer;
 use tokio::time::Instant;
-use std::ops::Deref;
 
 pub struct AsyncToken {
     sessionid: i64,
@@ -53,14 +53,19 @@ impl AsyncToken {
     pub(crate) async fn call_special_function(&self, cmd: i32) -> Result<()> {
         if let Some(ref dict) = self.controller_fun_register_dict {
             if let Some(func) = dict.get(&cmd) {
-                func.call(DataOwnedReader::new(vec![0;4])).await?;
+                func.call(DataOwnedReader::new(vec![0; 4])).await?;
             }
         }
         Ok(())
     }
 
     #[inline]
-    pub(crate) async fn run_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> Result<RetResult> {
+    pub(crate) async fn run_controller(
+        &self,
+        tt: u8,
+        cmd: i32,
+        dr: DataOwnedReader,
+    ) -> Result<RetResult> {
         if let Some(ref dict) = self.controller_fun_register_dict {
             if let Some(func) = dict.get(&cmd) {
                 return if func.function_type() != tt {
@@ -112,7 +117,8 @@ pub trait IAsyncToken {
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
     async fn run_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
-    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<usize>;
+    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B)
+        -> Result<usize>;
     async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>>;
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken>>;
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
@@ -140,7 +146,7 @@ impl IAsyncToken for Actor<AsyncToken> {
         &self,
         map: HashMap<i32, Box<dyn FunctionInfo>>,
     ) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             inner.get_mut().controller_fun_register_dict = Some(map);
             Ok(())
         })
@@ -149,7 +155,7 @@ impl IAsyncToken for Actor<AsyncToken> {
 
     #[inline]
     async fn clear_controller_fun_maps(&self) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             inner.get_mut().controller_fun_register_dict = None;
             Ok(())
         })
@@ -158,7 +164,7 @@ impl IAsyncToken for Actor<AsyncToken> {
 
     #[inline]
     async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             inner.get_mut().peer = peer;
             Ok(())
         })
@@ -167,7 +173,7 @@ impl IAsyncToken for Actor<AsyncToken> {
 
     #[inline]
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>> {
-        self.inner_call(async move |inner| Ok(inner.get_mut().peer.clone()))
+        self.inner_call(|inner| async move { Ok(inner.get_mut().peer.clone()) })
             .await
     }
 
@@ -203,7 +209,10 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn  send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<usize> {
+    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(
+        &self,
+        buff: B,
+    ) -> Result<usize> {
         unsafe {
             if let Some(ref peer) = self.deref_inner().peer {
                 let peer = peer
@@ -217,7 +226,7 @@ impl IAsyncToken for Actor<AsyncToken> {
 
     #[inline]
     async fn get_token(&self, sessionid: i64) -> Result<Option<NetxToken>> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             let manager = inner
                 .get()
                 .manager
@@ -230,7 +239,7 @@ impl IAsyncToken for Actor<AsyncToken> {
 
     #[inline]
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken>> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             let manager = inner
                 .get()
                 .manager
@@ -244,10 +253,13 @@ impl IAsyncToken for Actor<AsyncToken> {
     #[inline]
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
         let (peer, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
-            .inner_call(async move |inner| {
+            .inner_call(|inner| async move {
                 if let Some(ref net) = inner.get().peer {
                     let peer = net.upgrade().ok_or_else(|| anyhow!("call peer is null"))?;
-                    let (tx, rx): (Sender<Result<DataOwnedReader>>, Receiver<Result<DataOwnedReader>>) = oneshot();
+                    let (tx, rx): (
+                        Sender<Result<DataOwnedReader>>,
+                        Receiver<Result<DataOwnedReader>>,
+                    ) = oneshot();
                     if inner.get_mut().result_dict.contains_key(&serial) {
                         bail!("serial is have")
                     }
@@ -273,7 +285,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     #[inline]
     async fn run(&self, buff: Data) -> Result<()> {
         let peer: Arc<NetPeer> = self
-            .inner_call(async move |inner| {
+            .inner_call(|inner| async move {
                 if let Some(ref net) = inner.get().peer {
                     Ok(net.upgrade().ok_or_else(|| anyhow!("run not connect"))?)
                 } else {
@@ -288,7 +300,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     #[inline]
     async fn set_result(&self, serial: i64, dr: DataOwnedReader) -> Result<()> {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
-            .inner_call(async move |inner| Ok(inner.get_mut().result_dict.remove(&serial)))
+            .inner_call(|inner| async move { Ok(inner.get_mut().result_dict.remove(&serial)) })
             .await?;
 
         if let Some(mut tx) = have_tx {
@@ -313,13 +325,13 @@ impl IAsyncToken for Actor<AsyncToken> {
 
     #[inline]
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
-        self.inner_call(async move |inner| inner.get_mut().set_error(serial, err))
+        self.inner_call(|inner| async move { inner.get_mut().set_error(serial, err) })
             .await
     }
 
     #[inline]
     async fn check_request_timeout(&self, request_out_time: u32) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             inner.get_mut().check_request_timeout(request_out_time);
             Ok(())
         })
@@ -327,7 +339,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
     #[inline]
     async fn is_disconnect(&self) -> Result<bool> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             if let Some(ref peer) = inner.get().peer {
                 if let Some(peer) = peer.upgrade() {
                     return peer.is_disconnect().await;
