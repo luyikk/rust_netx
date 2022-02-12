@@ -1,6 +1,6 @@
 [package]
 name = "netxserver"
-version = "1.6.2"
+version = "1.6.3"
 authors = ["yi lu <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -13,6 +13,7 @@ license = "MIT/Apache-2.0"
 default=["tcp"]
 tls=["openssl","openssl-sys","tokio-openssl"]
 tcp=[]
+dserde=["data-rw/data"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -22,9 +23,9 @@ aqueue="1.1"
 async-trait="0.1"
 anyhow="1.0"
 log="0.4"
-data-rw="1.5"
+data-rw="1.6"
 paste="1.0"
-bytes="0.6"
+bytes="1.1"
 async-oneshot = "0.5"
 netxbuilder="1.2"
 chrono="0.4"
