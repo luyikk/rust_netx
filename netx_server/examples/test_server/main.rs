@@ -1,4 +1,3 @@
-#![feature(async_closure)]
 mod client;
 mod test_controller;
 mod test_struct;
