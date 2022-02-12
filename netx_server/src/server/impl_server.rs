@@ -39,8 +39,12 @@ pub(crate) enum SpecialFunctionTag {
 
 struct NetXServerInner<T> {
     option: ServerOption,
-    serv: Arc<dyn ITCPServer<Arc<NetXServer<T>>>>,
     async_tokens: TokenManager<T>,
+}
+
+pub struct NetXServer<T> {
+    inner: Arc<NetXServerInner<T>>,
+    serv: Arc<dyn ITCPServer<Arc<NetXServerInner<T>>>>,
 }
 unsafe impl<T> Send for NetXServer<T> {}
 unsafe impl<T> Sync for NetXServer<T> {}
@@ -64,7 +68,7 @@ where
              info!("{} connect", addr);
              true
           })
-          .set_stream_init(async move |tcp_stream|{
+          .set_stream_init(|tcp_stream| async move {
              let ssl = Ssl::new(ssl_acceptor.context())?;
              let mut stream = SslStream::new(ssl, tcp_stream)?;
              sleep(Duration::from_millis(200)).await;
@@ -108,7 +112,7 @@ where
           .set_stream_init( |tcp_stream| async move{
              Ok(tcp_stream)
            })
-          .set_input_event(async move |mut reader, peer, serv| {
+          .set_input_event( |mut reader, peer, inner| async move{
              let addr = peer.addr();
              let token = match Self::get_peer_token(&mut reader, &peer,&inner).await {
                 Ok(token) => token,

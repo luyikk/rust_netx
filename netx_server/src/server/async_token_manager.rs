@@ -142,12 +142,12 @@ pub trait IAsyncTokenManager: Send + Sync {
 impl<T: ICreateController + 'static> IAsyncTokenManager for Actor<AsyncTokenManager<T>> {
     #[inline]
     async fn create_token(&self, manager: Weak<dyn IAsyncTokenManager>) -> Result<NetxToken> {
-        self.inner_call(async move |inner| inner.get_mut().create_token(manager).await)
+        self.inner_call(|inner| async move { inner.get_mut().create_token(manager).await })
             .await
     }
     #[inline]
     async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken>> {
-        self.inner_call(|inner|async move  Ok(inner.get().get_token(session_id)))
+        self.inner_call(|inner| async move { Ok(inner.get().get_token(session_id)) })
             .await
     }
 
@@ -169,9 +169,9 @@ impl<T: ICreateController + 'static> IAsyncTokenManager for Actor<AsyncTokenMana
     }
 
     #[inline]
-    async fn peer_disconnect(&self, sessionid: i64) -> Result<()> {
-        self.inner_call(async move |inner| {
-            debug!("token {} start disconnect clear ", sessionid);
+    async fn peer_disconnect(&self, session_id: i64) -> Result<()> {
+        self.inner_call(|inner| async move {
+            debug!("token {} start disconnect clear ", session_id);
             inner
                 .get_mut()
                 .request_disconnect_clear_queue
