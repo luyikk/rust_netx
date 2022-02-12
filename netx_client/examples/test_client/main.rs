@@ -2,24 +2,22 @@ mod server;
 mod test_controller;
 mod test_struct;
 
-use netxclient::prelude::*;
+use crate::test_struct::{Foo, LogOn, LogOnResult};
 use log::LevelFilter;
+use netxclient::prelude::*;
 use server::*;
 use std::error::Error;
-use test_controller::TestController;
 use std::time::Instant;
-use crate::test_struct::{LogOn, LogOnResult, Foo};
+use test_controller::TestController;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-
     env_logger::Builder::default()
         .filter_level(LevelFilter::Debug)
         .init();
-
 
     let client = {
         cfg_if::cfg_if! {
@@ -55,7 +53,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     client.connect_network().await?;
     let server: Box<dyn IServer> = impl_interface!(client=>IServer);
 
-
     //test base type
     {
         let value = (true, 2, 3, 4, 5, 6, 7, 8, 9, 1.1f32, 2.2222f64);
@@ -72,19 +69,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     //test buff
     {
-        let value = ("test".as_bytes().to_vec(), Some("test".as_bytes().to_vec()), None);
+        let value = (
+            "test".as_bytes().to_vec(),
+            Some("test".as_bytes().to_vec()),
+            None,
+        );
         //test base type
         let r = server.test_buff(&value).await?;
         assert_eq!(value, r);
     }
     //test struct
     {
-        let value =Foo::default();
+        let value = Foo::default();
         //test base type
         let r = server.test_struct(&value).await?;
         assert_eq!(value, r);
     }
-
 
     //test call
     {
@@ -106,7 +106,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     {
         let start = Instant::now();
 
-        for i in 0..100000 {
+        for i in 0..10000 {
             //call!(@result client=>1000;1,2);
             //let v =
             server.add(1, i).await?;

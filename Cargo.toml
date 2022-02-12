@@ -1,0 +1,11 @@
+[workspace]
+members=[
+"netx_builder",
+"netx_client",
+"netx_server",
+
+# examples
+"examples/msg/msgclient",
+"examples/msg/msgserver",
+"examples/msg/packer"
+]
