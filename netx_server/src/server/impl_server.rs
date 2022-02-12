@@ -1,8 +1,3 @@
-use crate::async_token::{IAsyncToken, NetxToken};
-use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
-use crate::controller::ICreateController;
-use crate::server::async_token_manager::AsyncTokenManager;
-use crate::{ReadHalfExt, RetResult, ServerOption};
 use anyhow::{bail, Result};
 use aqueue::Actor;
 use bytes::BufMut;
@@ -12,6 +7,13 @@ use std::sync::{Arc, Weak};
 use tcpserver::{Builder, IPeer, ITCPServer, TCPPeer};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::task::JoinHandle;
+
+use crate::async_token::{IAsyncToken, NetxToken};
+use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
+use crate::controller::ICreateController;
+use crate::server::async_token_manager::AsyncTokenManager;
+use crate::{ReadHalfExt, RetResult, ServerOption};
+
 
 cfg_if::cfg_if! {
 if #[cfg(feature = "tls")]{
@@ -64,11 +66,11 @@ where
                     option,
                     async_tokens
                 });
-          let serv = Builder::new(&option.addr).set_connect_event(|addr| {
+          let serv = Builder::new(&inner.option.addr).set_connect_event(|addr| {
              info!("{} connect", addr);
              true
           })
-          .set_stream_init(|tcp_stream| async move {
+          .set_stream_init(move |tcp_stream| async move {
              let ssl = Ssl::new(ssl_acceptor.context())?;
              let mut stream = SslStream::new(ssl, tcp_stream)?;
              sleep(Duration::from_millis(200)).await;
@@ -305,7 +307,7 @@ where
 
     #[inline]
     pub async fn start(&self) -> Result<JoinHandle<Result<()>>> {
-        Ok(self.serv.start(self.inner.clone()).await?)
+        self.serv.start(self.inner.clone()).await
     }
     #[inline]
     pub async fn start_block(&self) -> Result<()> {

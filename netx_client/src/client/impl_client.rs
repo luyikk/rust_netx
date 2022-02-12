@@ -524,7 +524,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             cfg_if::cfg_if! {
             if#[cfg(feature = "tls")]{
                 let ssl=netx_client.get_ssl()?;
-                TcpClient::connect_stream_type(netx_client.get_address(),async move|tcp_stream|{
+                TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{
                      let mut stream = SslStream::new(ssl, tcp_stream)?;
                      Pin::new(&mut stream).connect().await?;
                      Ok(stream)
