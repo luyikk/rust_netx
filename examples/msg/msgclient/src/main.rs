@@ -1,6 +1,7 @@
 mod controller;
 mod interface_server;
 
+use std::borrow::Borrow;
 use netxclient::prelude::*;
 use packer::*;
 use std::error::Error;
@@ -60,10 +61,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             input = input.trim().to_string();
 
             let args: Vec<&str> = input.split(&[' ', '\t'][..]).collect();
-            if args.len() > 0 {
+            if !args.is_empty() {
                 match args[0] {
                     "--help" => print_cmd(),
-                    "--online" => show_all_users(&server).await?,
+                    "--online" => show_all_users(server.borrow()).await?,
                     "--to" => {
                         if args.len() >= 3 {
                             let msg = args[2..].join(" ").to_string();
@@ -116,7 +117,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 //返回在线所有用户
-async fn show_all_users(server: &Box<dyn IServer>) -> Result<(), Box<dyn Error>> {
+async fn show_all_users(server: &dyn IServer) -> Result<(), Box<dyn Error>> {
     let users = server.get_users().await?;
     println!("current online users:");
     for user in users {

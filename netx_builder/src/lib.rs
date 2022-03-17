@@ -38,7 +38,7 @@ fn have_tag(method: &TraitItemMethod) -> Option<i32> {
                             _ => {
                                 panic!(
                                     "tag error:{},like connect or disconnect,closed?",
-                                    segment.ident.to_string()
+                                    segment.ident
                                 )
                             }
                         }

@@ -7,8 +7,7 @@ lazy_static! {
     //为了方便实现,使用了actor
     //For the convenience of implementation, actor is used
     pub static ref USERMANAGER:Actor<UserManager>={
-        let usermanager=Actor::new(UserManager::new());
-        usermanager
+        Actor::new(UserManager::new())
     };
 }
 
@@ -31,7 +30,7 @@ impl UserManager {
                 return false;
             }
         }
-        return true;
+        true
     }
 
     pub fn add(&mut self, user: User) {
