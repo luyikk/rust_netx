@@ -1,5 +1,3 @@
-#![feature(async_closure)]
-
 mod controller;
 mod interface_client;
 mod user_manager;

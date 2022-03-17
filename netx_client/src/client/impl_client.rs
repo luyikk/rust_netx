@@ -754,17 +754,13 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             self.deref_inner().set_request_sessionid(serial).await?;
         }
         if self.get_mode() == 0 {
-            tokio::spawn(async move{
-                 net.send(buff.into_inner()).await
-            }).await??;
+            tokio::spawn(async move { net.send(buff.into_inner()).await }).await??;
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
-            tokio::spawn(async move{
-                net.send(data.into_inner()).await
-            }).await??;
+            tokio::spawn(async move { net.send(data.into_inner()).await }).await??;
         }
         match rx.await {
             Err(_) => {
@@ -786,17 +782,13 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             })
             .await?;
         if self.get_mode() == 0 {
-            tokio::spawn(async move{
-                net.send(buff.into_inner()).await
-            }).await??;
+            tokio::spawn(async move { net.send(buff.into_inner()).await }).await??;
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
-            tokio::spawn(async move{
-                net.send(data.into_inner()).await
-            }).await??;
+            tokio::spawn(async move { net.send(data.into_inner()).await }).await??;
         }
 
         Ok(())

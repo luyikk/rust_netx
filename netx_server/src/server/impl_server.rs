@@ -14,7 +14,6 @@ use crate::controller::ICreateController;
 use crate::server::async_token_manager::AsyncTokenManager;
 use crate::{ReadHalfExt, RetResult, ServerOption};
 
-
 cfg_if::cfg_if! {
 if #[cfg(feature = "tls")]{
    use openssl::ssl::{Ssl,SslAcceptor};

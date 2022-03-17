@@ -84,7 +84,7 @@ pub trait IUserManager {
 impl IUserManager for Actor<UserManager> {
     #[inline]
     async fn add(&self, user: User) -> Result<()> {
-        self.inner_call(async move |inner| {
+        self.inner_call(|inner| async move {
             inner.get_mut().add(user);
             Ok(())
         })
@@ -92,18 +92,18 @@ impl IUserManager for Actor<UserManager> {
     }
     #[inline]
     async fn find(&self, sessionid: i64) -> Result<Option<User>> {
-        self.inner_call(async move |inner| Ok(inner.get_mut().find(sessionid)))
+        self.inner_call(|inner| async move { Ok(inner.get_mut().find(sessionid)) })
             .await
     }
     #[inline]
     async fn find_by_nickname(&self, nickname: String) -> Result<Option<User>> {
-        self.inner_call(async move |inner| Ok(inner.get_mut().find_by_nickname(nickname)))
+        self.inner_call(|inner| async move { Ok(inner.get_mut().find_by_nickname(nickname)) })
             .await
     }
 
     #[inline]
     async fn remove(&self, sessionid: i64) -> Result<Option<User>> {
-        self.inner_call(async move |inner| Ok(inner.get_mut().remove(sessionid)))
+        self.inner_call(|inner| async move { Ok(inner.get_mut().remove(sessionid)) })
             .await
     }
     #[inline]
@@ -112,7 +112,7 @@ impl IUserManager for Actor<UserManager> {
     }
     #[inline]
     async fn check_nickname(&self, nickname: String) -> Result<bool> {
-        self.inner_call(async move |inner| Ok(inner.get().check_nickname(nickname)))
+        self.inner_call(|inner| async move { Ok(inner.get().check_nickname(nickname)) })
             .await
     }
 }
