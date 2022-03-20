@@ -300,8 +300,8 @@ impl IAsyncToken for Actor<AsyncToken> {
     #[inline]
     async fn set_result(&self, serial: i64, dr: DataOwnedReader) -> Result<()> {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
-            .inner_call(|inner| async move { Ok(inner.get_mut().result_dict.remove(&serial)) })
-            .await?;
+            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
+            .await;
 
         if let Some(mut tx) = have_tx {
             return tx.send(Ok(dr)).map_err(|_| anyhow!("close rx"));

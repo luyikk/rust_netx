@@ -480,7 +480,7 @@ pub trait INetXClient<T> {
     async fn set_mode(&self, mode: u8) -> Result<()>;
     async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()>;
     async fn reset_connect_stats(&self) -> Result<()>;
-    async fn get_callback_len(&self) -> Result<usize>;
+    async fn get_callback_len(&self) -> usize;
     async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     async fn call_special_function(&self, cmd: i32) -> Result<()>;
@@ -636,16 +636,16 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn get_callback_len(&self) -> Result<usize> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().get_callback_len()) })
+    async fn get_callback_len(&self) -> usize {
+        self.inner_call(|inner| async move { inner.get_mut().get_callback_len() })
             .await
     }
 
     #[inline]
     async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()> {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
-            .inner_call(|inner| async move { Ok(inner.get_mut().result_dict.remove(&serial)) })
-            .await?;
+            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
+            .await;
 
         if let Some(mut tx) = have_tx {
             tx.send(Ok(data)).map_err(|_| anyhow!("rx is close"))?;
@@ -663,8 +663,8 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     #[inline]
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
-            .inner_call(|inner| async move { Ok(inner.get_mut().result_dict.remove(&serial)) })
-            .await?;
+            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
+            .await;
         if let Some(mut tx) = have_tx {
             tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))?;
             Ok(())
