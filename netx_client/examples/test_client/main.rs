@@ -10,6 +10,7 @@ use std::error::Error;
 use std::time::Instant;
 use test_controller::TestController;
 
+
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
@@ -51,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     client.init(TestController::new(client.clone())).await?;
     client.connect_network().await?;
-    let server: Box<dyn IServer> = impl_interface!(client=>IServer);
+    let server = impl_struct!(client=>IServer);
 
     //test base type
     {

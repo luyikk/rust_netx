@@ -203,6 +203,14 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
             #(#impl_func)*
         }
 
+        impl<T:SessionSave+'static> #impl_interface_struct_name<std::sync::Arc<Actor<NetXClient<T>>>>{
+            pub fn new_impl(client:std::sync::Arc<Actor<NetXClient<T>>>)->impl #interface_name{
+                #impl_interface_struct_name{
+                    client
+                }
+            }
+        }
+
     };
 
     if !controller_name.is_empty() {

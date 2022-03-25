@@ -1,6 +1,6 @@
 [package]
 name = "netxclient"
-version = "1.6.9"
+version = "1.6.10"
 authors = ["luyi <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -26,7 +26,7 @@ aqueue="1.2"
 async-trait="0.1"
 data-rw="1.6"
 async-oneshot = "0.5"
-netxbuilder="1.3"
+netxbuilder={path="../netx_builder"}
 anyhow="1.0"
 once_cell = "1.10"
 cfg-if="1.0"

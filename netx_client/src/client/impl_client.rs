@@ -896,6 +896,16 @@ macro_rules! impl_interface {
 }
 
 #[macro_export]
+macro_rules! impl_struct {
+    ($client:expr=>$interface:ty) => {
+        paste::paste! {
+            [<___impl_ $interface _call>]::new_impl($client.clone())
+        }
+    };
+}
+
+
+#[macro_export]
 macro_rules! impl_owned_interface {
     ($client:expr=>$interface:ty) => {
         paste::paste! {

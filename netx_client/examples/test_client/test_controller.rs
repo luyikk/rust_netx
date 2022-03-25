@@ -25,7 +25,7 @@ pub trait ITestController {
 
 #[allow(dead_code)]
 pub struct TestController {
-    server: Box<dyn IServer>,
+    server: Box<dyn crate::server::IServer>,
     name: RefCell<String>,
 }
 

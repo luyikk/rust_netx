@@ -1,5 +1,5 @@
 pub use crate::client::*;
-pub use crate::{call, impl_interface, impl_owned_interface};
+pub use crate::{call, impl_interface, impl_owned_interface,impl_struct};
 pub use aqueue;
 pub use aqueue::Actor;
 pub use data_rw;
