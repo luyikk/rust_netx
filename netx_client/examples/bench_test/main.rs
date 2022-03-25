@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .await
                 .unwrap();
             client.connect_network().await.unwrap();
-            let server = impl_struct!(client=>IServer);
+            let server:Box<dyn IServer> = impl_interface!(client=>IServer);
             let start = Instant::now();
             for i in 0..count {
                 if let Err(er) = server.add(1, i as i32).await {
