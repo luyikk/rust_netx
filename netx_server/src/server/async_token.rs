@@ -99,7 +99,7 @@ impl AsyncToken {
 
 #[async_trait::async_trait]
 pub trait IAsyncToken {
-    fn get_sessionid(&self) -> i64;
+    fn get_session_id(&self) -> i64;
     fn new_serial(&self) -> i64;
     async fn set_controller(&self, controller:Arc<dyn IController>) -> Result<()>;
     async fn clear_controller_fun_maps(&self) -> Result<()>;
@@ -122,7 +122,7 @@ pub trait IAsyncToken {
 #[async_trait::async_trait]
 impl IAsyncToken for Actor<AsyncToken> {
     #[inline]
-    fn get_sessionid(&self) -> i64 {
+    fn get_session_id(&self) -> i64 {
         unsafe { self.deref_inner().session_id }
     }
 
@@ -180,7 +180,7 @@ impl IAsyncToken for Actor<AsyncToken> {
                 Err(err) => {
                     error!(
                         "session id:{} call cmd:{} error:{}",
-                        self.get_sessionid(),
+                        self.get_session_id(),
                         cmd,
                         err
                     );
@@ -188,7 +188,7 @@ impl IAsyncToken for Actor<AsyncToken> {
                         -1,
                         format!(
                             "session id:{} call cmd:{} error:{}",
-                            self.get_sessionid(),
+                            self.get_session_id(),
                             cmd,
                             err
                         ),
@@ -207,10 +207,10 @@ impl IAsyncToken for Actor<AsyncToken> {
             if let Some(ref peer) = self.deref_inner().peer {
                 let peer = peer
                     .upgrade()
-                    .ok_or_else(|| anyhow!("token:{} tcp disconnect", self.get_sessionid()))?;
+                    .ok_or_else(|| anyhow!("token:{} tcp disconnect", self.get_session_id()))?;
                 return peer.send(buff).await;
             }
-            bail!("token:{} tcp disconnect", self.get_sessionid())
+            bail!("token:{} tcp disconnect", self.get_session_id())
         }
     }
 

@@ -60,8 +60,8 @@ if #[cfg(feature = "tls")]{
 }}
 
 pub trait SessionSave {
-    fn get_sessionid(&self) -> i64;
-    fn store_sessionid(&mut self, sessionid: i64);
+    fn get_session_id(&self) -> i64;
+    fn store_session_id(&mut self, session_id: i64);
 }
 
 enum SpecialFunctionTag {
@@ -177,7 +177,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             error!("read buffer err:{}", er);
         }
         netx_client.clean_connect().await?;
-        info! {"disconnect to {}", netx_client.get_serviceinfo()};
+        info! {"disconnect to {}", netx_client.get_service_info()};
         netx_client
             .call_special_function(SpecialFunctionTag::Disconnect as i32)
             .await?;
@@ -190,11 +190,11 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         client: Arc<NetPeer>,
         reader: &mut NetReadHalf,
     ) -> Result<()> {
-        let serverinfo = netx_client.get_serviceinfo();
-        let mut sessionid = netx_client.get_sessionid();
+        let server_info = netx_client.get_service_info();
+        let mut session_id = netx_client.get_session_id();
         client
             .send(
-                Self::get_verify_buff(&serverinfo.service_name, &serverinfo.verify_key, &sessionid)
+                Self::get_verify_buff(&server_info.service_name, &server_info.verify_key, &session_id)
                     .into_inner(),
             )
             .await?;
@@ -208,13 +208,13 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             match cmd {
                 1000 => match dr.read_fixed::<bool>()? {
                     false => {
-                        info!("{} {}", serverinfo, dr.read_fixed_str()?);
+                        info!("{} {}", server_info, dr.read_fixed_str()?);
                         if (dr.len() - dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
                             debug!("mode 1");
                             netx_client.set_mode(1).await?;
                         }
                         client
-                            .send(Self::get_sessionid_buff(netx_client.get_mode()).into_inner())
+                            .send(Self::get_session_id_buff(netx_client.get_mode()).into_inner())
                             .await?;
                         netx_client
                             .call_special_function(SpecialFunctionTag::Connect as i32)
@@ -228,7 +228,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                     }
                     true => {
                         let err = dr.read_fixed_str()?;
-                        error!("connect {} error:{}", serverinfo, err);
+                        error!("connect {} error:{}", server_info, err);
                         if let Some(set_connect) = option_connect.take() {
                             if set_connect.send((false, err.to_string())).is_err() {
                                 error!("talk connect rx is close");
@@ -239,14 +239,14 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                     }
                 },
                 2000 => {
-                    sessionid = dr.read_fixed::<i64>()?;
-                    info!("{} save sessionid:{}", serverinfo, sessionid);
-                    netx_client.store_sessionid(sessionid).await?;
+                    session_id = dr.read_fixed::<i64>()?;
+                    info!("{} save session id:{}", server_info, session_id);
+                    netx_client.store_session_id(session_id).await?;
                 }
                 2400 => {
                     let tt = dr.read_fixed::<u8>()?;
                     let cmd = dr.read_fixed::<i32>()?;
-                    let sessionid = dr.read_fixed::<i64>()?;
+                    let session_id = dr.read_fixed::<i64>()?;
                     match tt {
                         0 => {
                             let run_netx_client = netx_client.clone();
@@ -262,7 +262,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                 if let Err(er) = send_client
                                     .send(
                                         Self::get_result_buff(
-                                            sessionid,
+                                            session_id,
                                             res,
                                             run_netx_client.get_mode(),
                                         )
@@ -282,7 +282,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                 if let Err(er) = send_client
                                     .send(
                                         Self::get_result_buff(
-                                            sessionid,
+                                            session_id,
                                             res,
                                             run_netx_client.get_mode(),
                                         )
@@ -304,7 +304,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                     netx_client.set_result(serial, dr).await?;
                 }
                 _ => {
-                    error!("{} Unknown command:{}->{:?}", serverinfo, cmd, dr);
+                    error!("{} Unknown command:{}->{:?}", server_info, cmd, dr);
                     break;
                 }
             }
@@ -335,16 +335,16 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     #[inline]
-    fn get_verify_buff(service_name: &str, verify_key: &str, sessionid: &i64) -> Data {
+    fn get_verify_buff(service_name: &str, verify_key: &str, session_id: &i64) -> Data {
         let mut data = Data::with_capacity(128);
         data.write_fixed(1000);
         data.write_fixed(service_name);
         data.write_fixed(verify_key);
-        data.write_fixed(sessionid);
+        data.write_fixed(session_id);
         data
     }
 
-    fn get_sessionid_buff(mode: u8) -> Data {
+    fn get_session_id_buff(mode: u8) -> Data {
         let mut buff = Data::with_capacity(32);
         buff.write_fixed(2000);
         if mode == 0 {
@@ -359,10 +359,10 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     #[inline]
-    fn get_result_buff(sessionid: i64, result: RetResult, mode: u8) -> Data {
+    fn get_result_buff(session_id: i64, result: RetResult, mode: u8) -> Data {
         let mut data = Data::with_capacity(1024);
         data.write_fixed(2500u32);
-        data.write_fixed(sessionid);
+        data.write_fixed(session_id);
         if result.is_error {
             data.write_fixed(true);
             data.write_fixed(result.error_id);
@@ -413,13 +413,13 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     #[inline]
-    pub fn get_sessionid(&self) -> i64 {
-        self.session.get_sessionid()
+    pub fn get_session_id(&self) -> i64 {
+        self.session.get_session_id()
     }
 
     #[inline]
-    pub fn store_sessionid(&mut self, sessionid: i64) {
-        self.session.store_sessionid(sessionid)
+    pub fn store_session_id(&mut self, session_id: i64) {
+        self.session.store_session_id(session_id)
     }
 
     #[inline]
@@ -448,9 +448,9 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     #[inline]
-    pub(crate) async fn set_request_sessionid(&self, sessionid: i64) -> Result<()> {
+    pub(crate) async fn set_request_session_id(&self, session_id: i64) -> Result<()> {
         if let Some(request) = self.request_manager.get() {
-            return request.set(sessionid).await;
+            return request.set(session_id).await;
         }
         Ok(())
     }
@@ -464,13 +464,13 @@ pub trait INetXClient<T> {
     #[cfg(feature = "tls")]
     fn get_ssl(&self) -> Result<Ssl>;
     fn get_address(&self) -> String;
-    fn get_serviceinfo(&self) -> ServerOption;
-    fn get_sessionid(&self) -> i64;
+    fn get_service_info(&self) -> ServerOption;
+    fn get_session_id(&self) -> i64;
     fn get_mode(&self) -> u8;
     fn new_serial(&self) -> i64;
     fn is_connect(&self) -> bool;
     async fn get_peer(&self) -> Result<Option<Arc<NetPeer>>>;
-    async fn store_sessionid(&self, sessionid: i64) -> Result<()>;
+    async fn store_session_id(&self, session_id: i64) -> Result<()>;
     async fn set_mode(&self, mode: u8) -> Result<()>;
     async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()>;
     async fn reset_connect_stats(&self) -> Result<()>;
@@ -563,13 +563,13 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    fn get_serviceinfo(&self) -> ServerOption {
+    fn get_service_info(&self) -> ServerOption {
         unsafe { self.deref_inner().get_service_info() }
     }
 
     #[inline]
-    fn get_sessionid(&self) -> i64 {
-        unsafe { self.deref_inner().get_sessionid() }
+    fn get_session_id(&self) -> i64 {
+        unsafe { self.deref_inner().get_session_id() }
     }
 
     #[inline]
@@ -594,9 +594,9 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn store_sessionid(&self, sessionid: i64) -> Result<()> {
+    async fn store_session_id(&self, session_id: i64) -> Result<()> {
         self.inner_call(|inner| async move {
-            inner.get_mut().store_sessionid(sessionid);
+            inner.get_mut().store_session_id(session_id);
             Ok(())
         })
         .await
@@ -745,7 +745,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             })
             .await?;
         unsafe {
-            self.deref_inner().set_request_sessionid(serial).await?;
+            self.deref_inner().set_request_session_id(serial).await?;
         }
         if self.get_mode() == 0 {
             tokio::spawn(async move { net.send(buff.into_inner()).await }).await??;

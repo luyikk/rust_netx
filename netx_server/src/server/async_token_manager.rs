@@ -80,7 +80,7 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
                                 error!("call token Closed err:{}", er)
                             }
                             token.clear_controller_fun_maps().await?;
-                            debug!("token {} remove", token.get_sessionid());
+                            debug!("token {} remove", token.get_session_id());
                         } else {
                             debug!("remove token {} fail", item.0);
                         }

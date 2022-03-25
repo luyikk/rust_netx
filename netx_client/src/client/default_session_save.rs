@@ -6,10 +6,10 @@ pub struct DefaultSessionStore {
 }
 
 impl SessionSave for DefaultSessionStore {
-    fn get_sessionid(&self) -> i64 {
+    fn get_session_id(&self) -> i64 {
         self.sessionid
     }
-    fn store_sessionid(&mut self, sessionid: i64) {
-        self.sessionid = sessionid
+    fn store_session_id(&mut self, session_id: i64) {
+        self.sessionid = session_id
     }
 }

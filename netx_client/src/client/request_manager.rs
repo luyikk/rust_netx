@@ -68,15 +68,15 @@ impl<T: SessionSave + 'static> RequestManager<T> {
     }
 
     #[inline]
-    pub fn set(&mut self, sessionid: i64) {
-        self.queue.push_front((sessionid, Instant::now()));
+    pub fn set(&mut self, session_id: i64) {
+        self.queue.push_front((session_id, Instant::now()));
     }
 }
 
 #[async_trait::async_trait]
 pub trait IRequestManager {
     async fn check(&self) -> Result<()>;
-    async fn set(&self, sessionid: i64) -> Result<()>;
+    async fn set(&self, session_id: i64) -> Result<()>;
 }
 
 #[async_trait::async_trait]

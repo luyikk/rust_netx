@@ -78,7 +78,7 @@ unsafe impl Sync for TestController {}
 impl Drop for TestController {
     #[inline]
     fn drop(&mut self) {
-        info!("controller:{} is drop", self.token.get_sessionid())
+        info!("controller:{} is drop", self.token.get_session_id())
     }
 }
 
@@ -86,11 +86,11 @@ impl Drop for TestController {
 impl ITestController for TestController {
     #[inline]
     async fn connect(&self) -> Result<()> {
-        info!("{} is connect", self.token.get_sessionid());
+        info!("{} is connect", self.token.get_session_id());
 
         if let Some(wk) = self.token.get_peer().await? {
             if let Some(peer) = wk.upgrade() {
-                info!("{} addr is {} ", self.token.get_sessionid(), peer.addr())
+                info!("{} addr is {} ", self.token.get_session_id(), peer.addr())
             }
         }
         Ok(())
@@ -98,13 +98,13 @@ impl ITestController for TestController {
 
     #[inline]
     async fn disconnect(&self) -> Result<()> {
-        info!("{} is disconnect", self.token.get_sessionid());
+        info!("{} is disconnect", self.token.get_session_id());
 
         if let Some(wk) = self.token.get_peer().await? {
             if let Some(peer) = wk.upgrade() {
                 info!(
                     "{} disconnect addr is {} ",
-                    self.token.get_sessionid(),
+                    self.token.get_session_id(),
                     peer.addr()
                 )
             }

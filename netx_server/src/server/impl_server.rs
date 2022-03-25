@@ -88,7 +88,7 @@ where
 
               Self::read_buff_byline(&mut reader, &peer, &token).await?;
               token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
-              inner.async_tokens.peer_disconnect(token.get_sessionid()).await?;
+              inner.async_tokens.peer_disconnect(token.get_session_id()).await?;
               Ok(())
           }).build().await;
           NetXServer {
@@ -125,7 +125,7 @@ where
 
              Self::read_buff_byline(&mut reader, &peer, &token).await?;
              token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
-             inner.async_tokens.peer_disconnect(token.get_sessionid()).await?;
+             inner.async_tokens.peer_disconnect(token.get_session_id()).await?;
              Ok(())
           }).build().await;
           NetXServer {
@@ -203,7 +203,7 @@ where
             let cmd = dr.read_fixed::<i32>()?;
             match cmd {
                 2000 => {
-                    Self::send_to_session_id(peer, token.get_sessionid()).await?;
+                    Self::send_to_session_id(peer, token.get_session_id()).await?;
                 }
                 2400 => {
                     let tt = dr.read_fixed::<u8>()?;
