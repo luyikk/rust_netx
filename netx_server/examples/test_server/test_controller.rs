@@ -13,8 +13,8 @@ pub trait ITestController {
     async fn connect(&self) -> Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self) -> Result<()>;
-    #[tag(closed)]
-    async fn closed(&self) -> Result<()>;
+   // #[tag(closed)]
+   // async fn closed(&self) -> Result<()>;
 
     #[tag(1)]
     async fn test_base_type(
@@ -113,11 +113,11 @@ impl ITestController for TestController {
         Ok(())
     }
 
-    #[inline]
-    async fn closed(&self) -> Result<()> {
-        println!("clean up world");
-        Ok(())
-    }
+    // #[inline]
+    // async fn closed(&self) -> Result<()> {
+    //     println!("clean up world");
+    //     Ok(())
+    // }
 
     #[inline]
     async fn test_base_type(

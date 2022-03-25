@@ -230,7 +230,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                         ::anyhow::ensure!(tt==0,"cmd:{} tt:{} !=0",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
-                             anyhow::bail!("args len error")
+                             ::anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         self.#func_name (#(#arg_names,)*).await;
@@ -242,7 +242,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                         ::anyhow::ensure!(tt==1,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
-                             anyhow::bail!("args len error")
+                             ::anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         self.#func_name (#(#arg_names,)*).await?;
@@ -254,7 +254,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                         ::anyhow::ensure!(tt==2,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
-                            anyhow::bail!("args len error")
+                            ::anyhow::bail!("args len error")
                         }
                         #( #read_token)*
                         let ret=self.#func_name (#(#arg_names,)*).await?;
@@ -283,10 +283,17 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
             #[async_trait::async_trait]
             impl IController for #controller{
                 #[inline]
-                async fn call(&self,tt:u8,cmd_tag:i32,mut data:data_rw::DataOwnedReader) -> anyhow:: Result<RetResult> {
+                async fn call(&self,tt:u8,cmd_tag:i32,mut data:data_rw::DataOwnedReader) -> :: anyhow:: Result<RetResult> {
                     match cmd_tag{
                          #( #make)*
-                        _=>anyhow::bail!("not found cmd tag:{}",cmd_tag)
+                        _=>{
+                            match cmd_tag{
+                                CONNECT=> Ok(RetResult::success()),
+                                DISCONNECT=> Ok(RetResult::success()),
+                                CLOSED=>Ok(RetResult::success()),
+                                _=>::anyhow::bail!("not found cmd tag:{}",cmd_tag)
+                            }
+                        }
                     }
                 }
             }
@@ -418,7 +425,14 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                 async fn call(&self,tt:u8,cmd_tag:i32,mut data:data_rw::DataOwnedReader) -> anyhow:: Result<RetResult> {
                     match cmd_tag{
                          #( #make)*
-                        _=>anyhow::bail!("not found cmd tag:{}",cmd_tag)
+                         _=>{
+                            match cmd_tag{
+                                CONNECT=> Ok(RetResult::success()),
+                                DISCONNECT=> Ok(RetResult::success()),
+                                CLOSED=>Ok(RetResult::success()),
+                                _=>::anyhow::bail!("not found cmd tag:{}",cmd_tag)
+                            }
+                        }
                     }
                 }
             }
