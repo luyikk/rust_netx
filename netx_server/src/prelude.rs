@@ -1,5 +1,5 @@
 pub use super::server::{
-    FunctionInfo, IAsyncToken, IController, ICreateController, NetXServer, NetxToken, RetResult,
+    IAsyncToken, IController, ICreateController, NetXServer, NetxToken, RetResult,
     ServerOption,
 };
 pub use crate::{call_peer, impl_interface};

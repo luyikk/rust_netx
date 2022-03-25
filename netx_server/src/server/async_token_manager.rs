@@ -111,8 +111,7 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
         let session_id = self.make_new_session_id();
         let token = Arc::new(Actor::new(AsyncToken::new(session_id, manager)));
         let controller = self.impl_controller.create_controller(token.clone())?;
-        let map = controller.register()?;
-        token.set_controller_fun_maps(map).await?;
+        token.set_controller(controller).await?;
         self.dict.insert(session_id, token.clone());
         Ok(token)
     }

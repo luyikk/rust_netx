@@ -1,6 +1,5 @@
 use crate::async_token_manager::IAsyncTokenManager;
-use crate::controller::FunctionInfo;
-use crate::{NetPeer, RetResult};
+use crate::{IController, NetPeer, RetResult};
 use anyhow::{anyhow, bail, Result};
 use aqueue::Actor;
 use async_oneshot::{oneshot, Receiver, Sender};
@@ -15,7 +14,7 @@ use tokio::time::Instant;
 
 pub struct AsyncToken {
     session_id: i64,
-    controller_fun_register_dict: Option<HashMap<i32, Box<dyn FunctionInfo>>>,
+    controller: Option<Arc<dyn IController>>,
     peer: Option<Weak<NetPeer>>,
     manager: Weak<dyn IAsyncTokenManager>,
     result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
@@ -32,7 +31,7 @@ impl AsyncToken {
     pub(crate) fn new(session_id: i64, manager: Weak<dyn IAsyncTokenManager>) -> AsyncToken {
         AsyncToken {
             session_id,
-            controller_fun_register_dict: None,
+            controller: None,
             peer: None,
             manager,
             result_dict: Default::default(),
@@ -50,11 +49,9 @@ impl Drop for AsyncToken {
 
 impl AsyncToken {
     #[inline]
-    pub(crate) async fn call_special_function(&self, cmd: i32) -> Result<()> {
-        if let Some(ref dict) = self.controller_fun_register_dict {
-            if let Some(func) = dict.get(&cmd) {
-                func.call(DataOwnedReader::new(vec![0; 4])).await?;
-            }
+    pub(crate) async fn call_special_function(&self,cmd_tag: i32) -> Result<()> {
+        if let Some(ref controller) = self.controller {
+            controller.call(1,cmd_tag,DataOwnedReader::new(vec![0; 4])).await?;
         }
         Ok(())
     }
@@ -66,16 +63,10 @@ impl AsyncToken {
         cmd: i32,
         dr: DataOwnedReader,
     ) -> Result<RetResult> {
-        if let Some(ref dict) = self.controller_fun_register_dict {
-            if let Some(func) = dict.get(&cmd) {
-                return if func.function_type() != tt {
-                    bail!(" cmd:{} function type error:{}", cmd, tt)
-                } else {
-                    func.call(dr).await
-                };
-            }
+        if let Some(ref controller) = self.controller {
+            return controller.call(tt,cmd,dr).await
         }
-        bail!("not found cmd:{}", cmd)
+        bail!("controller is none")
     }
 
     #[inline]
@@ -110,12 +101,11 @@ impl AsyncToken {
 pub trait IAsyncToken {
     fn get_sessionid(&self) -> i64;
     fn new_serial(&self) -> i64;
-    async fn set_controller_fun_maps(&self, map: HashMap<i32, Box<dyn FunctionInfo>>)
-        -> Result<()>;
+    async fn set_controller(&self, controller:Arc<dyn IController>) -> Result<()>;
     async fn clear_controller_fun_maps(&self) -> Result<()>;
     async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()>;
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
-    async fn call_special_function(&self, cmd: i32) -> Result<()>;
+    async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
     async fn run_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
     async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B)
         -> Result<usize>;
@@ -142,12 +132,12 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn set_controller_fun_maps(
+    async fn set_controller(
         &self,
-        map: HashMap<i32, Box<dyn FunctionInfo>>,
+        controller:Arc<dyn IController>
     ) -> Result<()> {
         self.inner_call(|inner| async move {
-            inner.get_mut().controller_fun_register_dict = Some(map);
+            inner.get_mut().controller = Some(controller);
             Ok(())
         })
         .await
@@ -156,7 +146,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     #[inline]
     async fn clear_controller_fun_maps(&self) -> Result<()> {
         self.inner_call(|inner| async move {
-            inner.get_mut().controller_fun_register_dict = None;
+            inner.get_mut().controller = None;
             Ok(())
         })
         .await
@@ -178,8 +168,8 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn call_special_function(&self, cmd: i32) -> Result<()> {
-        unsafe { self.deref_inner().call_special_function(cmd).await }
+    async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
+        unsafe { self.deref_inner().call_special_function(cmd_tag).await }
     }
 
     #[inline]

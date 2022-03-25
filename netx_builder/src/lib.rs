@@ -208,7 +208,6 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
     if !controller_name.is_empty() {
         let controller = format_ident!("{}", controller_name);
         let make=  funcs.iter().map(|func|{
-            let struct_name=format_ident!("__struct{}",func.tag.to_string());
             let func_name=format_ident!("{}",func.func_name);
             let tt=func.tt;
             let tag=func.tag;
@@ -228,34 +227,37 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
             let call= match tt{
                 0=>{
                     quote! {
+                        ::anyhow::ensure!(tt==0,"cmd:{} tt:{} !=0",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
                         #( #read_token)*
-                        self.controller.#func_name (#(#arg_names,)*).await;
+                        self.#func_name (#(#arg_names,)*).await;
                         Ok(RetResult::success())
                     }
                 }
                 1=>{
                     quote! {
+                        ::anyhow::ensure!(tt==1,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
                         #( #read_token)*
-                        self.controller.#func_name (#(#arg_names,)*).await?;
+                        self.#func_name (#(#arg_names,)*).await?;
                         Ok(RetResult::success())
                     }
                 }
                 2=>{
                     quote! {
+                        ::anyhow::ensure!(tt==2,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                             anyhow::bail!("args len error")
                         }
                         #( #read_token)*
-                        let ret=self.controller.#func_name (#(#arg_names,)*).await?;
+                        let ret=self.#func_name (#(#arg_names,)*).await?;
                         let mut result=RetResult::success();
                         result.add_arg_buff(ret);
                         Ok(result)
@@ -267,41 +269,25 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
             };
-            quote! {
-                {
-                     struct #struct_name{
-                         controller:std::sync::Arc<#controller>
-                     };
 
-                     #[async_trait::async_trait]
-                     impl FunctionInfo for #struct_name{
-                         #[inline]
-                         fn function_type(&self) -> u8 { #tt  }
-                         #[inline]
-                         async fn call(&self, mut data: DataOwnedReader) -> anyhow::Result<RetResult> {
-                             #call
-                         }
-                     }
-                     let tag_id=#tag;
-                     if let Some(_)= dict.insert(tag_id,Box::new(#struct_name{
-                        controller:self.clone()
-                     }) as Box<dyn FunctionInfo>){
-                        panic!("Repeated function tag ID:{}",tag_id);
-                     }
-                 }
+            quote! {
+                #tag=> {
+                     #call
+                }
             }
         });
         let expanded = quote! {
             #[async_trait::async_trait]
             #ast
 
+            #[async_trait::async_trait]
             impl IController for #controller{
                 #[inline]
-                fn register(self:std::sync::Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
-                    use data_rw::{Data, DataOwnedReader};
-                    let mut dict=std::collections::HashMap::new();
-                    #( #make)*
-                    Ok(dict)
+                async fn call(&self,tt:u8,cmd_tag:i32,mut data:data_rw::DataOwnedReader) -> anyhow:: Result<RetResult> {
+                    match cmd_tag{
+                         #( #make)*
+                        _=>anyhow::bail!("not found cmd tag:{}",cmd_tag)
+                    }
                 }
             }
 
@@ -354,7 +340,6 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
     if !controller_name.is_empty() {
         let controller = format_ident!("{}", controller_name);
         let make=  funcs.iter().map(|func|{
-            let struct_name=format_ident!("__struct{}",func.tag.to_string());
             let func_name=format_ident!("{}",func.func_name);
             let tt=func.tt;
             let tag=func.tag;
@@ -374,34 +359,37 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
             let call= match tt{
                 0=>{
                     quote! {
+                        ::anyhow::ensure!(tt==0,"cmd:{} tt:{} !=0",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
-                             anyhow::bail!("args len error")
+                             ::anyhow::bail!("args len error")
                         }
                         #( #read_token)*
-                        self.controller.#func_name (#(#arg_names,)*).await;
+                        self.#func_name (#(#arg_names,)*).await;
                         Ok(RetResult::success())
                     }
                 }
                 1=>{
                     quote! {
+                        ::anyhow::ensure!(tt==1,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
                         #( #read_token)*
-                        self.controller.#func_name (#(#arg_names,)*).await?;
+                        self.#func_name (#(#arg_names,)*).await?;
                         Ok(RetResult::success())
                     }
                 }
                 2=>{
                     quote! {
+                        ::anyhow::ensure!(tt==2,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
                         if args_len!=#args_len{
                              anyhow::bail!("args len error")
                         }
                         #( #read_token)*
-                        let ret=self.controller.#func_name (#(#arg_names,)*).await?;
+                        let ret=self.#func_name (#(#arg_names,)*).await?;
                         let mut result=RetResult::success();
                         result.add_arg_buff(ret);
                         Ok(result)
@@ -413,41 +401,25 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
             };
-            quote! {
-                {
-                     struct #struct_name{
-                         controller:std::sync::Arc<#controller>
-                     };
 
-                     #[async_trait::async_trait]
-                     impl FunctionInfo for #struct_name{
-                         #[inline]
-                         fn function_type(&self) -> u8 { #tt  }
-                         #[inline]
-                         async fn call(&self, mut data: DataOwnedReader) -> anyhow::Result<RetResult> {
-                             #call
-                         }
-                     }
-                     let tag_id=#tag;
-                     if let Some(_)= dict.insert(tag_id,Box::new(#struct_name{
-                        controller:self.clone()
-                     }) as Box<dyn FunctionInfo>){
-                        panic!("Repeated function tag ID:{}",tag_id);
-                     }
-                 }
+            quote! {
+                #tag=> {
+                     #call
+                }
             }
         });
         let expanded = quote! {
            #[async_trait::async_trait]
             #ast
 
+            #[async_trait::async_trait]
             impl IController for #controller{
                 #[inline]
-                fn register(self:std::sync::Arc<Self>) -> anyhow::Result<std::collections::HashMap<i32, Box<dyn FunctionInfo>>> {
-                    use data_rw::{Data,DataOwnedReader};
-                    let mut dict=std::collections::HashMap::new();
-                    #( #make)*
-                    Ok(dict)
+                async fn call(&self,tt:u8,cmd_tag:i32,mut data:data_rw::DataOwnedReader) -> anyhow:: Result<RetResult> {
+                    match cmd_tag{
+                         #( #make)*
+                        _=>anyhow::bail!("not found cmd tag:{}",cmd_tag)
+                    }
                 }
             }
 

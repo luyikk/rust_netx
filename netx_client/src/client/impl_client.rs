@@ -13,7 +13,7 @@ use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::sync::watch::{channel, Receiver as WReceiver, Sender as WSender};
 use tokio::time::{sleep, Duration};
 
-use crate::client::controller::{FunctionInfo, IController};
+use crate::client::controller::IController;
 use crate::client::request_manager::{IRequestManager, RequestManager};
 use crate::client::result::RetResult;
 use crate::client::NetxClientArc;
@@ -37,7 +37,7 @@ if #[cfg(feature = "tls")]{
         result_dict:HashMap<i64,Sender<Result<DataOwnedReader>>>,
         serial_atomic:AtomicI64,
         request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
-        controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
+        controller:Option<Box<dyn IController>>,
         mode:u8
    }
 
@@ -54,7 +54,7 @@ if #[cfg(feature = "tls")]{
         result_dict:HashMap<i64,Sender<Result<DataOwnedReader>>>,
         serial_atomic:AtomicI64,
         request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
-        controller_fun_register_dict:HashMap<i32,Box<dyn FunctionInfo>>,
+        controller:Option<Box<dyn IController>>,
         mode:u8
    }
 }}
@@ -125,7 +125,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 connect_stats:None,
                 serial_atomic:AtomicI64::new(1),
                 request_manager:OnceCell::new(),
-                controller_fun_register_dict:HashMap::new(),
+                controller:None,
                 mode:0
             }));
 
@@ -148,7 +148,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 connect_stats:None,
                 serial_atomic:AtomicI64::new(1),
                 request_manager:OnceCell::new(),
-                controller_fun_register_dict:HashMap::new(),
+                controller:None,
                 mode:0
             }));
 
@@ -164,8 +164,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
 
     #[inline]
     pub fn init<C: IController + Sync + Send + 'static>(&mut self, controller: C) {
-        self.controller_fun_register_dict =
-            IController::register(Arc::new(controller)).expect("init error");
+        self.controller =Some(Box::new(controller));
     }
 
     #[allow(clippy::type_complexity)]
@@ -315,9 +314,9 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     #[inline]
-    pub(crate) async fn call_special_function(&self, cmd: i32) -> Result<()> {
-        if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
-            func.call(DataOwnedReader::new(vec![0; 4])).await?;
+    pub(crate) async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
+        if let Some(ref controller) = self.controller {
+            controller.call(1,cmd_tag,DataOwnedReader::new(vec![0; 4])).await?;
         }
         Ok(())
     }
@@ -329,15 +328,10 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         cmd: i32,
         dr: DataOwnedReader,
     ) -> Result<RetResult> {
-        return if let Some(func) = self.controller_fun_register_dict.get(&cmd) {
-            if func.function_type() != tt {
-                bail!(" cmd:{} function type error:{}", cmd, tt)
-            } else {
-                func.call(dr).await
-            }
-        } else {
-            bail!("not found cmd:{}", cmd)
-        };
+        if let Some(ref controller) = self.controller {
+            return controller.call(tt,cmd,dr).await
+        }
+        bail!("controller is none")
     }
 
     #[inline]
@@ -483,7 +477,7 @@ pub trait INetXClient<T> {
     async fn get_callback_len(&self) -> usize;
     async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
-    async fn call_special_function(&self, cmd: i32) -> Result<()>;
+    async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
     async fn call_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
     async fn clean_connect(&self) -> Result<()>;
     async fn close(&self) -> Result<()>;
@@ -674,8 +668,8 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn call_special_function(&self, cmd: i32) -> Result<()> {
-        unsafe { self.deref_inner().call_special_function(cmd).await }
+    async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
+        unsafe { self.deref_inner().call_special_function(cmd_tag).await }
     }
 
     #[inline]
@@ -717,7 +711,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
                 {
                     error!("call controller Closed err:{}", er)
                 }
-                inner.get_mut().controller_fun_register_dict.clear();
+                inner.get_mut().controller=None;
                 inner.get_mut().net.take().context("not connect")
             })
             .await;
