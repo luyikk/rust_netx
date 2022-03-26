@@ -5,11 +5,12 @@ use netxclient::prelude::*;
 use std::time::Instant;
 
 use log::*;
-use server::*;
+use server::{*,IServer};
 use std::error::Error;
 use structopt::StructOpt;
 
 use test_controller::TestController;
+
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "netx bench client")]
