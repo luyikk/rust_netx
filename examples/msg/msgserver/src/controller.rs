@@ -36,11 +36,11 @@ pub struct ServerController {
 
 impl Drop for ServerController {
     fn drop(&mut self) {
-        let sessionid = self.token.get_session_id();
+        let session_id = self.token.get_session_id();
         tokio::spawn(async move {
-            match USERMANAGER.remove(sessionid).await {
-                Ok(_) => info!("remove user {} ok", sessionid),
-                Err(er) => error!("remove user {} err:{}", sessionid, er),
+            match USERMANAGER.remove(session_id).await {
+                Ok(_) => info!("remove user {} ok", session_id),
+                Err(er) => error!("remove user {} err:{}", session_id, er),
             }
         });
     }

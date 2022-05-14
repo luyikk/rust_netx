@@ -37,9 +37,9 @@ impl UserManager {
         self.users.push(user)
     }
 
-    pub fn find(&self, sessionid: i64) -> Option<User> {
+    pub fn find(&self, session_id: i64) -> Option<User> {
         for user in self.users.iter() {
-            if user.sessionid == sessionid {
+            if user.sessionid == session_id {
                 return Some(user.clone());
             }
         }
@@ -55,9 +55,9 @@ impl UserManager {
         None
     }
 
-    pub fn remove(&mut self, sessionid: i64) -> Option<User> {
+    pub fn remove(&mut self, session_id: i64) -> Option<User> {
         for (index, user) in self.users.iter().enumerate() {
-            if user.sessionid == sessionid {
+            if user.sessionid == session_id {
                 return Some(self.users.remove(index));
             }
         }
@@ -72,9 +72,9 @@ impl UserManager {
 #[async_trait::async_trait]
 pub trait IUserManager {
     async fn add(&self, user: User) -> Result<()>;
-    async fn find(&self, sessionid: i64) -> Result<Option<User>>;
+    async fn find(&self, session_id: i64) -> Result<Option<User>>;
     async fn find_by_nickname(&self, nickname: String) -> Result<Option<User>>;
-    async fn remove(&self, sessionid: i64) -> Result<Option<User>>;
+    async fn remove(&self, session_id: i64) -> Result<Option<User>>;
     async fn get_users(&self) -> Vec<User>;
     async fn check_nickname(&self, nickname: String) -> Result<bool>;
 }
@@ -90,8 +90,8 @@ impl IUserManager for Actor<UserManager> {
         .await
     }
     #[inline]
-    async fn find(&self, sessionid: i64) -> Result<Option<User>> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().find(sessionid)) })
+    async fn find(&self, session_id: i64) -> Result<Option<User>> {
+        self.inner_call(|inner| async move { Ok(inner.get_mut().find(session_id)) })
             .await
     }
     #[inline]
@@ -101,8 +101,8 @@ impl IUserManager for Actor<UserManager> {
     }
 
     #[inline]
-    async fn remove(&self, sessionid: i64) -> Result<Option<User>> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().remove(sessionid)) })
+    async fn remove(&self, session_id: i64) -> Result<Option<User>> {
+        self.inner_call(|inner| async move { Ok(inner.get_mut().remove(session_id)) })
             .await
     }
     #[inline]

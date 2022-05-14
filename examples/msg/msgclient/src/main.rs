@@ -20,14 +20,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .init();
 
     // 从option.json加载配置
-    // load serverinfo from option.json
-    let serverinfo =
+    // load server info from option.json
+    let server_info =
         serde_json::from_str::<ServerOption>(&std::fs::read_to_string("./option.json")?)?;
 
     // 新建netxclient,这里使用了defaultSessionStore,如果你想把session存储到文件上,你需要自己实现 trail [SessionSave]
     //create netxclient
     //use defaultSessionStore. If you want to store sessions, you need impl trail [SessionSave]
-    let client = NetXClient::new(serverinfo, DefaultSessionStore::default());
+    let client = NetXClient::new(server_info, DefaultSessionStore::default());
     // 初始化控制器,用来被服务器调用
     //init controller,it will be called by server
     client

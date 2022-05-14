@@ -90,9 +90,9 @@ impl<T: SessionSave + 'static> IRequestManager for Actor<RequestManager<T>> {
         .await
     }
     #[inline]
-    async fn set(&self, sessionid: i64) -> Result<()> {
+    async fn set(&self, session_id: i64) -> Result<()> {
         self.inner_call(|inner| async move {
-            inner.get_mut().set(sessionid);
+            inner.get_mut().set(session_id);
             Ok(())
         })
         .await
