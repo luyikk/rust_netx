@@ -1,6 +1,5 @@
 pub use super::server::{
-    IAsyncToken, IController, ICreateController, NetXServer, NetxToken, RetResult,
-    ServerOption,
+    IAsyncToken, IController, ICreateController, NetXServer, NetxToken, RetResult, ServerOption,
 };
 pub use crate::{call_peer, impl_interface};
 pub use aqueue;

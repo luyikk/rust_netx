@@ -164,7 +164,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
 
     #[inline]
     pub fn init<C: IController + Sync + Send + 'static>(&mut self, controller: C) {
-        self.controller =Some(Box::new(controller));
+        self.controller = Some(Box::new(controller));
     }
 
     #[allow(clippy::type_complexity)]
@@ -194,8 +194,12 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         let mut session_id = netx_client.get_session_id();
         client
             .send(
-                Self::get_verify_buff(&server_info.service_name, &server_info.verify_key, &session_id)
-                    .into_inner(),
+                Self::get_verify_buff(
+                    &server_info.service_name,
+                    &server_info.verify_key,
+                    &session_id,
+                )
+                .into_inner(),
             )
             .await?;
         let mut option_connect = Some(set_connect);
@@ -316,7 +320,9 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     #[inline]
     pub(crate) async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
         if let Some(ref controller) = self.controller {
-            controller.call(1,cmd_tag,DataOwnedReader::new(vec![0; 4])).await?;
+            controller
+                .call(1, cmd_tag, DataOwnedReader::new(vec![0; 4]))
+                .await?;
         }
         Ok(())
     }
@@ -329,7 +335,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         dr: DataOwnedReader,
     ) -> Result<RetResult> {
         if let Some(ref controller) = self.controller {
-            return controller.call(tt,cmd,dr).await
+            return controller.call(tt, cmd, dr).await;
         }
         bail!("controller is none")
     }
@@ -711,7 +717,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
                 {
                     error!("call controller Closed err:{}", er)
                 }
-                inner.get_mut().controller=None;
+                inner.get_mut().controller = None;
                 inner.get_mut().net.take().context("not connect")
             })
             .await;
@@ -903,7 +909,6 @@ macro_rules! impl_struct {
         }
     };
 }
-
 
 #[macro_export]
 macro_rules! impl_owned_interface {

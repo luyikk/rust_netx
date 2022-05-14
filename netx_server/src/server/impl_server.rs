@@ -11,9 +11,9 @@ use tokio::task::JoinHandle;
 use crate::async_token::{IAsyncToken, NetxToken};
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::controller::ICreateController;
+use crate::owned_read_half_ex::ReadHalfExt;
 use crate::server::async_token_manager::AsyncTokenManager;
 use crate::{RetResult, ServerOption};
-use crate::owned_read_half_ex::ReadHalfExt;
 
 cfg_if::cfg_if! {
 if #[cfg(feature = "tls")]{

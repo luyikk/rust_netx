@@ -207,7 +207,7 @@ impl ITestController for TestController {
 
     #[inline]
     async fn logon(&self, info: LogOn) -> Result<(bool, String)> {
-        println!("{:?}",info);
+        println!("{:?}", info);
         assert_eq!(
             info,
             LogOn {

@@ -10,7 +10,6 @@ use std::error::Error;
 use std::time::Instant;
 use test_controller::TestController;
 
-
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 

@@ -49,9 +49,11 @@ impl Drop for AsyncToken {
 
 impl AsyncToken {
     #[inline]
-    pub(crate) async fn call_special_function(&self,cmd_tag: i32) -> Result<()> {
+    pub(crate) async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
         if let Some(ref controller) = self.controller {
-            controller.call(1,cmd_tag,DataOwnedReader::new(vec![0; 4])).await?;
+            controller
+                .call(1, cmd_tag, DataOwnedReader::new(vec![0; 4]))
+                .await?;
         }
         Ok(())
     }
@@ -64,7 +66,7 @@ impl AsyncToken {
         dr: DataOwnedReader,
     ) -> Result<RetResult> {
         if let Some(ref controller) = self.controller {
-            return controller.call(tt,cmd,dr).await
+            return controller.call(tt, cmd, dr).await;
         }
         bail!("controller is none")
     }
@@ -101,7 +103,7 @@ impl AsyncToken {
 pub trait IAsyncToken {
     fn get_session_id(&self) -> i64;
     fn new_serial(&self) -> i64;
-    async fn set_controller(&self, controller:Arc<dyn IController>) -> Result<()>;
+    async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()>;
     async fn clear_controller_fun_maps(&self) -> Result<()>;
     async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()>;
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
@@ -132,10 +134,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn set_controller(
-        &self,
-        controller:Arc<dyn IController>
-    ) -> Result<()> {
+    async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()> {
         self.inner_call(|inner| async move {
             inner.get_mut().controller = Some(controller);
             Ok(())
