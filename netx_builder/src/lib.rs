@@ -215,25 +215,25 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
 
     if !controller_name.is_empty() {
         let controller = format_ident!("{}", controller_name);
-        let make=  funcs.iter().map(|func|{
-            let func_name=format_ident!("{}",func.func_name);
-            let tt=func.tt;
-            let tag=func.tag;
+        let make = funcs.iter().map(|func| {
+            let func_name = format_ident!("{}", func.func_name);
+            let tt = func.tt;
+            let tag = func.tag;
 
-            let mut arg_names=Vec::new();
-            let mut read_token=Vec::new();
+            let mut arg_names = Vec::new();
+            let mut read_token = Vec::new();
 
-            for (index,token) in func.args_type.iter().enumerate() {
-                let arg_name=format_ident!("arg{}",index.to_string());
+            for (index, token) in func.args_type.iter().enumerate() {
+                let arg_name = format_ident!("arg{}", index.to_string());
                 read_token.push(quote! {
                   let #arg_name=data.pack_deserialize::<#token>()?;
                 });
                 arg_names.push(arg_name);
             }
 
-            let args_len=func.args_type.len();
-            let call= match tt{
-                0=>{
+            let args_len = func.args_type.len();
+            let call = match tt {
+                0 => {
                     quote! {
                         ::anyhow::ensure!(tt==0,"cmd:{} tt:{} !=0",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
@@ -245,7 +245,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                         Ok(RetResult::success())
                     }
                 }
-                1=>{
+                1 => {
                     quote! {
                         ::anyhow::ensure!(tt==1,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
@@ -257,7 +257,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                         Ok(RetResult::success())
                     }
                 }
-                2=>{
+                2 => {
                     quote! {
                         ::anyhow::ensure!(tt==2,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
@@ -271,7 +271,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                         Ok(result)
                     }
                 }
-                _=>{
+                _ => {
                     quote! {
                            unimplemented!()
                     }
@@ -354,25 +354,25 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
 
     if !controller_name.is_empty() {
         let controller = format_ident!("{}", controller_name);
-        let make=  funcs.iter().map(|func|{
-            let func_name=format_ident!("{}",func.func_name);
-            let tt=func.tt;
-            let tag=func.tag;
+        let make = funcs.iter().map(|func| {
+            let func_name = format_ident!("{}", func.func_name);
+            let tt = func.tt;
+            let tag = func.tag;
 
-            let mut arg_names=Vec::new();
-            let mut read_token=Vec::new();
+            let mut arg_names = Vec::new();
+            let mut read_token = Vec::new();
 
-            for (index,token) in func.args_type.iter().enumerate() {
-                let arg_name=format_ident!("arg{}",index.to_string());
+            for (index, token) in func.args_type.iter().enumerate() {
+                let arg_name = format_ident!("arg{}", index.to_string());
                 read_token.push(quote! {
                   let #arg_name=data.pack_deserialize::<#token>()?;
                 });
                 arg_names.push(arg_name);
             }
 
-            let args_len=func.args_type.len();
-            let call= match tt{
-                0=>{
+            let args_len = func.args_type.len();
+            let call = match tt {
+                0 => {
                     quote! {
                         ::anyhow::ensure!(tt==0,"cmd:{} tt:{} !=0",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
@@ -384,7 +384,7 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                         Ok(RetResult::success())
                     }
                 }
-                1=>{
+                1 => {
                     quote! {
                         ::anyhow::ensure!(tt==1,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
@@ -396,7 +396,7 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                         Ok(RetResult::success())
                     }
                 }
-                2=>{
+                2 => {
                     quote! {
                         ::anyhow::ensure!(tt==2,"cmd:{} tt:{} !=1",#tag,tt);
                         let args_len=data.read_fixed::<u32>()? as usize;
@@ -410,7 +410,7 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                         Ok(result)
                     }
                 }
-                _=>{
+                _ => {
                     quote! {
                            unimplemented!()
                     }
