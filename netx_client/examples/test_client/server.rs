@@ -8,7 +8,7 @@ pub trait IServer: Sync + Send {
     async fn test_base_type(
         &self,
         v: (bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64),
-    ) -> Result<(bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64)>;
+    ) -> anyhow::Result<(bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64)>;
     #[tag(2)]
     async fn test_string(
         &self,

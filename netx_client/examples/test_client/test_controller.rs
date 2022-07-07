@@ -6,7 +6,7 @@ use std::cell::RefCell;
 #[build(TestController)]
 pub trait ITestController {
     #[tag(connect)]
-    async fn connect_ok(&self) -> Result<()>;
+    async fn connect_ok(&self) -> anyhow::Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self) -> Result<()>;
     #[tag(closed)]
