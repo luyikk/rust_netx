@@ -10,7 +10,7 @@ use tcpserver::IPeer;
 #[build(TestController)]
 pub trait ITestController {
     #[tag(connect)]
-    async fn connect(&self) -> Result<()>;
+    async fn connect(&self) -> anyhow::Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self) -> Result<()>;
     #[tag(closed)]

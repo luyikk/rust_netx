@@ -58,8 +58,8 @@ fn have_tag(method: &TraitItemMethod) -> Option<i32> {
 fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
     match rt {
         Type::Path(tp) => {
-            if let Some(seq) = tp.path.segments.first() {
-                if seq.ident == "Result" {
+            for seq in tp.path.segments.iter() {
+                if seq.ident == "Result"{
                     match &seq.arguments {
                         PathArguments::AngleBracketed(arg) => {
                             if arg.args.len() == 1 {
@@ -76,23 +76,24 @@ fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
                             }
 
                             panic!(
-                                "4 error return type by:{} {},fix like anyhow::Result<?>",
-                                tag_id, func_name
+                                "4 error return type by:{} fn {}->{},fix like anyhow::Result<?>",
+                                tag_id, func_name,seq.ident
                             )
                         }
                         _ => {
                             panic!(
-                                "3 error return type by:{} {},fix like anyhow::Result<?>",
-                                tag_id, func_name
+                                "3 error return type by tag id:{} fn {}->{},fix like anyhow::Result<?>",
+                                tag_id, func_name,seq.ident
                             )
                         }
                     }
                 }
             }
-            panic!("2 error return type by:{} {}", tag_id, func_name)
+            //panic!("return type not anyhow::Result<?> tag id:{} fn {}->{}", tag_id, func_name,seq.ident)
+            panic!("return type is None:{} {} ", tag_id, func_name)
         }
         _ => {
-            panic!("1 error return type by:{} {}", tag_id, func_name)
+            panic!("not found return anyhow::Result<?> tag id:{} fn {}", tag_id, func_name)
         }
     }
 }
