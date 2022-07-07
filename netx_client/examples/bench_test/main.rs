@@ -43,9 +43,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         // test tls
                        use openssl::ssl::{SslMethod,SslConnector,SslFiletype};
                         let mut connector = SslConnector::builder(SslMethod::tls()).unwrap();
-                        connector.set_ca_file("tests/chain.cert.pem").unwrap();
-                        connector.set_private_key_file("tests/client-key.pem", SslFiletype::PEM).unwrap();
-                        connector.set_certificate_chain_file("tests/client-cert.pem").unwrap();
+                        connector.set_ca_file("../ca_test/CA.crt").unwrap();
+                        connector.set_private_key_file("../ca_test/client-key.pem", SslFiletype::PEM).unwrap();
+                        connector.set_certificate_chain_file("../ca_test/client-crt.pem").unwrap();
                         connector.check_private_key().unwrap();
                         let ssl_connector=connector.build();
                         NetXClient::new(ServerOption::new(format!("{}:6666",ipaddress),
