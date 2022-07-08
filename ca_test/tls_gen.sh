@@ -16,7 +16,7 @@ f_err() {
 }
 
 f_test_perms() {
-  #PERMS=$(stat "$1" | sed -n '/^Access: (/{s/Access: (\([0-9]\+\).*$/\1/;p}')
+  PERMS=$(stat "$1" | sed -n '/^Access: (/{s/Access: (\([0-9]\+\).*$/\1/;p}')
   #if [[ $PERMS != "$2" ]] ; then
   #  f_err "File permission on ${1} are too open; should be ${2}"
   #fi
@@ -54,24 +54,24 @@ while getopts 'hvs:c:' OPTION; do
        exit 0
        ;;
     s) HOST="$OPTARG"
-       FUNCTION='serv'     
+       FUNCTION='server'
        SUBJSTR="/CN=${HOST}"
        ;;
     c) HOST="$OPTARG"
-       FUNCTION='clnt'
+       FUNCTION='client'
        SUBJSTR='/CN=client'
        ;;
     esac
 done
 
-HOST_STRING="dkr${FUNCTION}_${HOST}"
+HOST_STRING="${FUNCTION}_${HOST}"
 
 CAKEY="CA.key"
 CACRT="CA.crt"
 
-KEY="${HOST_STRING}.key"
+KEY="${HOST_STRING}-key.pem"
 CSR="${HOST_STRING}.csr"
-CRT="${HOST_STRING}.crt"
+CRT="${HOST_STRING}-crt.pem"
 
 ### OPENSSL OPTIONS ###
 KEYLEN="2048"
@@ -89,7 +89,7 @@ fi
 
 if [[ -z $FUNCTION ]] ; then
   f_warn "No function specified; generating client creds"
-  FUNCTION='clnt'
+  FUNCTION='client'
   SUBJSTR='/CN=client'
 fi
 
@@ -103,7 +103,7 @@ f_test_file $CACRT
 f_test_perms $CACRT 0444
 
 # Add the extension conf file if this is a client cert
-if [[ "s_$FUNCTION" == "s_clnt" ]] ; then
+if [[ "s_$FUNCTION" == "s_client" ]] ; then
   # Create extensions conf file
   if [[ -f $EXTCONF ]] ; then
     f_err "${EXTCONF} already exists"
@@ -119,7 +119,7 @@ if [[ "s_$FUNCTION" == "s_clnt" ]] ; then
   openssl x509 -req -days $DAYS -in $CSR -CA $CACRT -CAkey $CAKEY \
   -CAcreateserial -out $CRT -extfile $EXTCONF
   rm -v $EXTCONF
-elif [[ "s_${FUNCTION}" == "s_serv" ]] ; then
+elif [[ "s_${FUNCTION}" == "s_server" ]] ; then
   # Generate the KEY
   openssl genrsa -out $KEY $KEYLEN
   # Generate a CSR
