@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-netxserver = { path="../../../netx_server",features=["tls"]}
+netxserver = { version="1.7",features=["tls"]}
 log = "0.4"
 env_logger = "0.9"
 anyhow="1.0"
