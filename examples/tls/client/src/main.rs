@@ -29,9 +29,7 @@ async fn main()->anyhow::Result<()> {
                                                   5000),
                                 DefaultSessionStore::default(),"localhost".to_string(),ssl_connector);
 
-    client.connect_network().await?;
-
-    let server:Box<dyn IServer>=impl_interface!(client=>IServer);
+    let server=impl_struct!(client=>IServer);
     log::info!("{}",server.hello("123").await?);
 
     Ok(())
