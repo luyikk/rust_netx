@@ -1,0 +1,17 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+netxserver = { path="../../../netx_server",features=["tls"]}
+log = "0.4"
+env_logger = "0.9"
+anyhow="1.0"
+async-trait="0.1"
+openssl = { version="0.10"}
+openssl-sys = { version="0.9"}
+lazy_static="1.4"

@@ -7,5 +7,7 @@ members=[
     # examples
     "examples/msg/msgclient",
     "examples/msg/msgserver",
-    "examples/msg/packer"
+    "examples/msg/packer",
+    "examples/tls/server",
+    "examples/tls/client",
 ]
