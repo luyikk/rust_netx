@@ -6,6 +6,8 @@ use anyhow::Result;
 pub trait ITestController{
     #[tag(100)]
     async fn hello(&self,msg:String)->Result<String>;
+    #[tag(101)]
+    async fn get_static_str(&self)->Result<&'static str>;
 }
 
 pub struct TestController {
@@ -20,6 +22,10 @@ impl ITestController for TestController {
     async fn hello(&self,msg: String) -> Result<String> {
         log::info!("client:{}",msg);
         Ok(format!("{} hello",msg))
+    }
+
+    async fn get_static_str(&self) -> Result<&'static str> {
+        Ok("test ok")
     }
 }
 

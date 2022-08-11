@@ -33,6 +33,6 @@ async fn main()->anyhow::Result<()> {
 
     let server:Box<dyn IServer>=impl_interface!(client=>IServer);
     log::info!("{}",server.hello("123").await?);
-
+    log::info!("{}",server.get_static_str().await?);
     Ok(())
 }
