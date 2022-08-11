@@ -32,5 +32,6 @@ async fn main()->anyhow::Result<()> {
     let server=impl_struct!(client=>IServer);
     log::info!("{}",server.hello("123").await?);
     log::info!("{}",server.get_static_str().await?);
+    log::info!("{:?}",server.get_static_str2().await?);
     Ok(())
 }

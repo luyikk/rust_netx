@@ -8,6 +8,8 @@ pub trait ITestController{
     async fn hello(&self,msg:String)->Result<String>;
     #[tag(101)]
     async fn get_static_str(&self)->Result<&'static str>;
+    #[tag(102)]
+    async fn get_static_str2(&self)->Result<(i32,&'static str)>;
 }
 
 pub struct TestController {
@@ -26,6 +28,10 @@ impl ITestController for TestController {
 
     async fn get_static_str(&self) -> Result<&'static str> {
         Ok("test ok")
+    }
+
+    async fn get_static_str2(&self) -> Result<(i32, &'static str)> {
+        Ok((1,"test ok"))
     }
 }
 
