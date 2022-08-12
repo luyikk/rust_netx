@@ -199,11 +199,6 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
 
         }
 
-        #[async_trait::async_trait]
-        impl<T:SessionSave+'static> #interface_name for #impl_interface_struct_name<std::sync::Arc<Actor<NetXClient<T>>>>{
-            #(#impl_func)*
-        }
-
         impl<T:SessionSave+'static> #impl_interface_struct_name<std::sync::Arc<Actor<NetXClient<T>>>>{
             pub fn new_impl(client:std::sync::Arc<Actor<NetXClient<T>>>)->impl #interface_name{
                 #impl_interface_struct_name{
@@ -212,6 +207,23 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
 
+        impl<'a,T:SessionSave+'static> #impl_interface_struct_name<&'a std::sync::Arc<Actor<NetXClient<T>>>>{
+            pub fn new_impl_ref(client:&'a std::sync::Arc<Actor<NetXClient<T>>>)->Self{
+                #impl_interface_struct_name{
+                    client
+                }
+            }
+        }
+
+        #[async_trait::async_trait]
+        impl<T:SessionSave+'static> #interface_name for #impl_interface_struct_name<std::sync::Arc<Actor<NetXClient<T>>>>{
+            #(#impl_func)*
+        }
+
+        #[async_trait::async_trait]
+        impl<'a,T:SessionSave+'static> #interface_name for #impl_interface_struct_name<&'a std::sync::Arc<Actor<NetXClient<T>>>>{
+            #(#impl_func)*
+        }
     };
 
     if !controller_name.is_empty() {
@@ -342,12 +354,23 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                     client
                 }
             }
-
         }
 
+        impl<'a> #impl_interface_struct_name<&'a NetxToken>{
+            pub fn new_ref(client:&'a NetxToken)->Self{
+                #impl_interface_struct_name{
+                    client
+                }
+            }
+        }
 
         #[async_trait::async_trait]
         impl #interface_name for #impl_interface_struct_name<NetxToken>{
+            #(#impl_func)*
+        }
+
+        #[async_trait::async_trait]
+        impl<'a> #interface_name for #impl_interface_struct_name<&'a NetxToken>{
             #(#impl_func)*
         }
 

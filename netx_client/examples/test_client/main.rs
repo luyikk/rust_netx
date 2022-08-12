@@ -8,6 +8,7 @@ use netxclient::prelude::*;
 use server::*;
 use std::error::Error;
 use std::time::Instant;
+use netxclient::impl_ref;
 use test_controller::TestController;
 
 #[global_allocator]
@@ -51,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     client.init(TestController::new(client.clone())).await?;
     client.connect_network().await?;
-    let server = impl_struct!(client=>IServer);
+    let server = impl_ref!(client=>IServer);
 
     //test base type
     {
@@ -148,8 +149,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     std::io::stdin().read_line(&mut s)?;
     client.close().await?;
 
-    drop(client);
     drop(server);
+    drop(client);
+
 
     let mut s = "".to_string();
     std::io::stdin().read_line(&mut s)?;

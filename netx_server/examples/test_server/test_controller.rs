@@ -6,6 +6,7 @@ use netxserver::prelude::*;
 use std::cell::Cell;
 use std::sync::Arc;
 use tcpserver::IPeer;
+use netxserver::impl_ref;
 
 #[build(TestController)]
 pub trait ITestController {
@@ -68,7 +69,6 @@ pub trait ITestController {
 
 pub struct TestController {
     token: NetxToken,
-    client: Box<dyn IClient>,
     count: Cell<i64>,
 }
 
@@ -165,13 +165,15 @@ impl ITestController for TestController {
 
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
-        self.client.print2(a, &b).await
+        let client= impl_ref!(self.token=>IClient);
+        client.print2(a, &b).await
     }
 
     #[inline]
     async fn run_test(&self, a: Option<String>) -> Result<()> {
         println!("{:?}", a);
-        let p = self.client.run(a).await?;
+        let client= impl_ref!(self.token=>IClient);
+        let p = client.run(a).await?;
         println!("{:?}", p);
         Ok(())
     }
@@ -187,13 +189,15 @@ impl ITestController for TestController {
     }
     #[inline]
     async fn to_client_add_one(&self, a: i32) -> Result<i32> {
-        self.client.add_one(a).await
+        let client= impl_ref!(self.token=>IClient);
+        client.add_one(a).await
     }
     #[inline]
     async fn recursive_test(&self, mut a: i32) -> Result<i32> {
         a -= 1;
         if a > 0 {
-            let x: i32 = self.client.recursive_test(a).await?;
+            let client= impl_ref!(self.token=>IClient);
+            let x: i32 =client.recursive_test(a).await?;
             Ok(x)
         } else {
             Ok(a)
@@ -245,7 +249,6 @@ pub struct ImplCreateController;
 impl ICreateController for ImplCreateController {
     fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>> {
         Ok(Arc::new(TestController {
-            client: impl_interface!(token=>IClient),
             token,
             count: Cell::new(0),
         }))

@@ -434,11 +434,22 @@ macro_rules! call_peer {
 
 }
 
+///  make Box<dyn $interface> will clone $client
 #[macro_export]
 macro_rules! impl_interface {
     ($token:expr=>$interface:ty) => {
         paste::paste! {
               Box::new([<___impl_ $interface _call>]::new($token.clone()))  as  Box<dyn $interface>
+        }
+    };
+}
+
+/// make $interface struct  will ref $client
+#[macro_export]
+macro_rules! impl_ref {
+    ($client:expr=>$interface:ty) => {
+        paste::paste! {
+            [<___impl_ $interface _call>]::new_ref(&$client)
         }
     };
 }

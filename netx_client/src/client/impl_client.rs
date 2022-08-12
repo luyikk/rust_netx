@@ -892,6 +892,7 @@ macro_rules! call {
 
 }
 
+/// make Box<dyn $interface> will clone $client
 #[macro_export]
 macro_rules! impl_interface {
     ($client:expr=>$interface:ty) => {
@@ -901,6 +902,7 @@ macro_rules! impl_interface {
     };
 }
 
+/// make impl $interface will clone $client
 #[macro_export]
 macro_rules! impl_struct {
     ($client:expr=>$interface:ty) => {
@@ -910,6 +912,17 @@ macro_rules! impl_struct {
     };
 }
 
+/// make $interface struct  will ref $client
+#[macro_export]
+macro_rules! impl_ref {
+    ($client:expr=>$interface:ty) => {
+        paste::paste! {
+            [<___impl_ $interface _call>]::new_impl_ref(&$client)
+        }
+    };
+}
+
+/// make Box<dyn $interface> not clone $client
 #[macro_export]
 macro_rules! impl_owned_interface {
     ($client:expr=>$interface:ty) => {
