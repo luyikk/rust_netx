@@ -29,7 +29,7 @@ async fn main()->anyhow::Result<()> {
                                                   5000),
                                 DefaultSessionStore::default(),"localhost".to_string(),ssl_connector);
 
-    let server=impl_struct!(client=>IServer);
+    let server=impl_ref!(client=>IServer);
     log::info!("{}",server.hello("123").await?);
     log::info!("{}",server.get_static_str().await?);
     log::info!("{:?}",server.get_static_str2().await?);

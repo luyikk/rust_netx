@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     //实现接口对象,返回接口对象
     //impl trait,return it
-    let server: Box<dyn IServer> = impl_interface!(client=>IServer);
+    let server: Box<dyn IServer> = impl_owned_interface!(client=>IServer);
 
     println!("Please enter your nickname:");
 

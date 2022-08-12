@@ -121,7 +121,7 @@ impl IServerController for ServerController {
                 if user.sessionid != current_user.sessionid {
                     let token = self.token.get_token(user.sessionid).await?;
                     if let Some(token) = token {
-                        let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
+                        let peer = impl_ref!(token=>IClient);
                         peer.message(current_user.nickname.clone(), msg.clone(), false)
                             .await;
                     }
@@ -148,7 +148,7 @@ impl IServerController for ServerController {
             .await?
             .with_context(|| format!("not found {}", target_nickname))?;
 
-        let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
+        let peer = impl_ref!(token=>IClient);
         peer.message(current_user.nickname.clone(), msg, true).await;
 
         Ok(())
@@ -168,7 +168,7 @@ impl IServerController for ServerController {
             .get_token(target_user.sessionid)
             .await?
             .with_context(|| format!("not found {}", target_nickname))?;
-        let peer: Box<dyn IClient> = impl_interface!(token=>IClient);
+        let peer = impl_ref!(token=>IClient);
         Ok(peer.ping(current_user.nickname.clone(), time).await?)
     }
 }
