@@ -33,5 +33,8 @@ async fn main()->anyhow::Result<()> {
     log::info!("{}",server.hello("123").await?);
     log::info!("{}",server.get_static_str().await?);
     log::info!("{:?}",server.get_static_str2().await?);
+    if let Err(err)=server.test_error().await {
+        log::info!("{}",err);
+    }
     Ok(())
 }

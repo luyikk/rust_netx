@@ -1,6 +1,6 @@
 use netxserver::prelude::*;
 use std::sync::Arc;
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 #[build(TestController)]
 pub trait ITestController{
@@ -10,6 +10,8 @@ pub trait ITestController{
     async fn get_static_str(&self)->Result<&'static str>;
     #[tag(102)]
     async fn get_static_str2(&self)->Result<(i32,&'static str)>;
+    #[tag(103)]
+    async fn test_error(&self)->Result<()>;
 }
 
 pub struct TestController {
@@ -32,6 +34,10 @@ impl ITestController for TestController {
 
     async fn get_static_str2(&self) -> Result<(i32, &'static str)> {
         Ok((1,"test ok"))
+    }
+
+    async fn test_error(&self) -> Result<()> {
+        bail!("test error")
     }
 }
 
