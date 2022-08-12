@@ -165,7 +165,7 @@ impl ITestController for TestController {
 
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
-        let client= impl_ref!(self.token=>IClient);
+        let client:Box<dyn IClient>= impl_interface!(self.token=>IClient);
         client.print2(a, &b).await
     }
 
