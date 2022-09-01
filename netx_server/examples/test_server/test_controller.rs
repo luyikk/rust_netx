@@ -2,11 +2,11 @@ use crate::client::*;
 use crate::test_struct::{Foo, LogOn, LogOnResult};
 use anyhow::Result;
 use log::*;
+use netxserver::impl_ref;
 use netxserver::prelude::*;
 use std::cell::Cell;
 use std::sync::Arc;
 use tcpserver::IPeer;
-use netxserver::impl_ref;
 
 #[build(TestController)]
 pub trait ITestController {
@@ -165,14 +165,14 @@ impl ITestController for TestController {
 
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
-        let client:Box<dyn IClient>= impl_interface!(self.token=>IClient);
+        let client: Box<dyn IClient> = impl_interface!(self.token=>IClient);
         client.print2(a, &b).await
     }
 
     #[inline]
     async fn run_test(&self, a: Option<String>) -> Result<()> {
         println!("{:?}", a);
-        let client= impl_ref!(self.token=>IClient);
+        let client = impl_ref!(self.token=>IClient);
         let p = client.run(a).await?;
         println!("{:?}", p);
         Ok(())
@@ -189,15 +189,15 @@ impl ITestController for TestController {
     }
     #[inline]
     async fn to_client_add_one(&self, a: i32) -> Result<i32> {
-        let client= impl_ref!(self.token=>IClient);
+        let client = impl_ref!(self.token=>IClient);
         client.add_one(a).await
     }
     #[inline]
     async fn recursive_test(&self, mut a: i32) -> Result<i32> {
         a -= 1;
         if a > 0 {
-            let client= impl_ref!(self.token=>IClient);
-            let x: i32 =client.recursive_test(a).await?;
+            let client = impl_ref!(self.token=>IClient);
+            let x: i32 = client.recursive_test(a).await?;
             Ok(x)
         } else {
             Ok(a)

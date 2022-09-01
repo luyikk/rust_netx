@@ -462,32 +462,164 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 }
 
+#[async_trait::async_trait]
+pub(crate) trait INextClientInner<T> {
+    /// get request or connect timeout time ms
+    fn get_timeout_ms(&self) -> u32;
+    /// set response result
+    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
+    /// set response error
+    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
+    /// call special function  disconnect or connect cmd
+    async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
+    /// call request controller
+    async fn call_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
+    /// clean current connect
+    async fn clean_connect(&self) -> Result<()>;
+    /// reset network connect stats
+    async fn reset_connect_stats(&self) -> Result<()>;
+    /// set netx mode
+    async fn set_mode(&self, mode: u8) -> Result<()>;
+    /// store netx session id
+    async fn store_session_id(&self, session_id: i64) -> Result<()>;
+
+}
+
+#[async_trait::async_trait]
+impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
+    #[inline]
+    fn get_timeout_ms(&self) -> u32 {
+        unsafe { self.deref_inner().serverinfo.request_out_time_ms }
+    }
+
+    #[inline]
+    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()> {
+        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
+            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
+            .await;
+
+        if let Some(mut tx) = have_tx {
+            tx.send(Ok(data)).map_err(|_| anyhow!("rx is close"))?;
+        } else {
+            match RetResult::from(data) {
+                Ok(res) => match res.check() {
+                    Ok(_) => error!("not found 2 {}", serial),
+                    Err(err) => error!("{}", err),
+                },
+                Err(er) => error!("not found {} :{}", serial, er),
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
+    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
+        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
+            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
+            .await;
+        if let Some(mut tx) = have_tx {
+            tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))?;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    #[inline]
+    async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
+        unsafe { self.deref_inner().call_special_function(cmd_tag).await }
+    }
+
+    #[inline]
+    async fn call_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
+        unsafe {
+            match self.deref_inner().run_controller(tt, cmd, dr).await {
+                Ok(res) => res,
+                Err(err) => {
+                    error!("call controller error:{}", err);
+                    RetResult::error(1, format!("call controller err:{}", err))
+                }
+            }
+        }
+    }
+
+    #[inline]
+    async fn clean_connect(&self) -> Result<()> {
+        let net: Result<Arc<NetPeer>> = self
+            .inner_call(|inner| async move { inner.get_mut().net.take().context("not connect") })
+            .await;
+        match net {
+            Err(_) => Ok(()),
+            Ok(net) => {
+                net.disconnect().await?;
+                sleep(Duration::from_millis(100)).await;
+                Ok(())
+            }
+        }
+    }
+
+    #[inline]
+    async fn reset_connect_stats(&self) -> Result<()> {
+        self.inner_call(|inner| async move {
+            inner.get_mut().set_connect_stats(None);
+            Ok(())
+        })
+        .await
+    }
+
+    #[inline]
+    async fn set_mode(&self, mode: u8) -> Result<()> {
+        self.inner_call(|inner| async move {
+            inner.get_mut().set_mode(mode);
+            Ok(())
+        })
+            .await
+    }
+
+    #[inline]
+    async fn store_session_id(&self, session_id: i64) -> Result<()> {
+        self.inner_call(|inner| async move {
+            inner.get_mut().store_session_id(session_id);
+            Ok(())
+        })
+            .await
+    }
+
+}
+
 #[allow(clippy::too_many_arguments)]
 #[async_trait::async_trait]
 pub trait INetXClient<T> {
+    /// init netx client controller
     async fn init<C: IController + Sync + Send + 'static>(&self, controller: C) -> Result<()>;
+    /// connect to network
     async fn connect_network(self: &Arc<Self>) -> Result<()>;
+    /// get ssl
     #[cfg(feature = "tls")]
     fn get_ssl(&self) -> Result<Ssl>;
+    /// get netx server address
     fn get_address(&self) -> String;
+    /// get netx client service config
     fn get_service_info(&self) -> ServerOption;
+    /// get netx session id
     fn get_session_id(&self) -> i64;
+    /// get netx mode
     fn get_mode(&self) -> u8;
+    /// new serial id
     fn new_serial(&self) -> i64;
+    /// is connect to server
     fn is_connect(&self) -> bool;
+    /// get tcp socket peer
     async fn get_peer(&self) -> Result<Option<Arc<NetPeer>>>;
-    async fn store_session_id(&self, session_id: i64) -> Result<()>;
-    async fn set_mode(&self, mode: u8) -> Result<()>;
+    /// set tcp socket peer
     async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()>;
-    async fn reset_connect_stats(&self) -> Result<()>;
+    /// get request wait callback len
     async fn get_callback_len(&self) -> usize;
-    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
-    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
-    async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
-    async fn call_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
-    async fn clean_connect(&self) -> Result<()>;
+    /// close netx client
     async fn close(&self) -> Result<()>;
+    /// call
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
+    /// run
     async fn run(&self, buff: Data) -> Result<()>;
 }
 
@@ -524,13 +656,13 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             cfg_if::cfg_if! {
             if#[cfg(feature = "tls")]{
                 let ssl=netx_client.get_ssl()?;
-                TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{
+                tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{
                      let mut stream = SslStream::new(ssl, tcp_stream)?;
                      Pin::new(&mut stream).connect().await?;
                      Ok(stream)
-                },NetXClient::input_buffer, (netx_client, set_connect)).await?
+                },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
             }else if #[cfg(feature = "tcp")]{
-                TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client, set_connect)).await?
+                 tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
             }}};
 
             let ref_inner = inner.get_mut();
@@ -600,24 +732,6 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn store_session_id(&self, session_id: i64) -> Result<()> {
-        self.inner_call(|inner| async move {
-            inner.get_mut().store_session_id(session_id);
-            Ok(())
-        })
-        .await
-    }
-
-    #[inline]
-    async fn set_mode(&self, mode: u8) -> Result<()> {
-        self.inner_call(|inner| async move {
-            inner.get_mut().set_mode(mode);
-            Ok(())
-        })
-        .await
-    }
-
-    #[inline]
     async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()> {
         self.inner_call(|inner| async move {
             inner.get_mut().set_network_client(client);
@@ -627,83 +741,9 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn reset_connect_stats(&self) -> Result<()> {
-        self.inner_call(|inner| async move {
-            inner.get_mut().set_connect_stats(None);
-            Ok(())
-        })
-        .await
-    }
-
-    #[inline]
     async fn get_callback_len(&self) -> usize {
         self.inner_call(|inner| async move { inner.get_mut().get_callback_len() })
             .await
-    }
-
-    #[inline]
-    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()> {
-        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
-            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
-            .await;
-
-        if let Some(mut tx) = have_tx {
-            tx.send(Ok(data)).map_err(|_| anyhow!("rx is close"))?;
-        } else {
-            match RetResult::from(data) {
-                Ok(res) => match res.check() {
-                    Ok(_) => error!("not found 2 {}", serial),
-                    Err(err) => error!("{}", err),
-                },
-                Err(er) => error!("not found {} :{}", serial, er),
-            }
-        }
-        Ok(())
-    }
-    #[inline]
-    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
-        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
-            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
-            .await;
-        if let Some(mut tx) = have_tx {
-            tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))?;
-            Ok(())
-        } else {
-            Ok(())
-        }
-    }
-
-    #[inline]
-    async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
-        unsafe { self.deref_inner().call_special_function(cmd_tag).await }
-    }
-
-    #[inline]
-    async fn call_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
-        unsafe {
-            match self.deref_inner().run_controller(tt, cmd, dr).await {
-                Ok(res) => res,
-                Err(err) => {
-                    error!("call controller error:{}", err);
-                    RetResult::error(1, format!("call controller err:{}", err))
-                }
-            }
-        }
-    }
-
-    #[inline]
-    async fn clean_connect(&self) -> Result<()> {
-        let net: Result<Arc<NetPeer>> = self
-            .inner_call(|inner| async move { inner.get_mut().net.take().context("not connect") })
-            .await;
-        match net {
-            Err(_) => Ok(()),
-            Ok(net) => {
-                net.disconnect().await?;
-                sleep(Duration::from_millis(100)).await;
-                Ok(())
-            }
-        }
     }
 
     #[inline]

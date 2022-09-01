@@ -4,11 +4,11 @@ mod test_struct;
 
 use crate::test_struct::{Foo, LogOn, LogOnResult};
 use log::LevelFilter;
+use netxclient::impl_ref;
 use netxclient::prelude::*;
 use server::*;
 use std::error::Error;
 use std::time::Instant;
-use netxclient::impl_ref;
 use test_controller::TestController;
 
 #[global_allocator]
@@ -151,7 +151,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     drop(server);
     drop(client);
-
 
     let mut s = "".to_string();
     std::io::stdin().read_line(&mut s)?;

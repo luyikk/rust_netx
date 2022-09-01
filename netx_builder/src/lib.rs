@@ -59,7 +59,7 @@ fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
     match rt {
         Type::Path(tp) => {
             for seq in tp.path.segments.iter() {
-                if seq.ident == "Result"{
+                if seq.ident == "Result" {
                     match &seq.arguments {
                         PathArguments::AngleBracketed(arg) => {
                             if arg.args.len() == 1 {
@@ -77,7 +77,7 @@ fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
 
                             panic!(
                                 "4 error return type by:{} fn {}->{},fix like anyhow::Result<?>",
-                                tag_id, func_name,seq.ident
+                                tag_id, func_name, seq.ident
                             )
                         }
                         _ => {
@@ -93,7 +93,10 @@ fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
             panic!("return type is None:{} {} ", tag_id, func_name)
         }
         _ => {
-            panic!("not found return anyhow::Result<?> tag id:{} fn {}", tag_id, func_name)
+            panic!(
+                "not found return anyhow::Result<?> tag id:{} fn {}",
+                tag_id, func_name
+            )
         }
     }
 }

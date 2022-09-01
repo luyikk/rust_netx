@@ -1,4 +1,4 @@
-use crate::async_token::IAsyncToken;
+use crate::async_token::{IAsyncTokenInner,IAsyncToken};
 use crate::controller::ICreateController;
 use crate::impl_server::SpecialFunctionTag;
 use crate::server::async_token::{AsyncToken, NetxToken};

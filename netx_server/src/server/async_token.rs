@@ -99,47 +99,37 @@ impl AsyncToken {
     }
 }
 
+
 #[async_trait::async_trait]
-pub trait IAsyncToken {
-    fn get_session_id(&self) -> i64;
-    fn new_serial(&self) -> i64;
+pub(crate) trait IAsyncTokenInner{
+    /// set controller
     async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()>;
+    /// clean all controller fun map
     async fn clear_controller_fun_maps(&self) -> Result<()>;
+    /// set peer
     async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()>;
-    async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
+    /// call special function disconnect or connect , close
     async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
+    /// run netx controller
     async fn run_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
-    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B)
-        -> Result<usize>;
-    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken>>;
-    async fn get_all_tokens(&self) -> Result<Vec<NetxToken>>;
-    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
-    async fn run(&self, buff: Data) -> Result<()>;
+    /// set response result
     async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
+    /// set response error
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
+    /// check request timeout
     async fn check_request_timeout(&self, request_out_time: u32) -> Result<()>;
-    async fn is_disconnect(&self) -> Result<bool>;
+
 }
 
 #[async_trait::async_trait]
-impl IAsyncToken for Actor<AsyncToken> {
-    #[inline]
-    fn get_session_id(&self) -> i64 {
-        unsafe { self.deref_inner().session_id }
-    }
-
-    #[inline]
-    fn new_serial(&self) -> i64 {
-        unsafe { self.deref_inner().new_serial() }
-    }
-
+impl IAsyncTokenInner for Actor<AsyncToken>{
     #[inline]
     async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()> {
         self.inner_call(|inner| async move {
             inner.get_mut().controller = Some(controller);
             Ok(())
         })
-        .await
+            .await
     }
 
     #[inline]
@@ -148,7 +138,7 @@ impl IAsyncToken for Actor<AsyncToken> {
             inner.get_mut().controller = None;
             Ok(())
         })
-        .await
+            .await
     }
 
     #[inline]
@@ -157,12 +147,6 @@ impl IAsyncToken for Actor<AsyncToken> {
             inner.get_mut().peer = peer;
             Ok(())
         })
-        .await
-    }
-
-    #[inline]
-    async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().peer.clone()) })
             .await
     }
 
@@ -195,6 +179,89 @@ impl IAsyncToken for Actor<AsyncToken> {
                 }
             }
         }
+    }
+
+    #[inline]
+    async fn set_result(&self, serial: i64, dr: DataOwnedReader) -> Result<()> {
+        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
+            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
+            .await;
+
+        if let Some(mut tx) = have_tx {
+            return tx.send(Ok(dr)).map_err(|_| anyhow!("close rx"));
+        } else {
+            match RetResult::from(dr) {
+                Ok(res) => match res.check() {
+                    Ok(_) => {
+                        error!("not found 2 {}", serial)
+                    }
+                    Err(err) => {
+                        error!("{}", err)
+                    }
+                },
+                Err(er) => {
+                    error!("not found {} :{}", serial, er)
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
+    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
+        self.inner_call(|inner| async move { inner.get_mut().set_error(serial, err) })
+            .await
+    }
+
+    #[inline]
+    async fn check_request_timeout(&self, request_out_time: u32) -> Result<()> {
+        self.inner_call(|inner| async move {
+            inner.get_mut().check_request_timeout(request_out_time);
+            Ok(())
+        })
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+pub trait IAsyncToken {
+    /// get netx session id
+    fn get_session_id(&self) -> i64;
+    /// new serial id
+    fn new_serial(&self) -> i64;
+    /// get tcp socket peer
+    async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
+    /// send buff
+    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B)
+        -> Result<usize>;
+    /// get netx token by session id
+    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken>>;
+    /// get all netx token
+    async fn get_all_tokens(&self) -> Result<Vec<NetxToken>>;
+    /// call
+    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
+    /// run
+    async fn run(&self, buff: Data) -> Result<()>;
+    /// is disconnect
+    async fn is_disconnect(&self) -> Result<bool>;
+}
+
+#[async_trait::async_trait]
+impl IAsyncToken for Actor<AsyncToken> {
+    #[inline]
+    fn get_session_id(&self) -> i64 {
+        unsafe { self.deref_inner().session_id }
+    }
+
+    #[inline]
+    fn new_serial(&self) -> i64 {
+        unsafe { self.deref_inner().new_serial() }
+    }
+
+    #[inline]
+    async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>> {
+        self.inner_call(|inner| async move { Ok(inner.get_mut().peer.clone()) })
+            .await
     }
 
     #[inline]
@@ -286,46 +353,8 @@ impl IAsyncToken for Actor<AsyncToken> {
         Ok(())
     }
 
-    #[inline]
-    async fn set_result(&self, serial: i64, dr: DataOwnedReader) -> Result<()> {
-        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
-            .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
-            .await;
 
-        if let Some(mut tx) = have_tx {
-            return tx.send(Ok(dr)).map_err(|_| anyhow!("close rx"));
-        } else {
-            match RetResult::from(dr) {
-                Ok(res) => match res.check() {
-                    Ok(_) => {
-                        error!("not found 2 {}", serial)
-                    }
-                    Err(err) => {
-                        error!("{}", err)
-                    }
-                },
-                Err(er) => {
-                    error!("not found {} :{}", serial, er)
-                }
-            }
-        }
-        Ok(())
-    }
 
-    #[inline]
-    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
-        self.inner_call(|inner| async move { inner.get_mut().set_error(serial, err) })
-            .await
-    }
-
-    #[inline]
-    async fn check_request_timeout(&self, request_out_time: u32) -> Result<()> {
-        self.inner_call(|inner| async move {
-            inner.get_mut().check_request_timeout(request_out_time);
-            Ok(())
-        })
-        .await
-    }
     #[inline]
     async fn is_disconnect(&self) -> Result<bool> {
         self.inner_call(|inner| async move {

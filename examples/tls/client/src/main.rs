@@ -1,20 +1,18 @@
 mod controller;
 
+use crate::controller::*;
 use log::LevelFilter;
 use netxclient::prelude::*;
-use openssl::ssl::{SslMethod, SslConnector, SslFiletype};
-use crate::controller::*;
-
+use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 
 #[tokio::main]
-async fn main()->anyhow::Result<()> {
+async fn main() -> anyhow::Result<()> {
     env_logger::Builder::default()
         .filter_level(LevelFilter::Trace)
-        .filter_module("mio",LevelFilter::Error)
+        .filter_module("mio", LevelFilter::Error)
         .init();
 
-
-    let ssl_connector= {
+    let ssl_connector = {
         let mut connector = SslConnector::builder(SslMethod::tls())?;
         connector.set_ca_file("./ca_test/CA.crt")?;
         connector.set_private_key_file("./ca_test/client-key.pem", SslFiletype::PEM)?;
@@ -23,18 +21,19 @@ async fn main()->anyhow::Result<()> {
         connector.build()
     };
 
-    let client= NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
-                                                  "".into(),
-                                                  "123123".into(),
-                                                  5000),
-                                DefaultSessionStore::default(),"localhost".to_string(),ssl_connector);
+    let client = NetXClient::new(
+        ServerOption::new("127.0.0.1:6666".into(), "".into(), "123123".into(), 5000),
+        DefaultSessionStore::default(),
+        "localhost".to_string(),
+        ssl_connector,
+    );
 
-    let server=impl_ref!(client=>IServer);
-    log::info!("{}",server.hello("123").await?);
-    log::info!("{}",server.get_static_str().await?);
-    log::info!("{:?}",server.get_static_str2().await?);
-    if let Err(err)=server.test_error().await {
-        log::info!("{}",err);
+    let server = impl_ref!(client=>IServer);
+    log::info!("{}", server.hello("123").await?);
+    log::info!("{}", server.get_static_str().await?);
+    log::info!("{:?}", server.get_static_str2().await?);
+    if let Err(err) = server.test_error().await {
+        log::info!("{}", err);
     }
     Ok(())
 }

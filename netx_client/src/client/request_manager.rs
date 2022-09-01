@@ -1,4 +1,4 @@
-use crate::client::{INetXClient, NetXClient, SessionSave};
+use crate::client::{INextClientInner, NetXClient, SessionSave};
 use anyhow::{anyhow, Result};
 use aqueue::Actor;
 use log::*;
