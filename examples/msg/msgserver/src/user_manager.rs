@@ -1,4 +1,3 @@
-use anyhow::Result;
 use lazy_static::*;
 use netxserver::prelude::Actor;
 use packer::User;
@@ -71,38 +70,37 @@ impl UserManager {
 
 #[async_trait::async_trait]
 pub trait IUserManager {
-    async fn add(&self, user: User) -> Result<()>;
-    async fn find(&self, session_id: i64) -> Result<Option<User>>;
-    async fn find_by_nickname(&self, nickname: String) -> Result<Option<User>>;
-    async fn remove(&self, session_id: i64) -> Result<Option<User>>;
+    async fn add(&self, user: User);
+    async fn find(&self, session_id: i64) -> Option<User>;
+    async fn find_by_nickname(&self, nickname: String) -> Option<User>;
+    async fn remove(&self, session_id: i64) -> Option<User>;
     async fn get_users(&self) -> Vec<User>;
-    async fn check_nickname(&self, nickname: String) -> Result<bool>;
+    async fn check_nickname(&self, nickname: String) -> bool;
 }
 
 #[async_trait::async_trait]
 impl IUserManager for Actor<UserManager> {
     #[inline]
-    async fn add(&self, user: User) -> Result<()> {
+    async fn add(&self, user: User) {
         self.inner_call(|inner| async move {
             inner.get_mut().add(user);
-            Ok(())
         })
         .await
     }
     #[inline]
-    async fn find(&self, session_id: i64) -> Result<Option<User>> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().find(session_id)) })
+    async fn find(&self, session_id: i64) -> Option<User> {
+        self.inner_call(|inner| async move { inner.get_mut().find(session_id) })
             .await
     }
     #[inline]
-    async fn find_by_nickname(&self, nickname: String) -> Result<Option<User>> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().find_by_nickname(nickname)) })
+    async fn find_by_nickname(&self, nickname: String) -> Option<User> {
+        self.inner_call(|inner| async move { inner.get_mut().find_by_nickname(nickname) })
             .await
     }
 
     #[inline]
-    async fn remove(&self, session_id: i64) -> Result<Option<User>> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().remove(session_id)) })
+    async fn remove(&self, session_id: i64) -> Option<User> {
+        self.inner_call(|inner| async move { inner.get_mut().remove(session_id) })
             .await
     }
     #[inline]
@@ -110,8 +108,8 @@ impl IUserManager for Actor<UserManager> {
         unsafe { self.deref_inner().get_users() }
     }
     #[inline]
-    async fn check_nickname(&self, nickname: String) -> Result<bool> {
-        self.inner_call(|inner| async move { Ok(inner.get().check_nickname(nickname)) })
+    async fn check_nickname(&self, nickname: String) -> bool {
+        self.inner_call(|inner| async move { inner.get().check_nickname(nickname) })
             .await
     }
 }

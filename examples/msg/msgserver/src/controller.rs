@@ -17,7 +17,10 @@ pub trait IServerController {
     async fn connect(&self) -> Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self) -> Result<()>;
-
+    // 当清理token的时候回调用,在这里可以写一些清理
+    // Call back when cleaning the token. You can write some cleaning here
+    #[tag(closed)]
+    async fn close(&self)->Result<()>;
     #[tag(1000)]
     async fn login(&self, msg: LogOn) -> Result<LogOnRes>;
     #[tag(1001)]
@@ -37,12 +40,7 @@ pub struct ServerController {
 impl Drop for ServerController {
     fn drop(&mut self) {
         let session_id = self.token.get_session_id();
-        tokio::spawn(async move {
-            match USERMANAGER.remove(session_id).await {
-                Ok(_) => info!("remove user {} ok", session_id),
-                Err(er) => error!("remove user {} err:{}", session_id, er),
-            }
-        });
+        info!("ServerController:{} drop",session_id);
     }
 }
 
@@ -63,7 +61,7 @@ impl IServerController for ServerController {
     }
     #[inline]
     async fn disconnect(&self) -> Result<()> {
-        let user = USERMANAGER.find(self.token.get_session_id()).await?;
+        let user = USERMANAGER.find(self.token.get_session_id()).await;
         if let Some(weak) = self.token.get_peer().await? {
             if let Some(peer) = weak.upgrade() {
                 if let Some(user) = user {
@@ -84,18 +82,24 @@ impl IServerController for ServerController {
         }
         Ok(())
     }
+    #[inline]
+    async fn close(&self) -> Result<()> {
+        let session_id = self.token.get_session_id();
+        USERMANAGER.remove(session_id).await;
+        Ok(())
+    }
 
     #[inline]
     async fn login(&self, msg: LogOn) -> Result<LogOnRes> {
         info!("{} is logon", msg.nickname);
 
-        if USERMANAGER.check_nickname(msg.nickname.clone()).await? {
+        if USERMANAGER.check_nickname(msg.nickname.clone()).await {
             USERMANAGER
                 .add(User {
                     nickname: msg.nickname,
                     sessionid: self.token.get_session_id(),
                 })
-                .await?;
+                .await;
 
             Ok(LogOnRes {
                 success: true,
@@ -115,7 +119,7 @@ impl IServerController for ServerController {
     }
     #[inline]
     async fn talk(&self, msg: String) -> Result<()> {
-        let current = USERMANAGER.find(self.token.get_session_id()).await?;
+        let current = USERMANAGER.find(self.token.get_session_id()).await;
         if let Some(current_user) = current {
             for user in USERMANAGER.get_users().await {
                 if user.sessionid != current_user.sessionid {
@@ -136,11 +140,11 @@ impl IServerController for ServerController {
     async fn to(&self, target_nickname: String, msg: String) -> Result<()> {
         let current_user = USERMANAGER
             .find(self.token.get_session_id())
-            .await?
+            .await
             .context("not login")?;
         let target_user = USERMANAGER
             .find_by_nickname(target_nickname.clone())
-            .await?
+            .await
             .with_context(|| format!("not found {}", target_nickname))?;
         let token = self
             .token
@@ -157,11 +161,11 @@ impl IServerController for ServerController {
     async fn ping(&self, target_nickname: String, time: i64) -> Result<i64> {
         let current_user = USERMANAGER
             .find(self.token.get_session_id())
-            .await?
+            .await
             .context("not login")?;
         let target_user = USERMANAGER
             .find_by_nickname(target_nickname.clone())
-            .await?
+            .await
             .with_context(|| format!("not found {}", target_nickname))?;
         let token = self
             .token
