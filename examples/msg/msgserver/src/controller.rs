@@ -97,7 +97,7 @@ impl IServerController for ServerController {
             USERMANAGER
                 .add(User {
                     nickname: msg.nickname,
-                    sessionid: self.token.get_session_id(),
+                    session_id: self.token.get_session_id(),
                 })
                 .await;
 
@@ -122,8 +122,8 @@ impl IServerController for ServerController {
         let current = USERMANAGER.find(self.token.get_session_id()).await;
         if let Some(current_user) = current {
             for user in USERMANAGER.get_users().await {
-                if user.sessionid != current_user.sessionid {
-                    let token = self.token.get_token(user.sessionid).await?;
+                if user.session_id != current_user.session_id {
+                    let token = self.token.get_token(user.session_id).await?;
                     if let Some(token) = token {
                         let peer = impl_ref!(token=>IClient);
                         peer.message(current_user.nickname.clone(), msg.clone(), false)
@@ -148,7 +148,7 @@ impl IServerController for ServerController {
             .with_context(|| format!("not found {}", target_nickname))?;
         let token = self
             .token
-            .get_token(target_user.sessionid)
+            .get_token(target_user.session_id)
             .await?
             .with_context(|| format!("not found {}", target_nickname))?;
 
@@ -169,7 +169,7 @@ impl IServerController for ServerController {
             .with_context(|| format!("not found {}", target_nickname))?;
         let token = self
             .token
-            .get_token(target_user.sessionid)
+            .get_token(target_user.session_id)
             .await?
             .with_context(|| format!("not found {}", target_nickname))?;
         let peer = impl_ref!(token=>IClient);

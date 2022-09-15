@@ -38,7 +38,7 @@ impl UserManager {
 
     pub fn find(&self, session_id: i64) -> Option<User> {
         for user in self.users.iter() {
-            if user.sessionid == session_id {
+            if user.session_id == session_id {
                 return Some(user.clone());
             }
         }
@@ -56,7 +56,7 @@ impl UserManager {
 
     pub fn remove(&mut self, session_id: i64) -> Option<User> {
         for (index, user) in self.users.iter().enumerate() {
-            if user.sessionid == session_id {
+            if user.session_id == session_id {
                 return Some(self.users.remove(index));
             }
         }

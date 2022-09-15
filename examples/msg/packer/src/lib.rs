@@ -14,5 +14,5 @@ pub struct LogOnRes {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct User {
     pub nickname: String,
-    pub sessionid: i64,
+    pub session_id: i64,
 }
