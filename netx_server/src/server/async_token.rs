@@ -4,7 +4,6 @@ use anyhow::{anyhow, bail, Result};
 use aqueue::Actor;
 use async_oneshot::{oneshot, Receiver, Sender};
 use data_rw::{Data, DataOwnedReader};
-use log::*;
 use std::collections::{HashMap, VecDeque};
 use std::ops::Deref;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -43,7 +42,7 @@ impl AsyncToken {
 
 impl Drop for AsyncToken {
     fn drop(&mut self) {
-        debug!("token session_id:{} drop", self.session_id);
+        log::debug!("token session_id:{} drop", self.session_id);
     }
 }
 
@@ -89,7 +88,7 @@ impl AsyncToken {
         while let Some(item) = self.request_queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= request_out_time {
                 if let Err(er) = self.set_error(item.0, anyhow!("time out")) {
-                    error!("check err:{}", er);
+                    log::error!("check err:{}", er);
                 }
             } else {
                 self.request_queue.push_back(item);
@@ -99,9 +98,8 @@ impl AsyncToken {
     }
 }
 
-
 #[async_trait::async_trait]
-pub(crate) trait IAsyncTokenInner{
+pub(crate) trait IAsyncTokenInner {
     /// set controller
     async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()>;
     /// clean all controller fun map
@@ -118,18 +116,17 @@ pub(crate) trait IAsyncTokenInner{
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     /// check request timeout
     async fn check_request_timeout(&self, request_out_time: u32) -> Result<()>;
-
 }
 
 #[async_trait::async_trait]
-impl IAsyncTokenInner for Actor<AsyncToken>{
+impl IAsyncTokenInner for Actor<AsyncToken> {
     #[inline]
     async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()> {
         self.inner_call(|inner| async move {
             inner.get_mut().controller = Some(controller);
             Ok(())
         })
-            .await
+        .await
     }
 
     #[inline]
@@ -138,7 +135,7 @@ impl IAsyncTokenInner for Actor<AsyncToken>{
             inner.get_mut().controller = None;
             Ok(())
         })
-            .await
+        .await
     }
 
     #[inline]
@@ -147,7 +144,7 @@ impl IAsyncTokenInner for Actor<AsyncToken>{
             inner.get_mut().peer = peer;
             Ok(())
         })
-            .await
+        .await
     }
 
     #[inline]
@@ -161,7 +158,7 @@ impl IAsyncTokenInner for Actor<AsyncToken>{
             match self.deref_inner().run_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
-                    error!(
+                    log::error!(
                         "session id:{} call cmd:{} error:{}",
                         self.get_session_id(),
                         cmd,
@@ -193,14 +190,14 @@ impl IAsyncTokenInner for Actor<AsyncToken>{
             match RetResult::from(dr) {
                 Ok(res) => match res.check() {
                     Ok(_) => {
-                        error!("not found 2 {}", serial)
+                        log::error!("not found 2 {}", serial)
                     }
                     Err(err) => {
-                        error!("{}", err)
+                        log::error!("{}", err)
                     }
                 },
                 Err(er) => {
-                    error!("not found {} :{}", serial, er)
+                    log::error!("not found {} :{}", serial, er)
                 }
             }
         }
@@ -219,7 +216,7 @@ impl IAsyncTokenInner for Actor<AsyncToken>{
             inner.get_mut().check_request_timeout(request_out_time);
             Ok(())
         })
-            .await
+        .await
     }
 }
 
@@ -352,8 +349,6 @@ impl IAsyncToken for Actor<AsyncToken> {
         peer.send(buff.into_inner()).await?;
         Ok(())
     }
-
-
 
     #[inline]
     async fn is_disconnect(&self) -> Result<bool> {

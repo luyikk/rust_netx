@@ -1,7 +1,6 @@
 use crate::client::{INextClientInner, NetXClient, SessionSave};
 use anyhow::{anyhow, Result};
 use aqueue::Actor;
-use log::*;
 use std::collections::VecDeque;
 use std::sync::{Arc, Weak};
 use std::time::{Duration, Instant};
@@ -18,7 +17,7 @@ unsafe impl<T> Sync for RequestManager<T> {}
 
 impl<T> Drop for RequestManager<T> {
     fn drop(&mut self) {
-        debug!("request manager is drop");
+        log::debug!("request manager is drop");
     }
 }
 
@@ -41,7 +40,7 @@ impl<T: SessionSave + 'static> RequestManager<T> {
         tokio::spawn(async move {
             while let Some(req) = request_manager.upgrade() {
                 if let Err(er) = req.check().await {
-                    error!("check request error:{}", er);
+                    log::error!("check request error:{}", er);
                 }
                 sleep(Duration::from_millis(500)).await
             }
@@ -57,7 +56,7 @@ impl<T: SessionSave + 'static> RequestManager<T> {
                         .set_error(item.0, anyhow!("serial:{} time out", item.0))
                         .await
                     {
-                        error!("check err:{}", er);
+                        log::error!("check err:{}", er);
                     }
                 }
             } else {

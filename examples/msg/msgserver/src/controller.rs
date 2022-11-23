@@ -20,7 +20,7 @@ pub trait IServerController {
     // 当清理token的时候回调用,在这里可以写一些清理
     // Call back when cleaning the token. You can write some cleaning here
     #[tag(closed)]
-    async fn close(&self)->Result<()>;
+    async fn close(&self) -> Result<()>;
     #[tag(1000)]
     async fn login(&self, msg: LogOn) -> Result<LogOnRes>;
     #[tag(1001)]
@@ -40,7 +40,7 @@ pub struct ServerController {
 impl Drop for ServerController {
     fn drop(&mut self) {
         let session_id = self.token.get_session_id();
-        info!("ServerController:{} drop",session_id);
+        info!("ServerController:{} drop", session_id);
     }
 }
 

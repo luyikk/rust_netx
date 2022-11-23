@@ -2,7 +2,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use aqueue::Actor;
 use async_oneshot::{oneshot, Receiver, Sender};
 use data_rw::{Data, DataOwnedReader};
-use log::*;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -75,7 +74,7 @@ unsafe impl<T> Sync for NetXClient<T> {}
 
 impl<T> Drop for NetXClient<T> {
     fn drop(&mut self) {
-        debug!("{} is drop", self.serverinfo)
+        log::debug!("{} is drop", self.serverinfo)
     }
 }
 
@@ -132,7 +131,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
             unsafe {
                 if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
-                    error!("not set request_manager,request_manager may not be none")
+                    log::error!("not set request_manager,request_manager may not be none")
                 }
             }
             netx_client
@@ -155,7 +154,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
             unsafe {
                 if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
-                    error!("not set request_manager,request_manager may not be none")
+                    log::error!("not set request_manager,request_manager may not be none")
                 }
             }
             netx_client
@@ -174,10 +173,10 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         mut reader: NetReadHalf,
     ) -> Result<bool> {
         if let Err(er) = Self::read_buffer(&netx_client, set_connect, client, &mut reader).await {
-            error!("read buffer err:{}", er);
+            log::error!("read buffer err:{}", er);
         }
         netx_client.clean_connect().await?;
-        info! {"disconnect to {}", netx_client.get_service_info()};
+        log::info! {"disconnect to {}", netx_client.get_service_info()};
         netx_client
             .call_special_function(SpecialFunctionTag::Disconnect as i32)
             .await?;
@@ -212,9 +211,9 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             match cmd {
                 1000 => match dr.read_fixed::<bool>()? {
                     false => {
-                        info!("{} {}", server_info, dr.read_fixed_str()?);
+                        log::info!("{} {}", server_info, dr.read_fixed_str()?);
                         if (dr.len() - dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
-                            debug!("mode 1");
+                            log::debug!("mode 1");
                             netx_client.set_mode(1).await?;
                         }
                         client
@@ -225,17 +224,17 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             .await?;
                         if let Some(set_connect) = option_connect.take() {
                             if set_connect.send((true, "success".into())).is_err() {
-                                error!("talk connect rx is close");
+                                log::error!("talk connect rx is close");
                             }
                             drop(set_connect);
                         }
                     }
                     true => {
                         let err = dr.read_fixed_str()?;
-                        error!("connect {} error:{}", server_info, err);
+                        log::error!("connect {} error:{}", server_info, err);
                         if let Some(set_connect) = option_connect.take() {
                             if set_connect.send((false, err.to_string())).is_err() {
-                                error!("talk connect rx is close");
+                                log::error!("talk connect rx is close");
                             }
                             drop(set_connect);
                         }
@@ -244,7 +243,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 },
                 2000 => {
                     session_id = dr.read_fixed::<i64>()?;
-                    info!("{} save session id:{}", server_info, session_id);
+                    log::info!("{} save session id:{}", server_info, session_id);
                     netx_client.store_session_id(session_id).await?;
                 }
                 2400 => {
@@ -274,7 +273,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                     )
                                     .await
                                 {
-                                    error!("send buff 1 error:{}", er);
+                                    log::error!("send buff 1 error:{}", er);
                                 }
                             });
                         }
@@ -294,7 +293,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                     )
                                     .await
                                 {
-                                    error!("send buff 2 error:{}", er);
+                                    log::error!("send buff 2 error:{}", er);
                                 }
                             });
                         }
@@ -308,7 +307,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                     netx_client.set_result(serial, dr).await?;
                 }
                 _ => {
-                    error!("{} Unknown command:{}->{:?}", server_info, cmd, dr);
+                    log::error!("{} Unknown command:{}->{:?}", server_info, cmd, dr);
                     break;
                 }
             }
@@ -482,7 +481,6 @@ pub(crate) trait INextClientInner<T> {
     async fn set_mode(&self, mode: u8) -> Result<()>;
     /// store netx session id
     async fn store_session_id(&self, session_id: i64) -> Result<()>;
-
 }
 
 #[async_trait::async_trait]
@@ -503,10 +501,10 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
         } else {
             match RetResult::from(data) {
                 Ok(res) => match res.check() {
-                    Ok(_) => error!("not found 2 {}", serial),
-                    Err(err) => error!("{}", err),
+                    Ok(_) => log::error!("not found 2 {}", serial),
+                    Err(err) => log::error!("{}", err),
                 },
-                Err(er) => error!("not found {} :{}", serial, er),
+                Err(er) => log::error!("not found {} :{}", serial, er),
             }
         }
         Ok(())
@@ -536,7 +534,7 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
             match self.deref_inner().run_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
-                    error!("call controller error:{}", err);
+                    log::error!("call controller error:{}", err);
                     RetResult::error(1, format!("call controller err:{}", err))
                 }
             }
@@ -573,7 +571,7 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
             inner.get_mut().set_mode(mode);
             Ok(())
         })
-            .await
+        .await
     }
 
     #[inline]
@@ -582,9 +580,8 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
             inner.get_mut().store_session_id(session_id);
             Ok(())
         })
-            .await
+        .await
     }
-
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -755,7 +752,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
                     .call_special_function(SpecialFunctionTag::Closed as i32)
                     .await
                 {
-                    error!("call controller Closed err:{}", er)
+                    log::error!("call controller Closed err:{}", er)
                 }
                 inner.get_mut().controller = None;
                 inner.get_mut().net.take().context("not connect")

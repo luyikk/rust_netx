@@ -1,10 +1,9 @@
-use crate::async_token::{IAsyncTokenInner,IAsyncToken};
+use crate::async_token::{IAsyncToken, IAsyncTokenInner};
 use crate::controller::ICreateController;
 use crate::impl_server::SpecialFunctionTag;
 use crate::server::async_token::{AsyncToken, NetxToken};
 use anyhow::Result;
 use aqueue::Actor;
-use log::*;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::time::{sleep, Duration, Instant};
@@ -46,11 +45,11 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
         tokio::spawn(async move {
             while let Some(manager) = wk.upgrade() {
                 if let Err(err) = manager.check_tokens_request_timeout().await {
-                    error!("check request time out err:{}", err);
+                    log::error!("check request time out err:{}", err);
                 }
 
                 if let Err(err) = manager.check_tokens_disconnect_timeout().await {
-                    error!("check tokens disconnect out err:{}", err);
+                    log::error!("check tokens disconnect out err:{}", err);
                 }
 
                 sleep(Duration::from_millis(50)).await
@@ -77,18 +76,18 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
                                 .call_special_function(SpecialFunctionTag::Closed as i32)
                                 .await
                             {
-                                error!("call token Closed err:{}", er)
+                                log::error!("call token Closed err:{}", er)
                             }
                             token.clear_controller_fun_maps().await?;
-                            debug!("token {} remove", token.get_session_id());
+                            log::debug!("token {} remove", token.get_session_id());
                         } else {
-                            debug!("remove token {} fail", item.0);
+                            log::debug!("remove token {} fail", item.0);
                         }
                     } else {
-                        debug!("remove token {},but it not disconnect", item.0);
+                        log::debug!("remove token {},but it not disconnect", item.0);
                     }
                 } else {
-                    debug!("remove token not found {}", item.0);
+                    log::debug!("remove token not found {}", item.0);
                 }
             } else {
                 self.request_disconnect_clear_queue.push_back(item);
@@ -170,7 +169,7 @@ impl<T: ICreateController + 'static> IAsyncTokenManager for Actor<AsyncTokenMana
     #[inline]
     async fn peer_disconnect(&self, session_id: i64) -> Result<()> {
         self.inner_call(|inner| async move {
-            debug!("token {} start disconnect clear ", session_id);
+            log::debug!("token {} start disconnect clear ", session_id);
             inner
                 .get_mut()
                 .request_disconnect_clear_queue

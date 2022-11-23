@@ -2,13 +2,12 @@ use anyhow::{bail, Result};
 use aqueue::Actor;
 use bytes::BufMut;
 use data_rw::Data;
-use log::*;
 use std::sync::{Arc, Weak};
 use tcpserver::{Builder, IPeer, ITCPServer, TCPPeer};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::task::JoinHandle;
 
-use crate::async_token::{IAsyncToken,IAsyncTokenInner, NetxToken};
+use crate::async_token::{IAsyncToken, IAsyncTokenInner, NetxToken};
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::controller::ICreateController;
 use crate::owned_read_half_ex::ReadHalfExt;
@@ -111,7 +110,7 @@ where
                     async_tokens
                 });
           let serv = Builder::new(&inner.option.addr).set_connect_event(|addr| {
-             info!("{} connect", addr);
+             log::info!("{} connect", addr);
              true
           })
           .set_stream_init( |tcp_stream| async move{
@@ -122,7 +121,7 @@ where
              let token = match Self::get_peer_token(&mut reader, &peer,&inner).await {
                 Ok(token) => token,
                 Err(er) => {
-                   info!("user:{}:{},disconnect it", addr, er);
+                   log::info!("user:{}:{},disconnect it", addr, er);
                    return Ok(())
                 }
              };
@@ -228,7 +227,7 @@ where
                                     .send(Self::get_result_buff(serial, res).into_inner())
                                     .await
                                 {
-                                    error!("send buff 1 error:{}", er);
+                                    log::error!("send buff 1 error:{}", er);
                                 }
                             });
                         }
@@ -240,12 +239,12 @@ where
                                     .send(Self::get_result_buff(serial, res).into_inner())
                                     .await
                                 {
-                                    error!("send buff {} error:{}", serial, er);
+                                    log::error!("send buff {} error:{}", serial, er);
                                 }
                             });
                         }
                         _ => {
-                            error!("not found call type:{}", tt)
+                            log::error!("not found call type:{}", tt)
                         }
                     }
                 }
@@ -254,7 +253,7 @@ where
                     token.set_result(serial, dr).await?;
                 }
                 _ => {
-                    error!("not found cmd:{}", cmd)
+                    log::error!("not found cmd:{}", cmd)
                 }
             }
         }
