@@ -44,6 +44,7 @@ struct NetXServerInner<T> {
     async_tokens: TokenManager<T>,
 }
 
+/// Netx Service
 pub struct NetXServer<T> {
     inner: Arc<NetXServerInner<T>>,
     serv: Arc<dyn ITCPServer<Arc<NetXServerInner<T>>>>,
@@ -57,6 +58,7 @@ where
 {
     cfg_if::cfg_if! {
     if #[cfg(feature = "tls")]{
+       /// new openssl tls encryption service
        #[inline]
        pub async fn new(ssl_acceptor:&'static SslAcceptor,option:ServerOption,impl_controller:T)->NetXServer<T> {
           let request_out_time = option.request_out_time;
@@ -98,6 +100,7 @@ where
           }
        }
     }else if #[cfg(feature = "tcp")]{
+       /// new service
        #[inline]
        pub async fn new(option:ServerOption,impl_controller:T)->NetXServer<T> {
           let request_out_time = option.request_out_time;

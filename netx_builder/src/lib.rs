@@ -179,6 +179,7 @@ fn get_impl_func_server(funcs: &[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     ret
 }
 
+/// build client interface
 #[proc_macro_attribute]
 pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as ItemTrait);
@@ -337,6 +338,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 }
 
+/// build server interface
 #[proc_macro_attribute]
 pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as ItemTrait);
@@ -542,6 +544,7 @@ fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
     funcs
 }
 
+/// impl interface
 #[proc_macro_attribute]
 pub fn build_impl(_: TokenStream, input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as ItemImpl);
@@ -551,6 +554,7 @@ pub fn build_impl(_: TokenStream, input: TokenStream) -> TokenStream {
     })
 }
 
+/// set cmd tag
 #[proc_macro_attribute]
 pub fn tag(_: TokenStream, input: TokenStream) -> TokenStream {
     input
