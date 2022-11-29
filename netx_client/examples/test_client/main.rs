@@ -103,6 +103,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         server.print2(6, "my name is").await?;
     }
 
+    // test cow
+    {
+        assert_eq!(server.test_cow(true).await?,"is static str");
+        assert_eq!(server.test_cow(false).await?,"is string owned");
+    }
+
     //test bench and recursive
     {
         let start = Instant::now();
