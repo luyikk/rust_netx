@@ -52,6 +52,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     client.init(TestController::new(client.clone())).await?;
     client.connect_network().await?;
+    client.connect_network().await?;
+
     let server = impl_ref!(client=>IServer);
 
     //test base type

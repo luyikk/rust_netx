@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use log::warn;
 use tcpclient::{SocketClientTrait, TcpClient};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::sync::watch::{channel, Receiver as WReceiver, Sender as WSender};
@@ -635,14 +636,15 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     #[inline]
     async fn connect_network(self: &Arc<Self>) -> Result<()> {
         let netx_client = self.clone();
-        let mut wait_handler: WReceiver<(bool, String)> = self.inner_call(|inner|async move  {
+        let wait_handler: Result<Option<WReceiver<(bool, String)>>> = self.inner_call(|inner|async move  {
             if inner.get().is_connect() {
                 return match inner.get().connect_stats {
                     Some(ref stats) => {
-                        Ok(stats.clone())
+                        Ok(Some(stats.clone()))
                     },
                     None => {
-                        bail!("inner is connect,but not get stats")
+                        warn!("inner is connect,but not get stats");
+                        Ok(None)
                     }
                 }
             }
@@ -665,20 +667,22 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             let ref_inner = inner.get_mut();
             ref_inner.set_network_client(client);
             ref_inner.connect_stats = Some(wait_connect.clone());
-            Ok(wait_connect)
+            Ok(Some(wait_connect))
 
-        }).await?;
+        }).await;
 
-        match wait_handler.changed().await {
-            Err(err) => {
-                self.reset_connect_stats().await?;
-                bail!("connect err:{}", err)
-            }
-            Ok(_) => {
-                self.reset_connect_stats().await?;
-                let (is_connect, msg) = &(*wait_handler.borrow());
-                if !is_connect {
-                    bail!("connect err:{}", msg);
+        if let Some(mut wait_handler)=wait_handler? {
+            match wait_handler.changed().await {
+                Err(err) => {
+                    self.reset_connect_stats().await?;
+                    bail!("connect err:{}", err)
+                }
+                Ok(_) => {
+                    self.reset_connect_stats().await?;
+                    let (is_connect, msg) = &(*wait_handler.borrow());
+                    if !is_connect {
+                        bail!("connect err:{}", msg);
+                    }
                 }
             }
         }
