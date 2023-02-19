@@ -107,8 +107,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // test cow
     {
-        assert_eq!(server.test_cow(true).await?,"is static str");
-        assert_eq!(server.test_cow(false).await?,"is string owned");
+        assert_eq!(server.test_cow(true).await?, "is static str");
+        assert_eq!(server.test_cow(false).await?, "is string owned");
     }
 
     //test bench and recursive

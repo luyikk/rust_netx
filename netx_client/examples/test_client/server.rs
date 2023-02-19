@@ -41,5 +41,5 @@ pub trait IServer: Sync + Send {
     #[tag(10001)]
     async fn logon2(&self, info: (String, String)) -> Result<LogOnResult>;
     #[tag(2501)]
-    async fn test_cow(&self,is_str:bool)->Result<String>;
+    async fn test_cow(&self, is_str: bool) -> Result<String>;
 }

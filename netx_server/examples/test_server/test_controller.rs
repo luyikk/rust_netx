@@ -1,10 +1,10 @@
-use std::borrow::Cow;
 use crate::client::*;
 use crate::test_struct::{Foo, LogOn, LogOnResult};
 use anyhow::Result;
 use log::*;
 use netxserver::impl_ref;
 use netxserver::prelude::*;
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::sync::Arc;
 use tcpserver::IPeer;
@@ -67,7 +67,7 @@ pub trait ITestController {
     #[tag(2500)]
     async fn get_all_count(&self) -> Result<i64>;
     #[tag(2501)]
-    async fn test_cow(&self,is_str:bool)->Result<Cow<'static,str>>;
+    async fn test_cow(&self, is_str: bool) -> Result<Cow<'static, str>>;
 }
 
 pub struct TestController {
@@ -248,10 +248,10 @@ impl ITestController for TestController {
     }
 
     #[inline]
-    async fn test_cow(&self,is_str:bool)->Result<Cow<'static,str>>{
-        if is_str{
+    async fn test_cow(&self, is_str: bool) -> Result<Cow<'static, str>> {
+        if is_str {
             Ok(Cow::Borrowed("is static str"))
-        }else{
+        } else {
             Ok(Cow::Owned("is string owned".to_string()))
         }
     }

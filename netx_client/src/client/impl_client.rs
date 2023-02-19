@@ -2,12 +2,12 @@ use anyhow::{anyhow, bail, Context, Result};
 use aqueue::Actor;
 use async_oneshot::{oneshot, Receiver, Sender};
 use data_rw::{Data, DataOwnedReader};
+use log::warn;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
-use log::warn;
 use tcpclient::{SocketClientTrait, TcpClient};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::sync::watch::{channel, Receiver as WReceiver, Sender as WSender};
@@ -671,7 +671,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
 
         }).await;
 
-        if let Some(mut wait_handler)=wait_handler? {
+        if let Some(mut wait_handler) = wait_handler? {
             match wait_handler.changed().await {
                 Err(err) => {
                     self.reset_connect_stats().await?;
