@@ -71,14 +71,15 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: install vcpkg openssl
-        run: | 
-              echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-              vcpkg install openssl:x64-windows-static-md
-        if: endsWith(matrix.os, 'windows-latest')
-
       - name: Install ${{ matrix.rust }} toolchain
         run: rustup toolchain add ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
+
+      - name: install vcpkg openssl
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
+        if: endsWith(matrix.os, 'windows-latest')
+
       - name: Run cargo build
         run: cargo build
