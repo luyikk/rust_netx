@@ -1,6 +1,6 @@
 [package]
 name = "netxserver"
-version = "1.7.3"
+version = "1.8.0"
 authors = ["yi lu <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -10,34 +10,35 @@ license = "MIT/Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default=["tcp"]
-tls=["openssl","openssl-sys","tokio-openssl"]
-tcp=[]
-dserde=["data-rw/data"]
+default = []
+use_openssl = ["openssl", "openssl-sys", "tokio-openssl"]
+use_rustls = ["tokio-rustls"]
+dserde = ["data-rw/data"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 tcpserver = "1.6"
-aqueue="1.2"
-async-trait="0.1"
-anyhow="1.0"
-log="0.4"
-data-rw="1.6"
-paste="1.0"
-bytes="1.1"
+aqueue = "1.2"
+async-trait = "0.1"
+anyhow = "1.0"
+log = "0.4"
+data-rw = "1.6"
+paste = "1.0"
+bytes = "1.1"
 async-oneshot = "0.5"
-netxbuilder= "1.4"
-chrono="0.4"
+netxbuilder = "1.4"
+chrono = "0.4"
 cfg-if = "1.0"
-openssl = { version="0.10",optional = true}
-openssl-sys = { version="0.9",optional = true}
-tokio-openssl =  { version="0.6",optional = true}
-
+openssl = { version = "0.10", optional = true }
+openssl-sys = { version = "0.9", optional = true }
+tokio-openssl = { version = "0.6", optional = true }
+tokio-rustls = { version = "0.23", optional = true }
 
 [dev-dependencies]
-env_logger = "0.9"
+env_logger = "0.10"
 serde = { version = "1.0", features = ["derive"] }
-log="0.4"
-mimalloc = {version="0.1",default-features = false}
-lazy_static="1.4"
+log = "0.4"
+mimalloc = { version = "0.1", default-features = false }
+lazy_static = "1.4"
+rustls-pemfile = { version = "1" }

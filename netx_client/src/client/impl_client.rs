@@ -14,50 +14,51 @@ use tokio::sync::watch::{channel, Receiver as WReceiver, Sender as WSender};
 use tokio::time::{sleep, Duration};
 
 use crate::client::controller::IController;
+use crate::client::maybe_stream::MaybeStream;
 use crate::client::request_manager::{IRequestManager, RequestManager};
 use crate::client::result::RetResult;
 use crate::client::NetxClientArc;
 
 cfg_if::cfg_if! {
-if #[cfg(feature = "tls")]{
-   use openssl::ssl::{SslConnector,Ssl};
-   use tokio::net::TcpStream;
+if #[cfg(feature = "use_openssl")]{
+   use openssl::ssl::SslConnector;
    use tokio_openssl::SslStream;
    use std::pin::Pin;
-   pub type NetPeer=Actor<TcpClient<SslStream<TcpStream>>>;
-   pub type NetReadHalf=ReadHalf<SslStream<TcpStream>>;
-
-   pub struct NetXClient<T>{
-        ssl_domain:String,
-        ssl_connector:SslConnector,
-        session:T,
-        serverinfo: ServerOption,
-        net:Option<Arc<NetPeer>>,
-        connect_stats:Option<WReceiver<(bool,String)>>,
-        result_dict:HashMap<i64,Sender<Result<DataOwnedReader>>>,
-        serial_atomic:AtomicI64,
-        request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
-        controller:Option<Box<dyn IController>>,
-        mode:u8
-   }
-
-}else if #[cfg(feature = "tcp")]{
-   use tokio::net::TcpStream;
-   pub type NetPeer=Actor<TcpClient<TcpStream>>;
-   pub type NetReadHalf=ReadHalf<TcpStream>;
-
-   pub struct NetXClient<T>{
-        session:T,
-        serverinfo: ServerOption,
-        net:Option<Arc<NetPeer>>,
-        connect_stats:Option<WReceiver<(bool,String)>>,
-        result_dict:HashMap<i64,Sender<Result<DataOwnedReader>>>,
-        serial_atomic:AtomicI64,
-        request_manager:OnceCell<Arc<Actor<RequestManager<T>>>>,
-        controller:Option<Box<dyn IController>>,
-        mode:u8
-   }
+}else if #[cfg(feature = "use_rustls")]{
+   use tokio_rustls::TlsConnector;
+   use tokio_rustls::rustls::ServerName;
 }}
+
+#[derive(Clone)]
+pub enum TlsConfig {
+    None,
+    #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
+    OpenSsl {
+        domain: String,
+        connector: SslConnector,
+    },
+    #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
+    Rustls {
+        domain: ServerName,
+        connector: TlsConnector,
+    },
+}
+
+pub type NetPeer = Actor<TcpClient<MaybeStream>>;
+pub type NetReadHalf = ReadHalf<MaybeStream>;
+
+pub struct NetXClient<T> {
+    tls_config: TlsConfig,
+    session: T,
+    server_info: ServerOption,
+    net: Option<Arc<NetPeer>>,
+    connect_stats: Option<WReceiver<(bool, String)>>,
+    result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
+    serial_atomic: AtomicI64,
+    request_manager: OnceCell<Arc<Actor<RequestManager<T>>>>,
+    controller: Option<Box<dyn IController>>,
+    mode: u8,
+}
 
 pub trait SessionSave {
     fn get_session_id(&self) -> i64;
@@ -75,7 +76,7 @@ unsafe impl<T> Sync for NetXClient<T> {}
 
 impl<T> Drop for NetXClient<T> {
     fn drop(&mut self) {
-        log::debug!("{} is drop", self.serverinfo)
+        log::debug!("{} is drop", self.server_info)
     }
 }
 
@@ -111,55 +112,85 @@ impl ServerOption {
 
 impl<T: SessionSave + 'static> NetXClient<T> {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "tls")] {
+        if #[cfg(feature = "use_openssl")] {
+            pub fn new_ssl(server_info: ServerOption, session:T,domain:String,connector:SslConnector) ->NetxClientArc<T>{
+                let request_out_time_ms=server_info.request_out_time_ms;
+                let netx_client=Arc::new(Actor::new(NetXClient{
+                    tls_config:TlsConfig::OpenSsl {domain,connector},
+                    session,
+                    server_info,
+                    net:None,
+                    result_dict:HashMap::new(),
+                    connect_stats:None,
+                    serial_atomic:AtomicI64::new(1),
+                    request_manager:OnceCell::new(),
+                    controller:None,
+                    mode:0
+                }));
 
-        pub fn new(serverinfo: ServerOption, session:T,ssl_domain:String,ssl_connector:SslConnector) ->NetxClientArc<T>{
-            let request_out_time_ms=serverinfo.request_out_time_ms;
-            let netx_client=Arc::new(Actor::new(NetXClient{
-                ssl_domain,
-                ssl_connector,
-                session,
-                serverinfo,
-                net:None,
-                result_dict:HashMap::new(),
-                connect_stats:None,
-                serial_atomic:AtomicI64::new(1),
-                request_manager:OnceCell::new(),
-                controller:None,
-                mode:0
-            }));
-
-            let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
-            unsafe {
-                if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
-                    log::error!("not set request_manager,request_manager may not be none")
+                let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
+                unsafe {
+                    if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
+                        log::error!("not set request_manager,request_manager may not be none")
+                    }
                 }
+                netx_client
             }
-            netx_client
-        }} else if #[cfg(feature = "tcp")]{
+        } else if #[cfg(feature = "use_rustls")]{
+             pub fn new_tls(server_info: ServerOption, session:T,domain:ServerName,connector:TlsConnector) ->NetxClientArc<T>{
+                let request_out_time_ms=server_info.request_out_time_ms;
+                let netx_client=Arc::new(Actor::new(NetXClient{
+                    tls_config:TlsConfig::Rustls {domain,connector},
+                    session,
+                    server_info,
+                    net:None,
+                    result_dict:HashMap::new(),
+                    connect_stats:None,
+                    serial_atomic:AtomicI64::new(1),
+                    request_manager:OnceCell::new(),
+                    controller:None,
+                    mode:0
+                }));
 
-        pub fn new(serverinfo: ServerOption, session:T) ->NetxClientArc<T>{
-            let request_out_time_ms=serverinfo.request_out_time_ms;
-            let netx_client=Arc::new(Actor::new(NetXClient{
-                session,
-                serverinfo,
-                net:None,
-                result_dict:HashMap::new(),
-                connect_stats:None,
-                serial_atomic:AtomicI64::new(1),
-                request_manager:OnceCell::new(),
-                controller:None,
-                mode:0
-            }));
-
-            let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
-            unsafe {
-                if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
-                    log::error!("not set request_manager,request_manager may not be none")
+                let request_manager=RequestManager::new(request_out_time_ms,Arc::downgrade(&netx_client));
+                unsafe {
+                    if netx_client.deref_inner().request_manager.set(request_manager).is_err(){
+                        log::error!("not set request_manager,request_manager may not be none")
+                    }
                 }
+                netx_client
             }
-            netx_client
-        }}
+        }
+    }
+
+    pub fn new(server_info: ServerOption, session: T) -> NetxClientArc<T> {
+        let request_out_time_ms = server_info.request_out_time_ms;
+        let netx_client = Arc::new(Actor::new(NetXClient {
+            tls_config: TlsConfig::None,
+            session,
+            server_info,
+            net: None,
+            result_dict: HashMap::new(),
+            connect_stats: None,
+            serial_atomic: AtomicI64::new(1),
+            request_manager: OnceCell::new(),
+            controller: None,
+            mode: 0,
+        }));
+
+        let request_manager =
+            RequestManager::new(request_out_time_ms, Arc::downgrade(&netx_client));
+        unsafe {
+            if netx_client
+                .deref_inner()
+                .request_manager
+                .set(request_manager)
+                .is_err()
+            {
+                log::error!("not set request_manager,request_manager may not be none")
+            }
+        }
+        netx_client
     }
 
     #[inline]
@@ -177,7 +208,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             log::error!("read buffer err:{}", er);
         }
         netx_client.clean_connect().await?;
-        log::info! {"disconnect to {}", netx_client.get_service_info()};
+        log::info!("disconnect to {}", netx_client.get_service_info());
         netx_client
             .call_special_function(SpecialFunctionTag::Disconnect as i32)
             .await?;
@@ -404,18 +435,12 @@ impl<T: SessionSave + 'static> NetXClient<T> {
 
     #[inline]
     pub fn get_addr_string(&self) -> String {
-        self.serverinfo.addr.clone()
+        self.server_info.addr.clone()
     }
 
     #[inline]
     pub fn get_service_info(&self) -> ServerOption {
-        self.serverinfo.clone()
-    }
-
-    #[cfg(feature = "tls")]
-    #[inline]
-    pub fn get_ssl(&self) -> Result<Ssl> {
-        Ok(self.ssl_connector.configure()?.into_ssl(&self.ssl_domain)?)
+        self.server_info.clone()
     }
 
     #[inline]
@@ -488,7 +513,7 @@ pub(crate) trait INextClientInner<T> {
 impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
     #[inline]
     fn get_timeout_ms(&self) -> u32 {
-        unsafe { self.deref_inner().serverinfo.request_out_time_ms }
+        unsafe { self.deref_inner().server_info.request_out_time_ms }
     }
 
     #[inline]
@@ -593,8 +618,7 @@ pub trait INetXClient<T> {
     /// connect to network
     async fn connect_network(self: &Arc<Self>) -> Result<()>;
     /// get ssl
-    #[cfg(feature = "tls")]
-    fn get_ssl(&self) -> Result<Ssl>;
+    fn get_tls_config(&self) -> TlsConfig;
     /// get netx server address
     fn get_address(&self) -> String;
     /// get netx client service config
@@ -653,15 +677,34 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
 
             let client={
             cfg_if::cfg_if! {
-            if#[cfg(feature = "tls")]{
-                let ssl=netx_client.get_ssl()?;
-                tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{
-                     let mut stream = SslStream::new(ssl, tcp_stream)?;
-                     Pin::new(&mut stream).connect().await?;
-                     Ok(stream)
-                },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
-            }else if #[cfg(feature = "tcp")]{
-                 tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect(netx_client.get_address(), NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
+            if#[cfg(feature = "use_openssl")]{
+                if let TlsConfig::OpenSsl{domain,connector}=netx_client.get_tls_config(){
+                      let ssl=connector.configure()?.into_ssl(&domain)?;
+                      tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{
+                         let mut stream = SslStream::new(ssl, tcp_stream)?;
+                         Pin::new(&mut stream).connect().await?;
+                         Ok(MaybeStream::ServerSsl(stream))
+                      },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
+                }else{
+                      tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(), |tcp_stream| async move{
+                        Ok(MaybeStream::Plain(tcp_stream))
+                      },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
+                }
+            }else if #[cfg(feature = "use_rustls")]{
+                if let TlsConfig::Rustls{domain,connector}=netx_client.get_tls_config(){
+                      tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{
+                         let stream =connector.connect(domain,tcp_stream).await?;
+                         Ok(MaybeStream::ServerTls(stream))
+                      },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
+                }else{
+                      tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(), |tcp_stream| async move{
+                        Ok(MaybeStream::Plain(tcp_stream))
+                      },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
+                }
+            }else{
+                    tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(), |tcp_stream| async move{
+                        Ok(MaybeStream::Plain(tcp_stream))
+                    },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
             }}};
 
             let ref_inner = inner.get_mut();
@@ -690,10 +733,9 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
         Ok(())
     }
 
-    #[cfg(feature = "tls")]
     #[inline]
-    fn get_ssl(&self) -> Result<Ssl> {
-        unsafe { self.deref_inner().get_ssl() }
+    fn get_tls_config(&self) -> TlsConfig {
+        unsafe { self.deref_inner().tls_config.clone() }
     }
 
     #[inline]

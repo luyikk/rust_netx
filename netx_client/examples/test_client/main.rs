@@ -8,6 +8,7 @@ use netxclient::impl_ref;
 use netxclient::prelude::*;
 use server::*;
 use std::error::Error;
+
 use std::time::Instant;
 use test_controller::TestController;
 
@@ -22,31 +23,62 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let client = {
         cfg_if::cfg_if! {
-        if #[cfg(feature = "tls")]{
+        if #[cfg(feature = "use_openssl")]{
 
                 // test tls
                 use openssl::ssl::{SslMethod,SslConnector,SslFiletype};
                 let mut connector = SslConnector::builder(SslMethod::tls())?;
-                connector.set_ca_file("../ca_test/CA.crt")?;
-                connector.set_private_key_file("../ca_test/client-key.pem", SslFiletype::PEM)?;
-                connector.set_certificate_chain_file("../ca_test/client-crt.pem")?;
+                connector.set_ca_file("./ca_test/CA.crt")?;
+                connector.set_private_key_file("./ca_test/client-key.pem", SslFiletype::PEM)?;
+                connector.set_certificate_chain_file("./ca_test/client-crt.pem")?;
                 connector.check_private_key()?;
                 let ssl_connector=connector.build();
-                NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
+                NetXClient::new_ssl(ServerOption::new("127.0.0.1:6666".into(),
                                                   "".into(),
                                                   "123123".into(),
                                                   5000),
                                                 DefaultSessionStore::default(),"localhost".to_string(),ssl_connector)
 
-        }else if #[cfg(feature = "tcp")]{
+        }else if #[cfg(feature = "use_rustls")]{
+            use rustls_pemfile::{certs, rsa_private_keys};
+            use std::sync::Arc;
+            use std::io::BufReader;
+            use std::fs::File;
+            use std::convert::TryFrom;
+            use tokio_rustls::rustls::{Certificate, PrivateKey,RootCertStore,ClientConfig,ServerName};
 
-                // test tcp
+            let cert_file = &mut BufReader::new(File::open("./ca_test/client-crt.pem").unwrap());
+            let key_file = &mut BufReader::new(File::open("./ca_test/client-key.pem").unwrap());
+
+            let root_store =RootCertStore::empty();
+            let keys = PrivateKey(rsa_private_keys(key_file).unwrap().remove(0));
+            let cert_chain = certs(cert_file)
+                .unwrap()
+                .iter()
+                .map(|c| Certificate(c.to_vec()))
+                .collect::<Vec<_>>();
+
+            let mut tls_config = ClientConfig::builder()
+                .with_safe_defaults()
+                .with_root_certificates(root_store)
+                .with_single_cert(cert_chain, keys)
+                .expect("bad certificate/key");
+
+            tls_config.dangerous().set_certificate_verifier(Arc::new(RustlsAcceptAnyCertVerifier));
+            let connector=tokio_rustls::TlsConnector::from(Arc::new(tls_config));
+
+            NetXClient::new_tls(ServerOption::new("127.0.0.1:6666".into(),
+                                                  "".into(),
+                                                  "123123".into(),
+                                                  5000),
+                                                DefaultSessionStore::default(),ServerName::try_from("localhost").unwrap(),connector)
+        }else{
+                 // test tcp
                 NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
                                                   "".into(),
                                                   "123123".into(),
                                                   5000),
                                                 DefaultSessionStore::default())
-
         }}
     };
 

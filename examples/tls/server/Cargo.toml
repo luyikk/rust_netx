@@ -5,13 +5,24 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["use_rustls"]
+# use openssl
+use_openssl = ["netxserver/use_openssl"]
+# use rustls
+use_rustls = ["netxserver/use_rustls"]
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-netxserver = { version="1.7",features=["tls"]}
+netxserver = { path = "../../../netx_server", version = "1.7" }
 log = "0.4"
-env_logger = "0.9"
-anyhow="1.0"
-async-trait="0.1"
-openssl = { version="0.10"}
-openssl-sys = { version="0.9"}
-lazy_static="1.4"
+env_logger = "0.10"
+anyhow = "1.0"
+async-trait = "0.1"
+
+lazy_static = "1.4"
+openssl = { version = "0.10" }
+openssl-sys = { version = "0.9" }
+
+tokio-rustls = { version = "0.23" }
+rustls-pemfile = { version = "1" }

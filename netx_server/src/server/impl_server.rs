@@ -12,25 +12,22 @@ use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::controller::ICreateController;
 use crate::owned_read_half_ex::ReadHalfExt;
 use crate::server::async_token_manager::AsyncTokenManager;
+use crate::server::maybe_stream::MaybeStream;
 use crate::{RetResult, ServerOption};
 
 cfg_if::cfg_if! {
-if #[cfg(feature = "tls")]{
+if #[cfg(feature = "use_openssl")]{
    use openssl::ssl::{Ssl,SslAcceptor};
-   use tokio::net::TcpStream;
    use tokio_openssl::SslStream;
    use std::time::Duration;
    use tokio::time::sleep;
    use std::pin::Pin;
-   pub type NetPeer=Actor<TCPPeer<SslStream<TcpStream>>>;
-   pub type NetReadHalf=ReadHalf<SslStream<TcpStream>>;
+}else if #[cfg(feature = "use_rustls")]{
+   use tokio_rustls::TlsAcceptor;
+}}
 
-}else if #[cfg(feature = "tcp")]{
-   use tokio::net::TcpStream;
-   pub type NetPeer=Actor<TCPPeer<TcpStream>>;
-   pub type NetReadHalf=ReadHalf<TcpStream>;
-}
-}
+pub type NetPeer = Actor<TCPPeer<MaybeStream>>;
+pub type NetReadHalf = ReadHalf<MaybeStream>;
 
 pub(crate) enum SpecialFunctionTag {
     Connect = 2147483647,
@@ -56,87 +53,152 @@ where
     T: ICreateController + 'static,
 {
     cfg_if::cfg_if! {
-    if #[cfg(feature = "tls")]{
-       /// new openssl tls encryption service
-       #[inline]
-       pub async fn new(ssl_acceptor:&'static SslAcceptor,option:ServerOption,impl_controller:T)->NetXServer<T> {
-          let request_out_time = option.request_out_time;
-          let session_save_time = option.session_save_time;
-          let async_tokens= AsyncTokenManager::new(impl_controller, request_out_time, session_save_time);
-          let inner=Arc::new(NetXServerInner{
-                    option,
-                    async_tokens
-                });
-          let serv = Builder::new(&inner.option.addr).set_connect_event(|addr| {
-             info!("{} connect", addr);
-             true
-          })
-          .set_stream_init(move |tcp_stream| async move {
-             let ssl = Ssl::new(ssl_acceptor.context())?;
-             let mut stream = SslStream::new(ssl, tcp_stream)?;
-             sleep(Duration::from_millis(200)).await;
-             Pin::new(&mut stream).accept().await?;
-             Ok(stream)
-          })
-          .set_input_event(|mut reader, peer, inner| async move  {
-              let addr = peer.addr();
-              let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
+
+        if #[cfg(feature = "use_openssl")]{
+        /// new openssl tls encryption service
+        #[inline]
+        pub async fn new_ssl(
+            ssl_acceptor: &'static SslAcceptor,
+            option: ServerOption,
+            impl_controller: T,
+        ) -> NetXServer<T> {
+            let request_out_time = option.request_out_time;
+            let session_save_time = option.session_save_time;
+            let async_tokens =
+                AsyncTokenManager::new(impl_controller, request_out_time, session_save_time);
+            let inner = Arc::new(NetXServerInner {
+                option,
+                async_tokens,
+            });
+            let serv = Builder::new(&inner.option.addr)
+                .set_connect_event(|addr| {
+                    log::info!("{} connect", addr);
+                    true
+                })
+                .set_stream_init(move |tcp_stream| async move {
+                    let ssl = Ssl::new(ssl_acceptor.context())?;
+                    let mut stream = SslStream::new(ssl, tcp_stream)?;
+                    sleep(Duration::from_millis(200)).await;
+                    Pin::new(&mut stream).accept().await?;
+                    Ok(MaybeStream::ServerSsl(stream))
+                })
+                .set_input_event(|mut reader, peer, inner| async move {
+                    let addr = peer.addr();
+                    let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
+                        Ok(token) => token,
+                        Err(er) => {
+                            log::info!("user:{}:{},disconnect it", addr, er);
+                            return Ok(());
+                        }
+                    };
+
+                    Self::read_buff_byline(&mut reader, &peer, &token).await?;
+                    token
+                        .call_special_function(SpecialFunctionTag::Disconnect as i32)
+                        .await?;
+                    inner
+                        .async_tokens
+                        .peer_disconnect(token.get_session_id())
+                        .await?;
+                    Ok(())
+                })
+                .build()
+                .await;
+            NetXServer { inner, serv }
+        }
+        }else if #[cfg(feature = "use_rustls")]{
+        /// new rustls tls encryption service
+        #[inline]
+        pub async fn new_tls(
+            acceptor:&'static TlsAcceptor,
+            option: ServerOption,
+            impl_controller: T,
+        ) -> NetXServer<T> {
+            let request_out_time = option.request_out_time;
+            let session_save_time = option.session_save_time;
+            let async_tokens =
+                AsyncTokenManager::new(impl_controller, request_out_time, session_save_time);
+            let inner = Arc::new(NetXServerInner {
+                option,
+                async_tokens,
+            });
+            let serv = Builder::new(&inner.option.addr)
+                .set_connect_event(|addr| {
+                    log::info!("{} connect", addr);
+                    true
+                })
+                .set_stream_init(move |tcp_stream| async move {
+                   Ok(MaybeStream::ServerTls(acceptor.accept(tcp_stream).await?))
+                })
+                .set_input_event(|mut reader, peer, inner| async move {
+                    let addr = peer.addr();
+                    let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
+                        Ok(token) => token,
+                        Err(er) => {
+                            log::info!("user:{}:{},disconnect it", addr, er);
+                            return Ok(());
+                        }
+                    };
+
+                    Self::read_buff_byline(&mut reader, &peer, &token).await?;
+                    token
+                        .call_special_function(SpecialFunctionTag::Disconnect as i32)
+                        .await?;
+                    inner
+                        .async_tokens
+                        .peer_disconnect(token.get_session_id())
+                        .await?;
+                    Ok(())
+                })
+                .build()
+                .await;
+            NetXServer { inner, serv }
+        }
+        }
+    }
+
+    /// new service
+    #[inline]
+    pub async fn new(option: ServerOption, impl_controller: T) -> NetXServer<T> {
+        let request_out_time = option.request_out_time;
+        let session_save_time = option.session_save_time;
+        let async_tokens =
+            AsyncTokenManager::new(impl_controller, request_out_time, session_save_time);
+        let inner = Arc::new(NetXServerInner {
+            option,
+            async_tokens,
+        });
+        let serv = Builder::new(&inner.option.addr)
+            .set_connect_event(|addr| {
+                log::info!("{} connect", addr);
+                true
+            })
+            .set_stream_init(|tcp_stream| async move { Ok(MaybeStream::Plain(tcp_stream)) })
+            .set_input_event(|mut reader, peer, inner| async move {
+                let addr = peer.addr();
+                let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
                     Ok(token) => token,
                     Err(er) => {
-                       info!("user:{}:{},disconnect it", addr, er);
-                       return Ok(())
+                        log::info!("user:{}:{},disconnect it", addr, er);
+                        return Ok(());
                     }
-              };
+                };
 
-              Self::read_buff_byline(&mut reader, &peer, &token).await?;
-              token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
-              inner.async_tokens.peer_disconnect(token.get_session_id()).await?;
-              Ok(())
-          }).build().await;
-          NetXServer {
-             inner,
-             serv
-          }
-       }
-    }else if #[cfg(feature = "tcp")]{
-       /// new service
-       #[inline]
-       pub async fn new(option:ServerOption,impl_controller:T)->NetXServer<T> {
-          let request_out_time = option.request_out_time;
-          let session_save_time = option.session_save_time;
-          let async_tokens= AsyncTokenManager::new(impl_controller, request_out_time, session_save_time);
-          let inner=Arc::new(NetXServerInner{
-                    option,
-                    async_tokens
-                });
-          let serv = Builder::new(&inner.option.addr).set_connect_event(|addr| {
-             log::info!("{} connect", addr);
-             true
-          })
-          .set_stream_init( |tcp_stream| async move{
-             Ok(tcp_stream)
-           })
-          .set_input_event( |mut reader, peer, inner| async move{
-             let addr = peer.addr();
-             let token = match Self::get_peer_token(&mut reader, &peer,&inner).await {
-                Ok(token) => token,
-                Err(er) => {
-                   log::info!("user:{}:{},disconnect it", addr, er);
-                   return Ok(())
-                }
-             };
+                Self::read_buff_byline(&mut reader, &peer, &token).await?;
+                token
+                    .call_special_function(SpecialFunctionTag::Disconnect as i32)
+                    .await?;
+                inner
+                    .async_tokens
+                    .peer_disconnect(token.get_session_id())
+                    .await?;
+                Ok(())
+            })
+            .build()
+            .await;
+        NetXServer { inner, serv }
+    }
 
-             Self::read_buff_byline(&mut reader, &peer, &token).await?;
-             token.call_special_function(SpecialFunctionTag::Disconnect as i32).await?;
-             inner.async_tokens.peer_disconnect(token.get_session_id()).await?;
-             Ok(())
-          }).build().await;
-          NetXServer {
-             inner,
-             serv
-          }
-       }
-    }}
     #[inline]
     async fn get_peer_token(
         mut reader: &mut NetReadHalf,
