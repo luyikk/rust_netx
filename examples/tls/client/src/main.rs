@@ -4,7 +4,6 @@ use crate::controller::*;
 use log::LevelFilter;
 use netxclient::prelude::*;
 
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::default()
@@ -34,12 +33,12 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
     let client = {
+        use rustls_pemfile::{certs, rsa_private_keys};
+        use std::convert::TryFrom;
         use std::fs::File;
         use std::io::BufReader;
         use std::sync::Arc;
-        use std::convert::TryFrom;
-        use tokio_rustls::rustls::{Certificate, PrivateKey,ClientConfig,ServerName};
-        use rustls_pemfile::{certs, rsa_private_keys};
+        use tokio_rustls::rustls::{Certificate, ClientConfig, PrivateKey, ServerName};
 
         let cert_file = &mut BufReader::new(File::open("./ca_test/client-crt.pem")?);
         let key_file = &mut BufReader::new(File::open("./ca_test/client-key.pem")?);
