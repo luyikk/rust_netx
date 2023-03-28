@@ -40,38 +40,36 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                                 DefaultSessionStore::default(),"localhost".to_string(),ssl_connector)
 
         }else if #[cfg(feature = "use_rustls")]{
-            use rustls_pemfile::{certs, rsa_private_keys};
             use std::sync::Arc;
             use std::io::BufReader;
             use std::fs::File;
             use std::convert::TryFrom;
-            use tokio_rustls::rustls::{Certificate, PrivateKey,RootCertStore,ClientConfig,ServerName};
+            use tokio_rustls::rustls::{Certificate, PrivateKey,ClientConfig,ServerName};
+            use rustls_pemfile::{certs, rsa_private_keys};
 
-            let cert_file = &mut BufReader::new(File::open("./ca_test/client-crt.pem").unwrap());
-            let key_file = &mut BufReader::new(File::open("./ca_test/client-key.pem").unwrap());
+            let cert_file = &mut BufReader::new(File::open("./ca_test/client-crt.pem")?);
+            let key_file = &mut BufReader::new(File::open("./ca_test/client-key.pem")?);
 
-            let root_store =RootCertStore::empty();
-            let keys = PrivateKey(rsa_private_keys(key_file).unwrap().remove(0));
+            let keys = PrivateKey(rsa_private_keys(key_file)?.remove(0));
             let cert_chain = certs(cert_file)
                 .unwrap()
                 .iter()
                 .map(|c| Certificate(c.to_vec()))
                 .collect::<Vec<_>>();
 
-            let mut tls_config = ClientConfig::builder()
+            let tls_config = ClientConfig::builder()
                 .with_safe_defaults()
-                .with_root_certificates(root_store)
+                .with_custom_certificate_verifier(Arc::new(RustlsAcceptAnyCertVerifier))
                 .with_single_cert(cert_chain, keys)
                 .expect("bad certificate/key");
 
-            tls_config.dangerous().set_certificate_verifier(Arc::new(RustlsAcceptAnyCertVerifier));
             let connector=tokio_rustls::TlsConnector::from(Arc::new(tls_config));
 
             NetXClient::new_tls(ServerOption::new("127.0.0.1:6666".into(),
                                                   "".into(),
                                                   "123123".into(),
                                                   5000),
-                                                DefaultSessionStore::default(),ServerName::try_from("localhost").unwrap(),connector)
+                                                DefaultSessionStore::default(),ServerName::try_from("localhost")?,connector)
         }else{
                  // test tcp
                 NetXClient::new(ServerOption::new("127.0.0.1:6666".into(),
