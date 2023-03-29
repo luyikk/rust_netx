@@ -80,7 +80,7 @@ impl<T> Drop for NetXClient<T> {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ServerOption {
     addr: String,
     service_name: String,
