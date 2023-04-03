@@ -48,16 +48,16 @@ pub type NetPeer = Actor<TcpClient<MaybeStream>>;
 pub type NetReadHalf = ReadHalf<MaybeStream>;
 
 pub struct NetXClient<T> {
-    tls_config: TlsConfig,
-    session: T,
-    server_info: ServerOption,
+    pub server_info: ServerOption,
+    pub tls_config: TlsConfig,
+    pub mode: u8,
+    pub session: T,
     net: Option<Arc<NetPeer>>,
     connect_stats: Option<WReceiver<(bool, String)>>,
     result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
     serial_atomic: AtomicI64,
     request_manager: OnceCell<Arc<Actor<RequestManager<T>>>>,
     controller: Option<Box<dyn IController>>,
-    mode: u8,
 }
 
 pub trait SessionSave {
@@ -82,10 +82,10 @@ impl<T> Drop for NetXClient<T> {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ServerOption {
-    addr: String,
-    service_name: String,
-    verify_key: String,
-    request_out_time_ms: u32,
+    pub addr: String,
+    pub service_name: String,
+    pub verify_key: String,
+    pub request_out_time_ms: u32,
 }
 
 impl std::fmt::Display for ServerOption {
