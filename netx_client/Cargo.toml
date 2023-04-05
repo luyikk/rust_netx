@@ -1,6 +1,6 @@
 [package]
 name = "netxclient"
-version = "1.8.5"
+version = "1.8.6"
 authors = ["luyi <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -14,6 +14,7 @@ default = []
 use_openssl = ["openssl", "openssl-sys", "tokio-openssl"]
 use_rustls = ["tokio-rustls", "tokio-rustls/dangerous_configuration"]
 dserde = ["data-rw/data"]
+backtrace=["anyhow/backtrace"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -27,7 +28,7 @@ async-trait = "0.1"
 data-rw = "1.6"
 async-oneshot = "0.5"
 netxbuilder = "1.4"
-anyhow = { version = "1", features = ["backtrace"] }
+anyhow = { version = "1" }
 once_cell = "1.10"
 cfg-if = "1.0"
 openssl = { version = "0.10", optional = true }
