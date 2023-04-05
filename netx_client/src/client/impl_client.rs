@@ -560,7 +560,7 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
             match self.deref_inner().run_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
-                    log::error!("call controller error:{}", err);
+                    log::error!("call controller error:{:?}", err);
                     RetResult::error(1, format!("call controller err:{}", err))
                 }
             }

@@ -22,5 +22,5 @@ openssl-sys = { version = "0.9" }
 tokio = { version = "1", features = ["full"] }
 netxclient = { path = "../../../netx_client", version = "1.7" }
 rustls-pemfile = { version = "1" }
-tokio-rustls = "0.23"
+tokio-rustls = "0.24"
 cfg-if = "1"

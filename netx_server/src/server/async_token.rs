@@ -159,7 +159,7 @@ impl IAsyncTokenInner for Actor<AsyncToken> {
                 Ok(res) => res,
                 Err(err) => {
                     log::error!(
-                        "session id:{} call cmd:{} error:{}",
+                        "session id:{} call cmd:{} error:{:?}",
                         self.get_session_id(),
                         cmd,
                         err

@@ -111,7 +111,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut client_auth_roots = RootCertStore::empty();
         client_auth_roots.add_parsable_certificates(&ca_certs);
 
-        let client_auth = AllowAnyAuthenticatedClient::new(client_auth_roots);
+        let client_auth = Arc::new(AllowAnyAuthenticatedClient::new(client_auth_roots));
         let tls_config = ServerConfig::builder()
             .with_safe_defaults()
             .with_client_cert_verifier(client_auth)
