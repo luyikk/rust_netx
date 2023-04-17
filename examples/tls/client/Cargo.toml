@@ -20,7 +20,7 @@ async-trait = "0.1"
 openssl = { version = "0.10" }
 openssl-sys = { version = "0.9" }
 tokio = { version = "1", features = ["full"] }
-netxclient = { path = "../../../netx_client", version = "1.7" }
+netxclient = { path = "../../../netx_client" }
 rustls-pemfile = { version = "1" }
 tokio-rustls = "0.24"
 cfg-if = "1"
