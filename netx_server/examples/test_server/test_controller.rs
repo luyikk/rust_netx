@@ -71,7 +71,7 @@ pub trait ITestController {
 }
 
 pub struct TestController {
-    token: NetxToken,
+    token: NetxToken<Self>,
     count: Cell<i64>,
 }
 
@@ -259,7 +259,12 @@ impl ITestController for TestController {
 
 pub struct ImplCreateController;
 impl ICreateController for ImplCreateController {
-    fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>> {
+    type Controller = TestController;
+
+    fn create_controller(
+        &self,
+        token: NetxToken<Self::Controller>,
+    ) -> Result<Arc<Self::Controller>> {
         Ok(Arc::new(TestController {
             token,
             count: Cell::new(0),

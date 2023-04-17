@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use aqueue::Actor;
 use bytes::BufMut;
 use data_rw::Data;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 use tcpserver::{Builder, IPeer, ITCPServer, TCPPeer};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::task::JoinHandle;
@@ -11,7 +11,7 @@ use crate::async_token::{IAsyncToken, IAsyncTokenInner, NetxToken};
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::controller::ICreateController;
 use crate::owned_read_half_ex::ReadHalfExt;
-use crate::server::async_token_manager::AsyncTokenManager;
+use crate::server::async_token_manager::{AsyncTokenManager, IAsyncTokenManagerCreateToken};
 use crate::server::maybe_stream::MaybeStream;
 use crate::{RetResult, ServerOption};
 
@@ -35,18 +35,18 @@ pub(crate) enum SpecialFunctionTag {
     Closed = 2147483645,
 }
 
-struct NetXServerInner<T> {
+struct NetXServerInner<T: ICreateController + 'static> {
     option: ServerOption,
     async_tokens: TokenManager<T>,
 }
 
 /// Netx Service
-pub struct NetXServer<T> {
+pub struct NetXServer<T: ICreateController + 'static> {
     inner: Arc<NetXServerInner<T>>,
     serv: Arc<dyn ITCPServer<Arc<NetXServerInner<T>>>>,
 }
-unsafe impl<T> Send for NetXServer<T> {}
-unsafe impl<T> Sync for NetXServer<T> {}
+unsafe impl<T: ICreateController + 'static> Send for NetXServer<T> {}
+unsafe impl<T: ICreateController + 'static> Sync for NetXServer<T> {}
 
 impl<T> NetXServer<T>
 where
@@ -204,7 +204,7 @@ where
         mut reader: &mut NetReadHalf,
         peer: &Arc<NetPeer>,
         inner: &Arc<NetXServerInner<T>>,
-    ) -> Result<NetxToken> {
+    ) -> Result<NetxToken<T::Controller>> {
         let cmd = reader.read_i32_le().await?;
         if cmd != 1000 {
             Self::send_to_key_verify_msg(peer, true, "not verify key").await?;
@@ -225,7 +225,7 @@ where
         let token = if session == 0 {
             inner
                 .async_tokens
-                .create_token(Arc::downgrade(&inner.async_tokens) as Weak<dyn IAsyncTokenManager>)
+                .create_token(Arc::downgrade(&inner.async_tokens))
                 .await?
         } else {
             match inner.async_tokens.get_token(session).await? {
@@ -233,9 +233,7 @@ where
                 None => {
                     inner
                         .async_tokens
-                        .create_token(
-                            Arc::downgrade(&inner.async_tokens) as Weak<dyn IAsyncTokenManager>
-                        )
+                        .create_token(Arc::downgrade(&inner.async_tokens))
                         .await?
                 }
             }
@@ -248,7 +246,7 @@ where
     async fn read_buff_byline(
         reader: &mut NetReadHalf,
         peer: &Arc<NetPeer>,
-        token: &NetxToken,
+        token: &NetxToken<T::Controller>,
     ) -> Result<()> {
         token.set_peer(Some(Arc::downgrade(peer))).await?;
         token
@@ -262,7 +260,7 @@ where
     async fn data_reading(
         mut reader: &mut NetReadHalf,
         peer: &Arc<NetPeer>,
-        token: &NetxToken,
+        token: &NetxToken<T::Controller>,
     ) -> Result<()> {
         while let Ok(mut dr) = reader.read_buff().await {
             let cmd = dr.read_fixed::<i32>()?;

@@ -11,23 +11,23 @@ use std::sync::{Arc, Weak};
 use tcpserver::IPeer;
 use tokio::time::Instant;
 
-pub struct AsyncToken {
+pub struct AsyncToken<T> {
     session_id: i64,
-    controller: Option<Arc<dyn IController>>,
+    controller: Option<Arc<T>>,
     peer: Option<Weak<NetPeer>>,
-    manager: Weak<dyn IAsyncTokenManager>,
+    manager: Weak<dyn IAsyncTokenManager<T>>,
     result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
     serial_atomic: AtomicI64,
     request_queue: VecDeque<(i64, Instant)>,
 }
 
-unsafe impl Send for AsyncToken {}
-unsafe impl Sync for AsyncToken {}
+unsafe impl<T: IController> Send for AsyncToken<T> {}
+unsafe impl<T: IController> Sync for AsyncToken<T> {}
 
-pub type NetxToken = Arc<Actor<AsyncToken>>;
+pub type NetxToken<T> = Arc<Actor<AsyncToken<T>>>;
 
-impl AsyncToken {
-    pub(crate) fn new(session_id: i64, manager: Weak<dyn IAsyncTokenManager>) -> AsyncToken {
+impl<T: IController> AsyncToken<T> {
+    pub(crate) fn new(session_id: i64, manager: Weak<dyn IAsyncTokenManager<T>>) -> AsyncToken<T> {
         AsyncToken {
             session_id,
             controller: None,
@@ -40,13 +40,13 @@ impl AsyncToken {
     }
 }
 
-impl Drop for AsyncToken {
+impl<T> Drop for AsyncToken<T> {
     fn drop(&mut self) {
         log::debug!("token session_id:{} drop", self.session_id);
     }
 }
 
-impl AsyncToken {
+impl<T: IController> AsyncToken<T> {
     #[inline]
     pub(crate) async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
         if let Some(ref controller) = self.controller {
@@ -99,9 +99,9 @@ impl AsyncToken {
 }
 
 #[async_trait::async_trait]
-pub(crate) trait IAsyncTokenInner {
+pub(crate) trait IAsyncTokenInner<T: IController> {
     /// set controller
-    async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()>;
+    async fn set_controller(&self, controller: Arc<T>) -> Result<()>;
     /// clean all controller fun map
     async fn clear_controller_fun_maps(&self) -> Result<()>;
     /// set peer
@@ -119,9 +119,9 @@ pub(crate) trait IAsyncTokenInner {
 }
 
 #[async_trait::async_trait]
-impl IAsyncTokenInner for Actor<AsyncToken> {
+impl<T: IController + 'static> IAsyncTokenInner<T> for Actor<AsyncToken<T>> {
     #[inline]
-    async fn set_controller(&self, controller: Arc<dyn IController>) -> Result<()> {
+    async fn set_controller(&self, controller: Arc<T>) -> Result<()> {
         self.inner_call(|inner| async move {
             inner.get_mut().controller = Some(controller);
             Ok(())
@@ -221,7 +221,7 @@ impl IAsyncTokenInner for Actor<AsyncToken> {
 }
 
 #[async_trait::async_trait]
-pub trait IAsyncToken {
+pub trait IAsyncToken<T: IController> {
     /// get netx session id
     fn get_session_id(&self) -> i64;
     /// new serial id
@@ -232,9 +232,9 @@ pub trait IAsyncToken {
     async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B)
         -> Result<usize>;
     /// get netx token by session id
-    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken>>;
+    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<T>>>;
     /// get all netx token
-    async fn get_all_tokens(&self) -> Result<Vec<NetxToken>>;
+    async fn get_all_tokens(&self) -> Result<Vec<NetxToken<T>>>;
     /// call
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
     /// run
@@ -244,7 +244,7 @@ pub trait IAsyncToken {
 }
 
 #[async_trait::async_trait]
-impl IAsyncToken for Actor<AsyncToken> {
+impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
     #[inline]
     fn get_session_id(&self) -> i64 {
         unsafe { self.deref_inner().session_id }
@@ -278,7 +278,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken>> {
+    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<T>>> {
         self.inner_call(|inner| async move {
             let manager = inner
                 .get()
@@ -291,7 +291,7 @@ impl IAsyncToken for Actor<AsyncToken> {
     }
 
     #[inline]
-    async fn get_all_tokens(&self) -> Result<Vec<NetxToken>> {
+    async fn get_all_tokens(&self) -> Result<Vec<NetxToken<T>>> {
         self.inner_call(|inner| async move {
             let manager = inner
                 .get()

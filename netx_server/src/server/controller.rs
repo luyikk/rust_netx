@@ -10,5 +10,11 @@ pub trait IController: Send + Sync {
 }
 
 pub trait ICreateController {
-    fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>>;
+    type Controller: IController;
+    fn create_controller(
+        &self,
+        token: NetxToken<Self::Controller>,
+    ) -> Result<Arc<Self::Controller>>
+    where
+        Self: Sized;
 }

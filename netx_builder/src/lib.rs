@@ -361,8 +361,8 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
 
-        impl<'a> #impl_interface_struct_name<&'a NetxToken>{
-            pub fn new_ref(client:&'a NetxToken)->Self{
+        impl<'a,T: IController + 'static> #impl_interface_struct_name<&'a NetxToken<T>>{
+            pub fn new_ref(client:&'a NetxToken<T>)->Self{
                 #impl_interface_struct_name{
                     client
                 }
@@ -370,12 +370,12 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
         }
 
         #[async_trait::async_trait]
-        impl #interface_name for #impl_interface_struct_name<NetxToken>{
+        impl<T: IController + 'static> #interface_name for #impl_interface_struct_name<NetxToken<T>>{
             #(#impl_func)*
         }
 
         #[async_trait::async_trait]
-        impl<'a> #interface_name for #impl_interface_struct_name<&'a NetxToken>{
+        impl<'a,T: IController + 'static> #interface_name for #impl_interface_struct_name<&'a NetxToken<T>>{
             #(#impl_func)*
         }
 

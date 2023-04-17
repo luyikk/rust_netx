@@ -34,7 +34,7 @@ pub trait IServerController {
 }
 
 pub struct ServerController {
-    token: NetxToken,
+    token: NetxToken<Self>,
 }
 
 impl Drop for ServerController {
@@ -181,8 +181,13 @@ impl IServerController for ServerController {
 // 新建一个结构,实现ICreateController,用来为每个用户创建控制器
 pub struct ImplCreateController;
 impl ICreateController for ImplCreateController {
+    type Controller = ServerController;
+
     #[inline]
-    fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>> {
+    fn create_controller(
+        &self,
+        token: NetxToken<Self::Controller>,
+    ) -> Result<Arc<Self::Controller>> {
         Ok(Arc::new(ServerController { token }))
     }
 }

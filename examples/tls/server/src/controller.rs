@@ -15,7 +15,7 @@ pub trait ITestController {
 }
 
 pub struct TestController {
-    _token: NetxToken,
+    _token: NetxToken<Self>,
 }
 
 unsafe impl Send for TestController {}
@@ -43,7 +43,12 @@ impl ITestController for TestController {
 
 pub struct ImplCreateController;
 impl ICreateController for ImplCreateController {
-    fn create_controller(&self, token: NetxToken) -> Result<Arc<dyn IController>> {
+    type Controller = TestController;
+
+    fn create_controller(
+        &self,
+        token: NetxToken<Self::Controller>,
+    ) -> Result<Arc<Self::Controller>> {
         Ok(Arc::new(TestController { _token: token }))
     }
 }
