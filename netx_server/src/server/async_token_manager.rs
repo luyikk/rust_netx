@@ -2,7 +2,6 @@ use crate::async_token::{IAsyncToken, IAsyncTokenInner};
 use crate::controller::ICreateController;
 use crate::impl_server::SpecialFunctionTag;
 use crate::server::async_token::{AsyncToken, NetxToken};
-use crate::server::IController;
 use anyhow::Result;
 use aqueue::Actor;
 use std::collections::{HashMap, VecDeque};
@@ -144,7 +143,7 @@ impl<T: ICreateController + 'static> IAsyncTokenManagerCreateToken<T::Controller
 }
 
 #[async_trait::async_trait]
-pub trait IAsyncTokenManager<T: IController>: Send + Sync {
+pub(crate) trait IAsyncTokenManager<T>: Send + Sync {
     async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<T>>>;
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken<T>>>;
     async fn check_tokens_request_timeout(&self) -> Result<()>;
