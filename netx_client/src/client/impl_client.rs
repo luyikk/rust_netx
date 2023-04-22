@@ -208,7 +208,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             log::error!("read buffer err:{}", er);
         }
         netx_client.clean_connect().await?;
-        log::info!("disconnect to {}", netx_client.get_service_info());
+        log::debug!("disconnect to {}", netx_client.get_service_info());
         netx_client
             .call_special_function(SpecialFunctionTag::Disconnect as i32)
             .await?;
@@ -243,7 +243,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             match cmd {
                 1000 => match dr.read_fixed::<bool>()? {
                     false => {
-                        log::info!("{} {}", server_info, dr.read_fixed_str()?);
+                        log::debug!("{} {}", server_info, dr.read_fixed_str()?);
                         if (dr.len() - dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
                             log::debug!("mode 1");
                             netx_client.set_mode(1).await?;
@@ -277,7 +277,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 },
                 2000 => {
                     session_id = dr.read_fixed::<i64>()?;
-                    log::info!("{} save session id:{}", server_info, session_id);
+                    log::debug!("{} save session id:{}", server_info, session_id);
                     netx_client.store_session_id(session_id).await?;
                 }
                 2400 => {

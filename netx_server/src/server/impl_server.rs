@@ -72,7 +72,7 @@ where
             });
             let serv = Builder::new(&inner.option.addr)
                 .set_connect_event(|addr| {
-                    log::info!("{} connect", addr);
+                    log::debug!("{} connect", addr);
                     true
                 })
                 .set_stream_init(move |tcp_stream| async move {
@@ -87,7 +87,7 @@ where
                     let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
                         Ok(token) => token,
                         Err(er) => {
-                            log::info!("user:{}:{},disconnect it", addr, er);
+                            log::debug!("user:{}:{},disconnect it", addr, er);
                             return Ok(());
                         }
                     };
@@ -124,7 +124,7 @@ where
             });
             let serv = Builder::new(&inner.option.addr)
                 .set_connect_event(|addr| {
-                    log::info!("{} connect", addr);
+                    log::debug!("{} connect", addr);
                     true
                 })
                 .set_stream_init(move |tcp_stream| async move {
@@ -135,7 +135,7 @@ where
                     let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
                         Ok(token) => token,
                         Err(er) => {
-                            log::info!("user:{}:{},disconnect it", addr, er);
+                            log::debug!("user:{}:{},disconnect it", addr, er);
                             return Ok(());
                         }
                     };
@@ -170,7 +170,7 @@ where
         });
         let serv = Builder::new(&inner.option.addr)
             .set_connect_event(|addr| {
-                log::info!("{} connect", addr);
+                log::debug!("{} connect", addr);
                 true
             })
             .set_stream_init(|tcp_stream| async move { Ok(MaybeStream::Plain(tcp_stream)) })
@@ -179,7 +179,7 @@ where
                 let token = match Self::get_peer_token(&mut reader, &peer, &inner).await {
                     Ok(token) => token,
                     Err(er) => {
-                        log::info!("user:{}:{},disconnect it", addr, er);
+                        log::debug!("user:{}:{},disconnect it", addr, er);
                         return Ok(());
                     }
                 };
