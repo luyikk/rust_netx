@@ -14,7 +14,5 @@ pub trait ICreateController {
     fn create_controller(
         &self,
         token: NetxToken<Self::Controller>,
-    ) -> Result<Arc<Self::Controller>>
-    where
-        Self: Sized;
+    ) -> Result<Arc<Self::Controller>>;
 }
