@@ -12,6 +12,8 @@ pub trait ITestController {
     async fn get_static_str2(&self) -> Result<(i32, &'static str)>;
     #[tag(103)]
     async fn test_error(&self) -> Result<()>;
+    #[tag(104)]
+    async fn test_buff(&self, buf: Vec<u8>) -> Result<Vec<u8>>;
 }
 
 pub struct TestController {
@@ -38,6 +40,11 @@ impl ITestController for TestController {
 
     async fn test_error(&self) -> Result<()> {
         bail!("test error")
+    }
+
+    async fn test_buff(&self, buf: Vec<u8>) -> Result<Vec<u8>> {
+        log::info!("buff len:{}", buf.len());
+        Ok(buf)
     }
 }
 

@@ -208,7 +208,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             log::error!("read buffer err:{}", er);
         }
         netx_client.clean_connect().await?;
-        log::info!("disconnect to {}", netx_client.get_service_info());
+        log::debug!("disconnect to {}", netx_client.get_service_info());
         netx_client
             .call_special_function(SpecialFunctionTag::Disconnect as i32)
             .await?;
@@ -224,7 +224,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         let server_info = netx_client.get_service_info();
         let mut session_id = netx_client.get_session_id();
         client
-            .send(
+            .send_all(
                 Self::get_verify_buff(
                     &server_info.service_name,
                     &server_info.verify_key,
@@ -243,13 +243,15 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             match cmd {
                 1000 => match dr.read_fixed::<bool>()? {
                     false => {
-                        log::info!("{} {}", server_info, dr.read_fixed_str()?);
+                        log::debug!("{} {}", server_info, dr.read_fixed_str()?);
                         if (dr.len() - dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
                             log::debug!("mode 1");
                             netx_client.set_mode(1).await?;
                         }
                         client
-                            .send(Self::get_session_id_buff(netx_client.get_mode()).into_inner())
+                            .send_all(
+                                Self::get_session_id_buff(netx_client.get_mode()).into_inner(),
+                            )
                             .await?;
                         netx_client
                             .call_special_function(SpecialFunctionTag::Connect as i32)
@@ -275,7 +277,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 },
                 2000 => {
                     session_id = dr.read_fixed::<i64>()?;
-                    log::info!("{} save session id:{}", server_info, session_id);
+                    log::debug!("{} save session id:{}", server_info, session_id);
                     netx_client.store_session_id(session_id).await?;
                 }
                 2400 => {
@@ -295,7 +297,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             tokio::spawn(async move {
                                 let res = run_netx_client.call_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
-                                    .send(
+                                    .send_all(
                                         Self::get_result_buff(
                                             session_id,
                                             res,
@@ -315,7 +317,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             tokio::spawn(async move {
                                 let res = run_netx_client.call_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
-                                    .send(
+                                    .send_all(
                                         Self::get_result_buff(
                                             session_id,
                                             res,
@@ -837,13 +839,13 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             self.deref_inner().set_request_session_id(serial).await?;
         }
         if self.get_mode() == 0 {
-            tokio::spawn(async move { net.send(buff.into_inner()).await }).await??;
+            tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
-            tokio::spawn(async move { net.send(data.into_inner()).await }).await??;
+            tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
         }
         match rx.await {
             Err(_) => {
@@ -865,13 +867,13 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             })
             .await?;
         if self.get_mode() == 0 {
-            tokio::spawn(async move { net.send(buff.into_inner()).await }).await??;
+            tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
-            tokio::spawn(async move { net.send(data.into_inner()).await }).await??;
+            tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
         }
 
         Ok(())

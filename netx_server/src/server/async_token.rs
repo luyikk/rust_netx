@@ -229,8 +229,7 @@ pub trait IAsyncToken<T: IController> {
     /// get tcp socket peer
     async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
     /// send buff
-    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B)
-        -> Result<usize>;
+    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()>;
     /// get netx token by session id
     async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<T>>>;
     /// get all netx token
@@ -262,16 +261,13 @@ impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(
-        &self,
-        buff: B,
-    ) -> Result<usize> {
+    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()> {
         unsafe {
             if let Some(ref peer) = self.deref_inner().peer {
                 let peer = peer
                     .upgrade()
                     .ok_or_else(|| anyhow!("token:{} tcp disconnect", self.get_session_id()))?;
-                return peer.send(buff).await;
+                return peer.send_all(buff).await;
             }
             bail!("token:{} tcp disconnect", self.get_session_id())
         }
@@ -328,7 +324,7 @@ impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
                 }
             })
             .await?;
-        peer.send(buff.into_inner()).await?;
+        peer.send_all(buff.into_inner()).await?;
         match rx.await {
             Err(_) => Err(anyhow!("tx is Close")),
             Ok(data) => Ok(RetResult::from(data?)?),
@@ -346,7 +342,7 @@ impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
                 }
             })
             .await?;
-        peer.send(buff.into_inner()).await?;
+        peer.send_all(buff.into_inner()).await?;
         Ok(())
     }
 

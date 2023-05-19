@@ -11,4 +11,6 @@ pub trait IServer: Sync + Send {
     async fn get_static_str2(&self) -> Result<(i32, String)>;
     #[tag(103)]
     async fn test_error(&self) -> Result<()>;
+    #[tag(104)]
+    async fn test_buff(&self, buf: &[u8]) -> Result<Vec<u8>>;
 }

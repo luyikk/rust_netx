@@ -70,6 +70,8 @@ async fn main() -> anyhow::Result<()> {
     log::info!("{}", server.hello("123").await?);
     log::info!("{}", server.get_static_str().await?);
     log::info!("{:?}", server.get_static_str2().await?);
+    let data = vec![1; 0x20000];
+    log::info!("{:?}", server.test_buff(&data).await?);
     if let Err(err) = server.test_error().await {
         log::info!("{}", err);
     }

@@ -1,6 +1,6 @@
 [package]
 name = "netxclient"
-version = "1.9.0"
+version = "1.9.2"
 authors = ["luyi <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
