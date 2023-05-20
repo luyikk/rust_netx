@@ -58,7 +58,7 @@ impl<T: IController> AsyncToken<T> {
     }
 
     #[inline]
-    pub(crate) async fn run_controller(
+    pub(crate) async fn execute_controller(
         &self,
         tt: u8,
         cmd: i32,
@@ -109,7 +109,7 @@ pub(crate) trait IAsyncTokenInner<T: IController> {
     /// call special function disconnect or connect , close
     async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
     /// run netx controller
-    async fn run_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
+    async fn execute_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
     /// set response result
     async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
     /// set response error
@@ -153,9 +153,9 @@ impl<T: IController + 'static> IAsyncTokenInner<T> for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn run_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
+    async fn execute_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
         unsafe {
-            match self.deref_inner().run_controller(tt, cmd, dr).await {
+            match self.deref_inner().execute_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
                     log::error!(

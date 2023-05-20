@@ -276,13 +276,13 @@ where
                         0 => {
                             let run_token = token.clone();
                             tokio::spawn(async move {
-                                let _ = run_token.run_controller(tt, cmd, dr).await;
+                                let _ = run_token.execute_controller(tt, cmd, dr).await;
                             });
                         }
                         1 => {
                             let run_token = token.clone();
                             tokio::spawn(async move {
-                                let res = run_token.run_controller(tt, cmd, dr).await;
+                                let res = run_token.execute_controller(tt, cmd, dr).await;
                                 if let Err(er) = run_token
                                     .send(Self::get_result_buff(serial, res).into_inner())
                                     .await
@@ -294,7 +294,7 @@ where
                         2 => {
                             let run_token = token.clone();
                             tokio::spawn(async move {
-                                let res = run_token.run_controller(tt, cmd, dr).await;
+                                let res = run_token.execute_controller(tt, cmd, dr).await;
                                 if let Err(er) = run_token
                                     .send(Self::get_result_buff(serial, res).into_inner())
                                     .await

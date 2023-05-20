@@ -288,14 +288,14 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                         0 => {
                             let run_netx_client = netx_client.clone();
                             tokio::spawn(async move {
-                                let _ = run_netx_client.call_controller(tt, cmd, dr).await;
+                                let _ = run_netx_client.execute_controller(tt, cmd, dr).await;
                             });
                         }
                         1 => {
                             let run_netx_client = netx_client.clone();
                             let send_client = client.clone();
                             tokio::spawn(async move {
-                                let res = run_netx_client.call_controller(tt, cmd, dr).await;
+                                let res = run_netx_client.execute_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
                                     .send_all(
                                         Self::get_result_buff(
@@ -315,7 +315,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             let run_netx_client = netx_client.clone();
                             let send_client = client.clone();
                             tokio::spawn(async move {
-                                let res = run_netx_client.call_controller(tt, cmd, dr).await;
+                                let res = run_netx_client.execute_controller(tt, cmd, dr).await;
                                 if let Err(er) = send_client
                                     .send_all(
                                         Self::get_result_buff(
@@ -361,7 +361,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 
     #[inline]
-    pub(crate) async fn run_controller(
+    pub(crate) async fn execute_controller(
         &self,
         tt: u8,
         cmd: i32,
@@ -500,7 +500,7 @@ pub(crate) trait INextClientInner<T> {
     /// call special function  disconnect or connect cmd
     async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
     /// call request controller
-    async fn call_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
+    async fn execute_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
     /// clean current connect
     async fn clean_connect(&self) -> Result<()>;
     /// reset network connect stats
@@ -557,9 +557,9 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn call_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
+    async fn execute_controller(&self, tt: u8, cmd: i32, dr: DataOwnedReader) -> RetResult {
         unsafe {
-            match self.deref_inner().run_controller(tt, cmd, dr).await {
+            match self.deref_inner().execute_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
                     log::error!("call controller error:{:?}", err);

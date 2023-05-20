@@ -61,7 +61,7 @@ impl RetResult {
     }
 
     #[inline]
-    pub fn from(mut dr: DataOwnedReader) -> Result<RetResult> {
+    pub(crate) fn from(mut dr: DataOwnedReader) -> Result<RetResult> {
         if dr.read_fixed::<bool>()? {
             Ok(RetResult::new(
                 true,
