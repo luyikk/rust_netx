@@ -147,7 +147,7 @@ where
                     inner
                         .async_tokens
                         .peer_disconnect(token.get_session_id())
-                        .await?;
+                        .await;
                     Ok(())
                 })
                 .build()
@@ -191,7 +191,7 @@ where
                 inner
                     .async_tokens
                     .peer_disconnect(token.get_session_id())
-                    .await?;
+                    .await;
                 Ok(())
             })
             .build()
@@ -228,7 +228,7 @@ where
                 .create_token(Arc::downgrade(&inner.async_tokens))
                 .await?
         } else {
-            match inner.async_tokens.get_token(session).await? {
+            match inner.async_tokens.get_token(session).await {
                 Some(token) => token,
                 None => {
                     inner
@@ -248,7 +248,7 @@ where
         peer: &Arc<NetPeer>,
         token: &NetxToken<T::Controller>,
     ) -> Result<()> {
-        token.set_peer(Some(Arc::downgrade(peer))).await?;
+        token.set_peer(Some(Arc::downgrade(peer))).await;
         token
             .call_special_function(SpecialFunctionTag::Connect as i32)
             .await?;

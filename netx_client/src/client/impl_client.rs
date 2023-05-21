@@ -246,7 +246,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                         log::debug!("{} {}", server_info, dr.read_fixed_str()?);
                         if (dr.len() - dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
                             log::debug!("mode 1");
-                            netx_client.set_mode(1).await?;
+                            netx_client.set_mode(1).await;
                         }
                         client
                             .send_all(
@@ -278,7 +278,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 2000 => {
                     session_id = dr.read_fixed::<i64>()?;
                     log::debug!("{} save session id:{}", server_info, session_id);
-                    netx_client.store_session_id(session_id).await?;
+                    netx_client.store_session_id(session_id).await;
                 }
                 2400 => {
                     let tt = dr.read_fixed::<u8>()?;
@@ -504,11 +504,11 @@ pub(crate) trait INextClientInner<T> {
     /// clean current connect
     async fn clean_connect(&self) -> Result<()>;
     /// reset network connect stats
-    async fn reset_connect_stats(&self) -> Result<()>;
+    async fn reset_connect_stats(&self);
     /// set netx mode
-    async fn set_mode(&self, mode: u8) -> Result<()>;
+    async fn set_mode(&self, mode: u8);
     /// store netx session id
-    async fn store_session_id(&self, session_id: i64) -> Result<()>;
+    async fn store_session_id(&self, session_id: i64);
 }
 
 #[async_trait::async_trait]
@@ -585,28 +585,25 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn reset_connect_stats(&self) -> Result<()> {
+    async fn reset_connect_stats(&self) {
         self.inner_call(|inner| async move {
             inner.get_mut().set_connect_stats(None);
-            Ok(())
         })
         .await
     }
 
     #[inline]
-    async fn set_mode(&self, mode: u8) -> Result<()> {
+    async fn set_mode(&self, mode: u8) {
         self.inner_call(|inner| async move {
             inner.get_mut().set_mode(mode);
-            Ok(())
         })
         .await
     }
 
     #[inline]
-    async fn store_session_id(&self, session_id: i64) -> Result<()> {
+    async fn store_session_id(&self, session_id: i64) {
         self.inner_call(|inner| async move {
             inner.get_mut().store_session_id(session_id);
-            Ok(())
         })
         .await
     }
@@ -634,9 +631,9 @@ pub trait INetXClient<T> {
     /// is connect to server
     fn is_connect(&self) -> bool;
     /// get tcp socket peer
-    async fn get_peer(&self) -> Result<Option<Arc<NetPeer>>>;
+    async fn get_peer(&self) -> Option<Arc<NetPeer>>;
     /// set tcp socket peer
-    async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()>;
+    async fn set_network_client(&self, client: Arc<NetPeer>);
     /// get request wait callback len
     async fn get_callback_len(&self) -> usize;
     /// close netx client
@@ -719,11 +716,11 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
         if let Some(mut wait_handler) = wait_handler? {
             match wait_handler.changed().await {
                 Err(err) => {
-                    self.reset_connect_stats().await?;
+                    self.reset_connect_stats().await;
                     bail!("connect err:{}", err)
                 }
                 Ok(_) => {
-                    self.reset_connect_stats().await?;
+                    self.reset_connect_stats().await;
                     let (is_connect, msg) = &(*wait_handler.borrow());
                     if !is_connect {
                         bail!("connect err:{}", msg);
@@ -771,16 +768,15 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn get_peer(&self) -> Result<Option<Arc<NetPeer>>> {
-        self.inner_call(|inner| async move { Ok(inner.get().net.clone()) })
+    async fn get_peer(&self) -> Option<Arc<NetPeer>> {
+        self.inner_call(|inner| async move { inner.get().net.clone() })
             .await
     }
 
     #[inline]
-    async fn set_network_client(&self, client: Arc<NetPeer>) -> Result<()> {
+    async fn set_network_client(&self, client: Arc<NetPeer>) {
         self.inner_call(|inner| async move {
             inner.get_mut().set_network_client(client);
-            Ok(())
         })
         .await
     }

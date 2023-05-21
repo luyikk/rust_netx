@@ -48,7 +48,7 @@ impl Drop for ServerController {
 impl IServerController for ServerController {
     #[inline]
     async fn connect(&self) -> Result<()> {
-        if let Some(weak) = self.token.get_peer().await? {
+        if let Some(weak) = self.token.get_peer().await {
             if let Some(peer) = weak.upgrade() {
                 info!(
                     "addr:{} session {} connect",
@@ -62,7 +62,7 @@ impl IServerController for ServerController {
     #[inline]
     async fn disconnect(&self) -> Result<()> {
         let user = USERMANAGER.find(self.token.get_session_id()).await;
-        if let Some(weak) = self.token.get_peer().await? {
+        if let Some(weak) = self.token.get_peer().await {
             if let Some(peer) = weak.upgrade() {
                 if let Some(user) = user {
                     info!(

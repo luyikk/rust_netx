@@ -101,11 +101,11 @@ impl<T: IController> AsyncToken<T> {
 #[async_trait::async_trait]
 pub(crate) trait IAsyncTokenInner<T: IController> {
     /// set controller
-    async fn set_controller(&self, controller: Arc<T>) -> Result<()>;
+    async fn set_controller(&self, controller: Arc<T>);
     /// clean all controller fun map
-    async fn clear_controller_fun_maps(&self) -> Result<()>;
+    async fn clear_controller_fun_maps(&self);
     /// set peer
-    async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()>;
+    async fn set_peer(&self, peer: Option<Weak<NetPeer>>);
     /// call special function disconnect or connect , close
     async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
     /// run netx controller
@@ -115,34 +115,29 @@ pub(crate) trait IAsyncTokenInner<T: IController> {
     /// set response error
     async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     /// check request timeout
-    async fn check_request_timeout(&self, request_out_time: u32) -> Result<()>;
+    async fn check_request_timeout(&self, request_out_time: u32);
 }
 
 #[async_trait::async_trait]
 impl<T: IController + 'static> IAsyncTokenInner<T> for Actor<AsyncToken<T>> {
     #[inline]
-    async fn set_controller(&self, controller: Arc<T>) -> Result<()> {
-        self.inner_call(|inner| async move {
-            inner.get_mut().controller = Some(controller);
-            Ok(())
-        })
-        .await
+    async fn set_controller(&self, controller: Arc<T>) {
+        self.inner_call(|inner| async move { inner.get_mut().controller = Some(controller) })
+            .await
     }
 
     #[inline]
-    async fn clear_controller_fun_maps(&self) -> Result<()> {
+    async fn clear_controller_fun_maps(&self) {
         self.inner_call(|inner| async move {
             inner.get_mut().controller = None;
-            Ok(())
         })
         .await
     }
 
     #[inline]
-    async fn set_peer(&self, peer: Option<Weak<NetPeer>>) -> Result<()> {
+    async fn set_peer(&self, peer: Option<Weak<NetPeer>>) {
         self.inner_call(|inner| async move {
             inner.get_mut().peer = peer;
-            Ok(())
         })
         .await
     }
@@ -211,10 +206,9 @@ impl<T: IController + 'static> IAsyncTokenInner<T> for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn check_request_timeout(&self, request_out_time: u32) -> Result<()> {
+    async fn check_request_timeout(&self, request_out_time: u32) {
         self.inner_call(|inner| async move {
             inner.get_mut().check_request_timeout(request_out_time);
-            Ok(())
         })
         .await
     }
@@ -227,7 +221,7 @@ pub trait IAsyncToken<T: IController> {
     /// new serial id
     fn new_serial(&self) -> i64;
     /// get tcp socket peer
-    async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>>;
+    async fn get_peer(&self) -> Option<Weak<NetPeer>>;
     /// send buff
     async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()>;
     /// get netx token by session id
@@ -239,7 +233,7 @@ pub trait IAsyncToken<T: IController> {
     /// run
     async fn run(&self, buff: Data) -> Result<()>;
     /// is disconnect
-    async fn is_disconnect(&self) -> Result<bool>;
+    async fn is_disconnect(&self) -> bool;
 }
 
 #[async_trait::async_trait]
@@ -255,8 +249,8 @@ impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn get_peer(&self) -> Result<Option<Weak<NetPeer>>> {
-        self.inner_call(|inner| async move { Ok(inner.get_mut().peer.clone()) })
+    async fn get_peer(&self) -> Option<Weak<NetPeer>> {
+        self.inner_call(|inner| async move { inner.get_mut().peer.clone() })
             .await
     }
 
@@ -281,7 +275,7 @@ impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
                 .manager
                 .upgrade()
                 .ok_or_else(|| anyhow!("manager upgrade fail"))?;
-            manager.get_token(session_id).await
+            Ok(manager.get_token(session_id).await)
         })
         .await
     }
@@ -347,14 +341,16 @@ impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn is_disconnect(&self) -> Result<bool> {
+    async fn is_disconnect(&self) -> bool {
         self.inner_call(|inner| async move {
             if let Some(ref peer) = inner.get().peer {
                 if let Some(peer) = peer.upgrade() {
-                    return peer.is_disconnect().await;
+                    if let Ok(r) = peer.is_disconnect().await {
+                        return r;
+                    }
                 }
             }
-            Ok(true)
+            true
         })
         .await
     }
