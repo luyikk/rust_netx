@@ -103,7 +103,7 @@ impl ITestController for TestController {
     async fn disconnect(&self) -> Result<()> {
         info!("{} is disconnect", self.token.get_session_id());
 
-        if let Some(wk) = self.token.get_peer().await{
+        if let Some(wk) = self.token.get_peer().await {
             if let Some(peer) = wk.upgrade() {
                 info!(
                     "{} disconnect addr is {} ",
