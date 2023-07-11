@@ -313,9 +313,9 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                          #( #make)*
                         _=>{
                             match cmd_tag{
-                                CONNECT=> Ok(RetResult::success()),
-                                DISCONNECT=> Ok(RetResult::success()),
-                                CLOSED=>Ok(RetResult::success()),
+                                #CONNECT=> Ok(RetResult::success()),
+                                #DISCONNECT=> Ok(RetResult::success()),
+                                #CLOSED=>Ok(RetResult::success()),
                                 _=>::anyhow::bail!("not found cmd tag:{}",cmd_tag)
                             }
                         }
@@ -464,9 +464,9 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                          #( #make)*
                          _=>{
                             match cmd_tag{
-                                CONNECT=> Ok(RetResult::success()),
-                                DISCONNECT=> Ok(RetResult::success()),
-                                CLOSED=>Ok(RetResult::success()),
+                                #CONNECT=> Ok(RetResult::success()),
+                                #DISCONNECT=> Ok(RetResult::success()),
+                                #CLOSED=>Ok(RetResult::success()),
                                 _=>::anyhow::bail!("not found cmd tag:{}",cmd_tag)
                             }
                         }

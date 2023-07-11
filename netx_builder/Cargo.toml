@@ -1,6 +1,6 @@
 [package]
 name = "netxbuilder"
-version = "1.5.0"
+version = "1.5.1"
 authors = ["yi lu <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
