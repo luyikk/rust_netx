@@ -243,7 +243,8 @@ impl<T: SessionSave + 'static> NetXClient<T> {
             match cmd {
                 1000 => match dr.read_fixed::<bool>()? {
                     false => {
-                        log::debug!("{} {}", server_info, dr.read_fixed_str()?);
+                        let msg=dr.read_fixed_str()?;
+                        log::debug!("{server_info} {msg}");
                         if (dr.len() - dr.get_offset()) == 1 && dr.read_fixed::<u8>()? == 1 {
                             log::debug!("mode 1");
                             netx_client.set_mode(1).await;
