@@ -16,6 +16,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[cfg(all(not(feature = "use_rustls"), not(feature = "use_openssl")))]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    use anyhow::Context;
     env_logger::Builder::default()
         .filter_level(LevelFilter::Debug)
         .init();
@@ -25,6 +26,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await;
     log::info!("start");
+    let token_manager = server.get_token_manager().upgrade().context("?")?;
+    assert!(token_manager.get_token(1).await.is_none());
     server.start_block().await?;
     Ok(())
 }

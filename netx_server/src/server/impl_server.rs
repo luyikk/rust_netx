@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use aqueue::Actor;
 use bytes::BufMut;
 use data_rw::Data;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tcpserver::{Builder, IPeer, ITCPServer, TCPPeer};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::task::JoinHandle;
@@ -11,7 +11,9 @@ use crate::async_token::{IAsyncToken, IAsyncTokenInner, NetxToken};
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
 use crate::controller::ICreateController;
 use crate::owned_read_half_ex::ReadHalfExt;
-use crate::server::async_token_manager::{AsyncTokenManager, IAsyncTokenManagerCreateToken};
+use crate::server::async_token_manager::{
+    AsyncTokenManager, IAsyncTokenManagerCreateToken, ITokenManager,
+};
 use crate::server::maybe_stream::MaybeStream;
 use crate::{RetResult, ServerOption};
 
@@ -365,6 +367,11 @@ where
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
         peer.send_all(data.into_inner()).await
+    }
+
+    #[inline]
+    pub fn get_token_manager(&self) -> Weak<dyn ITokenManager<T::Controller>> {
+        Arc::downgrade(&self.inner.async_tokens) as Weak<dyn ITokenManager<T::Controller>>
     }
 
     #[inline]
