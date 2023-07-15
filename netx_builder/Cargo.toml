@@ -2,7 +2,7 @@
 name = "netxbuilder"
 version = "1.5.1"
 authors = ["yi lu <luyikk@126.com>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/luyikk/rust_netx"
 documentation = "https://docs.rs/netxbuilder"
 description = "netx builder assembly."

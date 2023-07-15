@@ -677,7 +677,7 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
 
             let client={
             cfg_if::cfg_if! {
-            if#[cfg(feature = "use_openssl")]{
+            if #[cfg(feature = "use_openssl")]{
                 if let TlsConfig::OpenSsl{domain,connector}=netx_client.get_tls_config(){
                       let ssl=connector.configure()?.into_ssl(&domain)?;
                       tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{

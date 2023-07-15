@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     NetXClient::new(ServerOption::new(format!("{}:6666",ipaddress),
                                                       "".into(),
                                                       "123123".into(),
-                                                      6000),
+                                                      60000),
                                                     DefaultSessionStore::default())
                 }}
             };
