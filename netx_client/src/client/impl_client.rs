@@ -8,10 +8,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
-use tcpclient::{SocketClientTrait, TcpClient};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::sync::watch::{channel, Receiver as WReceiver, Sender as WSender};
 use tokio::time::{sleep, Duration};
+
+#[cfg(all(feature = "tcpclient", not(feature = "tcp-channel-client")))]
+use tcpclient::{SocketClientTrait, TcpClient};
+
+#[cfg(feature = "tcp-channel-client")]
+use tcp_channel_client::TcpClient;
 
 use crate::client::controller::IController;
 use crate::client::maybe_stream::MaybeStream;
@@ -44,7 +49,12 @@ pub enum TlsConfig {
     },
 }
 
+#[cfg(all(feature = "tcpclient", not(feature = "tcp-channel-client")))]
 pub type NetPeer = Actor<TcpClient<MaybeStream>>;
+
+#[cfg(feature = "tcp-channel-client")]
+pub type NetPeer = TcpClient<MaybeStream>;
+
 pub type NetReadHalf = ReadHalf<MaybeStream>;
 
 pub struct NetXClient<T> {
@@ -836,13 +846,26 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             self.deref_inner().set_request_session_id(serial).await?;
         }
         if self.get_mode() == 0 {
-            tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
+            cfg_if::cfg_if! {
+                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
+                     tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
+                 }else{
+                     net.send_all(buff.into_inner()).await?;
+                 }
+            }
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
-            tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
+
+            cfg_if::cfg_if! {
+                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
+                     tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
+                 }else{
+                     net.send_all(data.into_inner()).await?;
+                 }
+            }
         }
         match rx.await {
             Err(_) => {
@@ -864,13 +887,25 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
             })
             .await?;
         if self.get_mode() == 0 {
-            tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
+            cfg_if::cfg_if! {
+                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
+                     tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
+                 }else{
+                    net.send_all(buff.into_inner()).await?;
+                 }
+            }
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
-            tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
+            cfg_if::cfg_if! {
+                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
+                    tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
+                 }else{
+                    net.send_all(data.into_inner()).await?;
+                 }
+            }
         }
 
         Ok(())

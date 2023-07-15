@@ -1,6 +1,6 @@
 [package]
 name = "netxclient"
-version = "1.10.3"
+version = "1.10.4"
 authors = ["luyi <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -10,16 +10,17 @@ license = "MIT/Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["tcpclient"]
 use_openssl = ["openssl", "openssl-sys", "tokio-openssl"]
 use_rustls = ["tokio-rustls", "tokio-rustls/dangerous_configuration"]
 dserde = ["data-rw/data"]
-backtrace=["anyhow/backtrace"]
+backtrace = ["anyhow/backtrace"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 log = "0.4"
-tcpclient = "1.4"
+tcpclient = { version = "1.4", optional = true }
+tcp-channel-client = { version = "0.1", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 paste = "1.0"
