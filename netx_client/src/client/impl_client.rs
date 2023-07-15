@@ -339,7 +339,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 }
                 2500 => {
                     let serial = dr.read_fixed::<i64>()?;
-                    netx_client.set_result(serial, dr).await?;
+                    netx_client.set_result(serial, dr).await;
                 }
                 _ => {
                     log::error!("{} Unknown command:{}->{:?}", server_info, cmd, dr);
@@ -495,9 +495,9 @@ pub(crate) trait INextClientInner<T> {
     /// get request or connect timeout time ms
     fn get_timeout_ms(&self) -> u32;
     /// set response result
-    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
+    async fn set_result(&self, serial: i64, data: DataOwnedReader);
     /// set response error
-    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
+    async fn set_error(&self, serial: i64, err: anyhow::Error);
     /// call special function  disconnect or connect cmd
     async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
     /// call request controller
@@ -520,13 +520,15 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()> {
+    async fn set_result(&self, serial: i64, data: DataOwnedReader) {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
 
         if let Some(mut tx) = have_tx {
-            tx.send(Ok(data)).map_err(|_| anyhow!("rx is close"))?;
+            if tx.send(Ok(data)).is_err() {
+                warn!("rx is close 1");
+            }
         } else {
             match RetResult::from(data) {
                 Ok(res) => match res.check() {
@@ -536,19 +538,17 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
                 Err(er) => log::error!("not found {} :{}", serial, er),
             }
         }
-        Ok(())
     }
 
     #[inline]
-    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
+    async fn set_error(&self, serial: i64, err: anyhow::Error) {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
         if let Some(mut tx) = have_tx {
-            tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))?;
-            Ok(())
-        } else {
-            Ok(())
+            if tx.send(Err(err)).is_err() {
+                warn!("rx is close 2");
+            }
         }
     }
 
@@ -818,13 +818,13 @@ impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
         let (net, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
             .inner_call(|inner| async move {
                 if let Some(ref net) = inner.get().net {
+                    if inner.get_mut().result_dict.contains_key(&serial) {
+                        bail!("serial is have")
+                    }
                     let (tx, rx): (
                         Sender<Result<DataOwnedReader>>,
                         Receiver<Result<DataOwnedReader>>,
                     ) = oneshot();
-                    if inner.get_mut().result_dict.contains_key(&serial) {
-                        bail!("serial is have")
-                    }
                     inner.get_mut().result_dict.insert(serial, tx);
                     Ok((net.clone(), rx))
                 } else {
