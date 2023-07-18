@@ -264,14 +264,29 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                 Self::get_session_id_buff(netx_client.get_mode()).into_inner(),
                             )
                             .await?;
-                        netx_client
-                            .call_special_function(SpecialFunctionTag::Connect as i32)
-                            .await?;
+
+                        // call connect if error disconnect
                         if let Some(set_connect) = option_connect.take() {
-                            if set_connect.send((true, "success".into())).is_err() {
-                                log::error!("talk connect rx is close");
-                            }
-                            drop(set_connect);
+                            let client = client.clone();
+                            let netx_client = netx_client.clone();
+                            tokio::spawn(async move {
+                                if let Err(err) = netx_client
+                                    .call_special_function(SpecialFunctionTag::Connect as i32)
+                                    .await
+                                {
+                                    log::error!("call connect error:{}", err);
+                                    let _ = client.disconnect().await;
+                                    if set_connect.send((false, err.to_string())).is_err() {
+                                        log::error!("talk connect rx is close");
+                                    }
+                                    drop(set_connect);
+                                } else {
+                                    if set_connect.send((true, "success".into())).is_err() {
+                                        log::error!("talk connect rx is close");
+                                    }
+                                    drop(set_connect);
+                                }
+                            });
                         }
                     }
                     true => {
