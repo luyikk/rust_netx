@@ -135,13 +135,13 @@ impl<T: ICreateController + 'static> IAsyncTokenManagerCreateToken<T::Controller
 }
 
 #[async_trait::async_trait]
-pub trait ITokenManager<T> {
+pub trait ITokenManager<T>: Send + Sync {
     async fn get_token(&self, session_id: i64) -> Option<NetxToken<T>>;
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken<T>>>;
 }
 
 #[async_trait::async_trait]
-pub(crate) trait IAsyncTokenManager<T>: ITokenManager<T> + Send + Sync {
+pub(crate) trait IAsyncTokenManager<T>: ITokenManager<T> {
     async fn check_tokens_request_timeout(&self);
     async fn check_tokens_disconnect_timeout(&self);
     async fn peer_disconnect(&self, session_id: i64);
