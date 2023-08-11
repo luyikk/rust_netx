@@ -1,6 +1,6 @@
 [package]
 name = "netxserver"
-version = "1.10.3"
+version = "1.10.4"
 authors = ["yi lu <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -14,6 +14,7 @@ default = []
 use_openssl = ["openssl", "openssl-sys", "tokio-openssl"]
 use_rustls = ["tokio-rustls"]
 dserde = ["data-rw/data"]
+jserde=["data-rw/json"]
 backtrace=["anyhow/backtrace"]
 
 [dependencies]
