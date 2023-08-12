@@ -7,3 +7,4 @@
 /test_client/target
 /test_server/target
 Cargo.lock
+.vscode
