@@ -20,7 +20,7 @@ pub trait IServer: Sync + Send {
         v: &(Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>),
     ) -> Result<(Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>)>;
     #[tag(4)]
-    async fn test_struct(&self, foo: &Foo) -> Result<Foo>;
+    async fn test_struct(&self, value: &Foo) -> Result<Foo>;
 
     #[tag(1000)]
     async fn add(&self, a: i32, b: i32) -> Result<i32>;
