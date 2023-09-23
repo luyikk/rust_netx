@@ -91,13 +91,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 match server
                                     .ping(
                                         args[1].to_string(),
-                                        chrono::Local::now().timestamp_nanos(),
+                                        chrono::Local::now().timestamp_nanos_opt().unwrap(),
                                     )
                                     .await
                                 {
                                     Ok(time) => println!(
                                         "{} ms",
-                                        (chrono::Local::now().timestamp_nanos() - time) as f64
+                                        (chrono::Local::now().timestamp_nanos_opt().unwrap() - time)
+                                            as f64
                                             / 1000000f64
                                     ),
                                     Err(err) => println!("error:{}", err),

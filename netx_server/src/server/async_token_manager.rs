@@ -92,7 +92,7 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
 
     #[inline]
     fn make_new_session_id(&mut self) -> i64 {
-        chrono::Local::now().timestamp_nanos()
+        chrono::Local::now().timestamp_nanos_opt().unwrap()
     }
     #[inline]
     async fn create_token(
