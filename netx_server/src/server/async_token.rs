@@ -99,9 +99,11 @@ impl<T: IController> AsyncToken<T> {
 }
 
 #[async_trait::async_trait]
-pub(crate) trait IAsyncTokenInner<T: IController> {
+pub(crate) trait IAsyncTokenInner {
+    /// controller type
+    type Controller: IController;
     /// set controller
-    async fn set_controller(&self, controller: Arc<T>);
+    async fn set_controller(&self, controller: Arc<Self::Controller>);
     /// clean all controller fun map
     async fn clear_controller_fun_maps(&self);
     /// set peer
@@ -119,7 +121,9 @@ pub(crate) trait IAsyncTokenInner<T: IController> {
 }
 
 #[async_trait::async_trait]
-impl<T: IController + 'static> IAsyncTokenInner<T> for Actor<AsyncToken<T>> {
+impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
+    type Controller = T;
+
     #[inline]
     async fn set_controller(&self, controller: Arc<T>) {
         self.inner_call(|inner| async move { inner.get_mut().controller = Some(controller) })
@@ -215,7 +219,8 @@ impl<T: IController + 'static> IAsyncTokenInner<T> for Actor<AsyncToken<T>> {
 }
 
 #[async_trait::async_trait]
-pub trait IAsyncToken<T: IController> {
+pub trait IAsyncToken {
+    type Controller: IController;
     /// get netx session id
     fn get_session_id(&self) -> i64;
     /// new serial id
@@ -225,9 +230,9 @@ pub trait IAsyncToken<T: IController> {
     /// send buff
     async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()>;
     /// get netx token by session id
-    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<T>>>;
+    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<Self::Controller>>>;
     /// get all netx token
-    async fn get_all_tokens(&self) -> Result<Vec<NetxToken<T>>>;
+    async fn get_all_tokens(&self) -> Result<Vec<NetxToken<Self::Controller>>>;
     /// call
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
     /// run
@@ -237,7 +242,10 @@ pub trait IAsyncToken<T: IController> {
 }
 
 #[async_trait::async_trait]
-impl<T: IController + 'static> IAsyncToken<T> for Actor<AsyncToken<T>> {
+impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
+    /// controller type
+    type Controller = T;
+
     #[inline]
     fn get_session_id(&self) -> i64 {
         unsafe { self.deref_inner().session_id }

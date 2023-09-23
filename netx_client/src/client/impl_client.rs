@@ -516,7 +516,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
 }
 
 #[async_trait::async_trait]
-pub(crate) trait INextClientInner<T> {
+pub(crate) trait INextClientInner {
     /// get request or connect timeout time ms
     fn get_timeout_ms(&self) -> u32;
     /// set response result
@@ -538,7 +538,7 @@ pub(crate) trait INextClientInner<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
+impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
     #[inline]
     fn get_timeout_ms(&self) -> u32 {
         unsafe { self.deref_inner().server_info.request_out_time_ms }
@@ -637,7 +637,7 @@ impl<T: SessionSave + 'static> INextClientInner<T> for Actor<NetXClient<T>> {
 
 #[allow(clippy::too_many_arguments)]
 #[async_trait::async_trait]
-pub trait INetXClient<T> {
+pub trait INetXClient {
     /// init netx client controller
     async fn init<C: IController + Sync + Send + 'static>(&self, controller: C) -> Result<()>;
     /// connect to network
@@ -672,7 +672,7 @@ pub trait INetXClient<T> {
 
 #[allow(clippy::too_many_arguments)]
 #[async_trait::async_trait]
-impl<T: SessionSave + 'static> INetXClient<T> for Actor<NetXClient<T>> {
+impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
     #[inline]
     async fn init<C: IController + Sync + Send + 'static>(&self, controller: C) -> Result<()> {
         self.inner_call(|inner| async move {
