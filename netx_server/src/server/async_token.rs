@@ -2,7 +2,7 @@ use crate::async_token_manager::IAsyncTokenManager;
 use crate::{IController, NetPeer, RetResult};
 use anyhow::{anyhow, bail, Result};
 use aqueue::Actor;
-use async_oneshot::{oneshot, Receiver, Sender};
+use tokio::sync::oneshot::{channel as oneshot, Receiver, Sender};
 use data_rw::{Data, DataOwnedReader};
 use std::collections::{HashMap, VecDeque};
 use std::ops::Deref;
@@ -77,7 +77,7 @@ impl<T: IController> AsyncToken<T> {
 
     #[inline]
     pub fn set_error(&mut self, serial: i64, err: anyhow::Error) -> Result<()> {
-        if let Some(mut tx) = self.result_dict.remove(&serial) {
+        if let Some(tx) = self.result_dict.remove(&serial) {
             tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))
         } else {
             Ok(())
@@ -183,7 +183,7 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
 
-        if let Some(mut tx) = have_tx {
+        if let Some(tx) = have_tx {
             return tx.send(Ok(dr)).map_err(|_| anyhow!("close rx"));
         } else {
             match RetResult::from(dr) {

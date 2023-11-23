@@ -1,6 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
 use aqueue::Actor;
-use async_oneshot::{oneshot, Receiver, Sender};
 use data_rw::{Data, DataOwnedReader};
 use log::warn;
 use once_cell::sync::OnceCell;
@@ -11,6 +10,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::sync::watch::{channel, Receiver as WReceiver, Sender as WSender};
 use tokio::time::{sleep, Duration};
+use tokio::sync::oneshot::{channel as oneshot, Receiver, Sender};
 
 #[cfg(all(feature = "tcpclient", not(feature = "tcp-channel-client")))]
 use tcpclient::{SocketClientTrait, TcpClient};
@@ -550,7 +550,7 @@ impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
 
-        if let Some(mut tx) = have_tx {
+        if let Some(tx) = have_tx {
             if tx.send(Ok(data)).is_err() {
                 warn!("rx is close 1");
             }
@@ -570,7 +570,7 @@ impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
         let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
-        if let Some(mut tx) = have_tx {
+        if let Some(tx) = have_tx {
             if tx.send(Err(err)).is_err() {
                 warn!("rx is close 2");
             }

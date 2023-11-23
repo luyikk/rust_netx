@@ -1,6 +1,6 @@
 [package]
 name = "netxserver"
-version = "1.10.5"
+version = "1.10.6"
 authors = ["yi lu <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -28,7 +28,6 @@ log = "0.4"
 data-rw = "1.6"
 paste = "1.0"
 bytes = "1.1"
-async-oneshot = "0.5"
 netxbuilder = "1.5"
 chrono = "0.4"
 cfg-if = "1.0"
