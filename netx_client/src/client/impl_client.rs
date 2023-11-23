@@ -3,12 +3,12 @@ use aqueue::Actor;
 use data_rw::{Data, DataOwnedReader};
 use log::warn;
 use once_cell::sync::OnceCell;
+use oneshot::{channel as oneshot, Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, ReadHalf};
-use tokio::sync::oneshot::{channel as oneshot, Receiver, Sender};
 use tokio::sync::watch::{channel, Receiver as WReceiver, Sender as WSender};
 use tokio::time::{sleep, Duration};
 
