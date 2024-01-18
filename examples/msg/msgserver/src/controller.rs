@@ -173,7 +173,7 @@ impl IServerController for ServerController {
             .await?
             .with_context(|| format!("not found {}", target_nickname))?;
         let peer = impl_ref!(token=>IClient);
-        Ok(peer.ping(current_user.nickname.clone(), time).await?)
+        peer.ping(current_user.nickname.clone(), time).await
     }
 }
 
