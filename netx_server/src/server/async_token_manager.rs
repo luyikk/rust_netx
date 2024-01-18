@@ -118,12 +118,10 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
     }
 }
 
-#[async_trait::async_trait]
 pub(crate) trait IAsyncTokenManagerCreateToken<T> {
     async fn create_token(&self, manager: Weak<Self>) -> Result<NetxToken<T>>;
 }
 
-#[async_trait::async_trait]
 impl<T: ICreateController + 'static> IAsyncTokenManagerCreateToken<T::Controller>
     for Actor<AsyncTokenManager<T>>
 {

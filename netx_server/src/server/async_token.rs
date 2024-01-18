@@ -98,7 +98,6 @@ impl<T: IController> AsyncToken<T> {
     }
 }
 
-#[async_trait::async_trait]
 pub(crate) trait IAsyncTokenInner {
     /// controller type
     type Controller: IController;
@@ -120,7 +119,6 @@ pub(crate) trait IAsyncTokenInner {
     async fn check_request_timeout(&self, request_out_time: u32);
 }
 
-#[async_trait::async_trait]
 impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
     type Controller = T;
 
@@ -218,7 +216,6 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
     }
 }
 
-#[async_trait::async_trait]
 pub trait IAsyncToken {
     type Controller: IController;
     /// get netx session id
@@ -226,22 +223,30 @@ pub trait IAsyncToken {
     /// new serial id
     fn new_serial(&self) -> i64;
     /// get tcp socket peer
-    async fn get_peer(&self) -> Option<Weak<NetPeer>>;
+    fn get_peer(&self) -> impl std::future::Future<Output = Option<Weak<NetPeer>>>;
     /// send buff
-    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()>;
+    fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(
+        &self,
+        buff: B,
+    ) -> impl std::future::Future<Output = Result<()>>;
     /// get netx token by session id
-    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<Self::Controller>>>;
+    fn get_token(
+        &self,
+        session_id: i64,
+    ) -> impl std::future::Future<Output = Result<Option<NetxToken<Self::Controller>>>>;
     /// get all netx token
-    async fn get_all_tokens(&self) -> Result<Vec<NetxToken<Self::Controller>>>;
+    fn get_all_tokens(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Vec<NetxToken<Self::Controller>>>>;
     /// call
-    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
+    fn call(&self, serial: i64, buff: Data)
+        -> impl std::future::Future<Output = Result<RetResult>>;
     /// run
-    async fn run(&self, buff: Data) -> Result<()>;
+    fn run(&self, buff: Data) -> impl std::future::Future<Output = Result<()>>;
     /// is disconnect
-    async fn is_disconnect(&self) -> bool;
+    fn is_disconnect(&self) -> impl std::future::Future<Output = bool>;
 }
 
-#[async_trait::async_trait]
 impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     /// controller type
     type Controller = T;
@@ -456,16 +461,6 @@ macro_rules! call_peer {
             $peer.call(serial,data).await?.check()?;
     });
 
-}
-
-///  make Box<dyn $interface> will clone $client
-#[macro_export]
-macro_rules! impl_interface {
-    ($token:expr=>$interface:ty) => {
-        paste::paste! {
-              Box::new([<___impl_ $interface _call>]::new($token.clone()))  as  Box<dyn $interface>
-        }
-    };
 }
 
 /// make $interface struct  will ref $client

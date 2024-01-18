@@ -2,13 +2,11 @@ use data_rw::DataOwnedReader;
 use std::io;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadHalf};
 
-#[async_trait::async_trait]
-pub trait ReadHalfExt {
+pub(crate) trait ReadHalfExt {
     async fn read_string(&mut self) -> io::Result<String>;
     async fn read_buff(&mut self) -> io::Result<DataOwnedReader>;
 }
 
-#[async_trait::async_trait]
 impl<C> ReadHalfExt for &mut ReadHalf<C>
 where
     C: AsyncRead + AsyncWrite + Send + 'static,

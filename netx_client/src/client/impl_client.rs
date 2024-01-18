@@ -515,7 +515,6 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 }
 
-#[async_trait::async_trait]
 pub(crate) trait INextClientInner {
     /// get request or connect timeout time ms
     fn get_timeout_ms(&self) -> u32;
@@ -537,7 +536,6 @@ pub(crate) trait INextClientInner {
     async fn store_session_id(&self, session_id: i64);
 }
 
-#[async_trait::async_trait]
 impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
     #[inline]
     fn get_timeout_ms(&self) -> u32 {
@@ -636,12 +634,14 @@ impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[async_trait::async_trait]
 pub trait INetXClient {
     /// init netx client controller
-    async fn init<C: IController + Sync + Send + 'static>(&self, controller: C) -> Result<()>;
+    fn init<C: IController + Sync + Send + 'static>(
+        &self,
+        controller: C,
+    ) -> impl std::future::Future<Output = Result<()>>;
     /// connect to network
-    async fn connect_network(self: &Arc<Self>) -> Result<()>;
+    fn connect_network(self: &Arc<Self>) -> impl std::future::Future<Output = Result<()>> + Send;
     /// get ssl
     fn get_tls_config(&self) -> TlsConfig;
     /// get netx server address
@@ -657,21 +657,21 @@ pub trait INetXClient {
     /// is connect to server
     fn is_connect(&self) -> bool;
     /// get tcp socket peer
-    async fn get_peer(&self) -> Option<Arc<NetPeer>>;
+    fn get_peer(&self) -> impl std::future::Future<Output = Option<Arc<NetPeer>>>;
     /// set tcp socket peer
-    async fn set_network_client(&self, client: Arc<NetPeer>);
+    fn set_network_client(&self, client: Arc<NetPeer>) -> impl std::future::Future<Output = ()>;
     /// get request wait callback len
-    async fn get_callback_len(&self) -> usize;
+    fn get_callback_len(&self) -> impl std::future::Future<Output = usize>;
     /// close netx client
-    async fn close(&self) -> Result<()>;
+    fn close(&self) -> impl std::future::Future<Output = Result<()>>;
     /// call
-    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult>;
+    fn call(&self, serial: i64, buff: Data)
+        -> impl std::future::Future<Output = Result<RetResult>>;
     /// run
-    async fn run(&self, buff: Data) -> Result<()>;
+    fn run(&self, buff: Data) -> impl std::future::Future<Output = Result<()>>;
 }
 
 #[allow(clippy::too_many_arguments)]
-#[async_trait::async_trait]
 impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
     #[inline]
     async fn init<C: IController + Sync + Send + 'static>(&self, controller: C) -> Result<()> {

@@ -68,8 +68,7 @@ impl UserManager {
     }
 }
 
-#[async_trait::async_trait]
-pub trait IUserManager {
+pub(crate) trait IUserManager {
     async fn add(&self, user: User);
     async fn find(&self, session_id: i64) -> Option<User>;
     async fn find_by_nickname(&self, nickname: String) -> Option<User>;
@@ -78,7 +77,6 @@ pub trait IUserManager {
     async fn check_nickname(&self, nickname: String) -> bool;
 }
 
-#[async_trait::async_trait]
 impl IUserManager for Actor<UserManager> {
     #[inline]
     async fn add(&self, user: User) {

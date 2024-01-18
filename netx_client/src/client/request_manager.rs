@@ -69,13 +69,11 @@ impl<T: SessionSave + 'static> RequestManager<T> {
     }
 }
 
-#[async_trait::async_trait]
-pub trait IRequestManager {
+pub(crate) trait IRequestManager {
     async fn check(&self) -> Result<()>;
     async fn set(&self, session_id: i64) -> Result<()>;
 }
 
-#[async_trait::async_trait]
 impl<T: SessionSave + 'static> IRequestManager for Actor<RequestManager<T>> {
     #[inline]
     async fn check(&self) -> Result<()> {

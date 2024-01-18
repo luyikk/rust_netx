@@ -369,12 +369,10 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
 
-        #[async_trait::async_trait]
         impl<T: IController + 'static> #interface_name for #impl_interface_struct_name<NetxToken<T>>{
             #(#impl_func)*
         }
 
-        #[async_trait::async_trait]
         impl<'a,T: IController + 'static> #interface_name for #impl_interface_struct_name<&'a NetxToken<T>>{
             #(#impl_func)*
         }
@@ -453,10 +451,10 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         });
         let expanded = quote! {
-           #[async_trait::async_trait]
+
             #ast
 
-            #[async_trait::async_trait]
+
             impl IController for #controller{
                 #[inline]
                 async fn call(&self,tt:u8,cmd_tag:i32,mut data:data_rw::DataOwnedReader) -> anyhow:: Result<RetResult> {
@@ -479,7 +477,6 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
         TokenStream::from(expanded)
     } else {
         let expanded = quote! {
-           #[async_trait::async_trait]
             #ast
 
             #impl_interface
@@ -547,6 +544,15 @@ fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
 /// impl interface
 #[proc_macro_attribute]
 pub fn build_impl(_: TokenStream, input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as ItemImpl);
+    TokenStream::from(quote! {
+        #ast
+    })
+}
+
+/// impl interface
+#[proc_macro_attribute]
+pub fn build_impl_client(_: TokenStream, input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as ItemImpl);
     TokenStream::from(quote! {
         #[async_trait::async_trait]

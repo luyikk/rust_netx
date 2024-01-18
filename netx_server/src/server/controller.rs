@@ -4,9 +4,13 @@ use anyhow::Result;
 use data_rw::DataOwnedReader;
 use std::sync::Arc;
 
-#[async_trait::async_trait]
 pub trait IController: Send + Sync {
-    async fn call(&self, tt: u8, cmd_tag: i32, dr: DataOwnedReader) -> Result<RetResult>;
+    fn call(
+        &self,
+        tt: u8,
+        cmd_tag: i32,
+        dr: DataOwnedReader,
+    ) -> impl std::future::Future<Output = Result<RetResult>> + Send;
 }
 
 pub trait ICreateController {

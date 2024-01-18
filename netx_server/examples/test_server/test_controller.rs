@@ -10,9 +10,9 @@ use std::sync::Arc;
 use tcpserver::IPeer;
 
 #[build(TestController)]
-pub trait ITestController {
+trait ITestController {
     #[tag(connect)]
-    async fn connect(&self) -> anyhow::Result<()>;
+    async fn connect(&self) -> Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self) -> Result<()>;
     #[tag(closed)]
@@ -168,7 +168,7 @@ impl ITestController for TestController {
 
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
-        let client: Box<dyn IClient> = impl_interface!(self.token=>IClient);
+        let client = impl_ref!(self.token=>IClient);
         client.print2(a, &b).await
     }
 
