@@ -6,7 +6,7 @@ chmod -v 0444 CA.crt
 ```
 or
 ```shell
-openssl req -x509 -newkey rsa:4096 -days 365 -keyout CA.key -out CA.crt
+openssl req -x509 -newkey rsa:4096 -days 3650 -keyout CA.key -out CA.crt
 chmod -v 0400 CA.key 
 chmod -v 0444 CA.crt
 ```
