@@ -861,26 +861,14 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
             self.deref_inner().set_request_session_id(serial).await?;
         }
         if self.get_mode() == 0 {
-            cfg_if::cfg_if! {
-                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
-                     tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
-                 }else{
-                     net.send_all(buff.into_inner()).await?;
-                 }
-            }
+            net.send_all(buff.into_inner()).await?;
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
 
-            cfg_if::cfg_if! {
-                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
-                     tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
-                 }else{
-                     net.send_all(data.into_inner()).await?;
-                 }
-            }
+            net.send_all(data.into_inner()).await?;
         }
         match rx.await {
             Err(_) => {
@@ -902,25 +890,13 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
             })
             .await?;
         if self.get_mode() == 0 {
-            cfg_if::cfg_if! {
-                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
-                     tokio::spawn(async move { net.send_all(buff.into_inner()).await }).await??;
-                 }else{
-                    net.send_all(buff.into_inner()).await?;
-                 }
-            }
+            net.send_all(buff.into_inner()).await?;
         } else {
             let len = buff.len() + 4;
             let mut data = Data::with_capacity(len);
             data.write_fixed(len as u32);
             data.write_buf(&buff);
-            cfg_if::cfg_if! {
-                 if #[cfg(all(feature = "tcpclient",not(feature = "tcp-channel-client")))] {
-                    tokio::spawn(async move { net.send_all(data.into_inner()).await }).await??;
-                 }else{
-                    net.send_all(data.into_inner()).await?;
-                 }
-            }
+            net.send_all(data.into_inner()).await?;
         }
 
         Ok(())
