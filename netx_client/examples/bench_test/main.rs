@@ -6,9 +6,10 @@ use std::time::Instant;
 
 use log::*;
 use server::{IServer, *};
-use std::error::Error;
+
 use structopt::StructOpt;
 
+use anyhow::Result;
 use test_controller::TestController;
 
 #[derive(StructOpt, Debug, Clone)]
@@ -23,7 +24,7 @@ struct Config {
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     let config: Config = Config::from_args();
 
     env_logger::Builder::default()
@@ -54,30 +55,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                                     DefaultSessionStore::default(),"localhost".to_string(),ssl_connector)
 
                 }else if #[cfg(feature = "use_rustls")]{
-                    use rustls_pemfile::{certs, rsa_private_keys};
                     use std::sync::Arc;
                     use std::io::BufReader;
                     use std::fs::File;
                     use std::convert::TryFrom;
-                    use tokio_rustls::rustls::{Certificate, PrivateKey,ClientConfig,ServerName};
+                    use tokio_rustls::rustls::ClientConfig;
+                    use rustls_pemfile::{certs, private_key};
+                    use tokio_rustls::rustls::pki_types::ServerName;
+
+
 
                     let cert_file = &mut BufReader::new(File::open("./ca_test/client-crt.pem").unwrap());
                     let key_file = &mut BufReader::new(File::open("./ca_test/client-key.pem").unwrap());
 
-                    let keys = PrivateKey(rsa_private_keys(key_file).unwrap().remove(0));
-                    let cert_chain = certs(cert_file)
-                        .unwrap()
-                        .iter()
-                        .map(|c| Certificate(c.to_vec()))
-                        .collect::<Vec<_>>();
+                    let keys = private_key(key_file).unwrap().unwrap();
+                    let cert_chain = certs(cert_file).map(|r| r.unwrap()).collect();
 
                     let tls_config = ClientConfig::builder()
-                        .with_safe_defaults()
+                        .dangerous()
                         .with_custom_certificate_verifier(Arc::new(RustlsAcceptAnyCertVerifier))
                         .with_client_auth_cert(cert_chain, keys)
                         .expect("bad certificate/key");
 
                     let connector=tokio_rustls::TlsConnector::from(Arc::new(tls_config));
+
                     NetXClient::new_tls(ServerOption::new(format!("{}:6666",ipaddress),
                                                           "".into(),
                                                           "123123".into(),

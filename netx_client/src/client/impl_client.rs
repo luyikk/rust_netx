@@ -31,7 +31,7 @@ if #[cfg(feature = "use_openssl")]{
    use std::pin::Pin;
 }else if #[cfg(feature = "use_rustls")]{
    use tokio_rustls::TlsConnector;
-   use tokio_rustls::rustls::ServerName;
+   use tokio_rustls::rustls::pki_types::ServerName;
 }}
 
 #[derive(Clone)]
@@ -44,7 +44,7 @@ pub enum TlsConfig {
     },
     #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
     Rustls {
-        domain: ServerName,
+        domain: ServerName<'static>,
         connector: TlsConnector,
     },
 }
@@ -147,7 +147,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 netx_client
             }
         } else if #[cfg(feature = "use_rustls")]{
-             pub fn new_tls(server_info: ServerOption, session:T,domain:ServerName,connector:TlsConnector) ->NetxClientArc<T>{
+             pub fn new_tls(server_info: ServerOption, session:T,domain:ServerName<'static>,connector:TlsConnector) ->NetxClientArc<T>{
                 let request_out_time_ms=server_info.request_out_time_ms;
                 let netx_client=Arc::new(Actor::new(NetXClient{
                     tls_config:TlsConfig::Rustls {domain,connector},

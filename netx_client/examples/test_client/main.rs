@@ -44,21 +44,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
             use std::io::BufReader;
             use std::fs::File;
             use std::convert::TryFrom;
-            use tokio_rustls::rustls::{Certificate, PrivateKey,ClientConfig,ServerName};
-            use rustls_pemfile::{certs, rsa_private_keys};
+            use tokio_rustls::rustls::ClientConfig;
+            use rustls_pemfile::{certs, private_key};
+            use tokio_rustls::rustls::pki_types::ServerName;
+            use anyhow::Context;
+
 
             let cert_file = &mut BufReader::new(File::open("./ca_test/client-crt.pem")?);
             let key_file = &mut BufReader::new(File::open("./ca_test/client-key.pem")?);
 
-            let keys = PrivateKey(rsa_private_keys(key_file)?.remove(0));
-            let cert_chain = certs(cert_file)
-                .unwrap()
-                .iter()
-                .map(|c| Certificate(c.to_vec()))
-                .collect::<Vec<_>>();
+            let keys = private_key(key_file)?.context("bad private key")?;
+            let cert_chain = certs(cert_file).map(|r| r.unwrap()).collect();
 
             let tls_config = ClientConfig::builder()
-                .with_safe_defaults()
+                .dangerous()
                 .with_custom_certificate_verifier(Arc::new(RustlsAcceptAnyCertVerifier))
                 .with_client_auth_cert(cert_chain, keys)
                 .expect("bad certificate/key");

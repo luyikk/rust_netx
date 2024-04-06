@@ -31,30 +31,34 @@ async fn main() -> anyhow::Result<()> {
             use std::io::BufReader;
             use std::sync::Arc;
 
-            use rustls_pemfile::{certs, rsa_private_keys};
-            use tokio_rustls::rustls::{
-                server::AllowAnyAuthenticatedClient, Certificate, PrivateKey, RootCertStore,
-                ServerConfig,
-            };
+            use anyhow::Context;
+            use rustls_pemfile::certs;
+            use rustls_pemfile::private_key;
+            use tokio_rustls::rustls::pki_types::CertificateDer;
+            use tokio_rustls::rustls::server::WebPkiClientVerifier;
+            use tokio_rustls::rustls::{RootCertStore, ServerConfig};
             use tokio_rustls::TlsAcceptor;
 
             let ca_file = &mut BufReader::new(File::open("./ca_test/CA.crt")?);
             let cert_file = &mut BufReader::new(File::open("./ca_test/server-crt.pem")?);
             let key_file = &mut BufReader::new(File::open("./ca_test/server-key.pem")?);
 
-            let keys = PrivateKey(rsa_private_keys(key_file)?.remove(0));
-            let cert_chain = certs(cert_file)?
-                .iter()
-                .map(|c| Certificate(c.to_vec()))
-                .collect::<Vec<_>>();
+            let keys = private_key(key_file)?.context("bad private key")?;
 
-            let ca_certs = certs(ca_file)?;
+            let cert_chain = certs(cert_file).map(|r| r.unwrap()).collect();
+
+            let ca_certs: Vec<CertificateDer<'static>> =
+                certs(ca_file).map(|r| r.unwrap()).collect();
+
             let mut client_auth_roots = RootCertStore::empty();
-            client_auth_roots.add_parsable_certificates(&ca_certs);
+            client_auth_roots.add_parsable_certificates(ca_certs);
+            let client_auth_roots = Arc::new(client_auth_roots);
 
-            let client_auth = Arc::new(AllowAnyAuthenticatedClient::new(client_auth_roots));
+            let client_auth = WebPkiClientVerifier::builder(client_auth_roots)
+                .build()
+                .unwrap();
+
             let tls_config = ServerConfig::builder()
-                .with_safe_defaults()
                 .with_client_cert_verifier(client_auth)
                 .with_single_cert(cert_chain, keys)?;
 
@@ -68,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
             ImplCreateController,
         )
         .await;
+        log::info!("start server");
         server.start_block().await?;
     }
 
@@ -105,6 +110,7 @@ async fn main() -> anyhow::Result<()> {
             ImplCreateController,
         )
         .await;
+        log::info!("start server");
         server.start_block().await?;
     }
 

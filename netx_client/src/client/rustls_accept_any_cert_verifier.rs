@@ -1,41 +1,57 @@
-use std::time::SystemTime;
-use tokio_rustls::rustls::client::{
+use tokio_rustls::rustls::client::danger::{
     HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
 };
-use tokio_rustls::rustls::{Certificate, DigitallySignedStruct, ServerName};
+use tokio_rustls::rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use tokio_rustls::rustls::{DigitallySignedStruct, Error, SignatureScheme};
 
 /// Blindly trust any cert
 /// Please DO NOT use in production
+#[derive(Debug, Clone)]
 pub struct RustlsAcceptAnyCertVerifier;
 
 impl ServerCertVerifier for RustlsAcceptAnyCertVerifier {
     fn verify_server_cert(
         &self,
-        _end_entity: &Certificate,
-        _intermediates: &[Certificate],
-        _server_name: &ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
         _ocsp_response: &[u8],
-        _now: SystemTime,
-    ) -> Result<ServerCertVerified, tokio_rustls::rustls::Error> {
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, Error> {
         Ok(ServerCertVerified::assertion())
     }
 
     fn verify_tls12_signature(
         &self,
         _message: &[u8],
-        _cert: &Certificate,
+        _cert: &CertificateDer<'_>,
         _dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, tokio_rustls::rustls::Error> {
+    ) -> Result<HandshakeSignatureValid, Error> {
         Ok(HandshakeSignatureValid::assertion())
     }
 
     fn verify_tls13_signature(
         &self,
         _message: &[u8],
-        _cert: &Certificate,
+        _cert: &CertificateDer<'_>,
         _dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, tokio_rustls::rustls::Error> {
+    ) -> Result<HandshakeSignatureValid, Error> {
         Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        vec![
+            SignatureScheme::RSA_PKCS1_SHA1,
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::RSA_PKCS1_SHA384,
+            SignatureScheme::RSA_PKCS1_SHA512,
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            SignatureScheme::ECDSA_NISTP521_SHA512,
+            SignatureScheme::ED25519,
+            SignatureScheme::RSA_PSS_SHA256,
+            SignatureScheme::RSA_PSS_SHA384,
+            SignatureScheme::RSA_PSS_SHA512,
+        ]
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "netxclient"
-version = "2.0.1"
+version = "2.1.0"
 authors = ["luyi <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -12,7 +12,7 @@ license = "MIT/Apache-2.0"
 [features]
 default = ["tcpclient"]
 use_openssl = ["openssl", "openssl-sys", "tokio-openssl"]
-use_rustls = ["tokio-rustls", "tokio-rustls/dangerous_configuration"]
+use_rustls = ["tokio-rustls"]
 dserde = ["data-rw/data"]
 jserde = ["data-rw/json"]
 backtrace = ["anyhow/backtrace"]
@@ -35,13 +35,13 @@ cfg-if = "1.0"
 openssl = { version = "0.10", optional = true }
 openssl-sys = { version = "0.9", optional = true }
 tokio-openssl = { version = "0.6", optional = true }
-tokio-rustls = { version = "0.24", optional = true }
+tokio-rustls = { version = "0.26", optional = true }
 oneshot = { version = "0.1", default-features = false, features = ["async"] }
 
 [dev-dependencies]
-env_logger = "0.10"
+env_logger = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 mimalloc = { version = "0.1", default-features = false }
 structopt = "0.3"
-rustls-pemfile = { version = "1" }
+rustls-pemfile = { version = "2" }

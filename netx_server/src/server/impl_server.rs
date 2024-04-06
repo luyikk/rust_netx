@@ -101,7 +101,7 @@ where
                     inner
                         .async_tokens
                         .peer_disconnect(token.get_session_id())
-                        .await?;
+                        .await;
                     Ok(())
                 })
                 .build()

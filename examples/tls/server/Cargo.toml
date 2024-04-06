@@ -16,12 +16,12 @@ use_rustls = ["netxserver/use_rustls"]
 tokio = { version = "1", features = ["full"] }
 netxserver = { path = "../../../netx_server" }
 log = "0.4"
-env_logger = "0.10"
+env_logger = "0.11"
 anyhow = "1.0"
 async-trait = "0.1"
 
 openssl = { version = "0.10" }
 openssl-sys = { version = "0.9" }
 
-tokio-rustls = { version = "0.24" }
-rustls-pemfile = { version = "1" }
+tokio-rustls = { version = "0.26" }
+rustls-pemfile = { version = "2" }
