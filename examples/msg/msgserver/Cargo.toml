@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-netxserver = { path = "../../../netx_server" }
+netxserver = { path = "../../../netx_server",features = ["tcp-channel-server"] }
 log = "0.4"
 env_logger = "0.10"
 serde_json = "1.0.61"

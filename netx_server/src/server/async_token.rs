@@ -5,11 +5,12 @@ use aqueue::Actor;
 use data_rw::{Data, DataOwnedReader};
 use oneshot::{channel as oneshot, Receiver, Sender};
 use std::collections::{HashMap, VecDeque};
-use std::ops::Deref;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Weak};
-use tcpserver::IPeer;
 use tokio::time::Instant;
+
+#[cfg(all(feature = "tcpserver", not(feature = "tcp-channel-server")))]
+use tcpserver::IPeer;
 
 pub struct AsyncToken<T> {
     session_id: i64,
@@ -217,10 +218,7 @@ pub trait IAsyncToken {
     /// get tcp socket peer
     fn get_peer(&self) -> impl std::future::Future<Output = Option<Arc<NetPeer>>>;
     /// send buff
-    fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(
-        &self,
-        buff: B,
-    ) -> impl std::future::Future<Output = Result<()>>;
+    fn send(&self, buff: Vec<u8>) -> impl std::future::Future<Output = Result<()>>;
     /// get netx token by session id
     fn get_token(
         &self,
@@ -260,7 +258,7 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()> {
+    async fn send(&self, buff: Vec<u8>) -> Result<()> {
         unsafe {
             if let Some(peer) = self.deref_inner().peer.clone() {
                 return peer.send_all(buff).await;
@@ -345,9 +343,13 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     async fn is_disconnect(&self) -> bool {
         self.inner_call(|inner| async move {
             if let Some(ref peer) = inner.get().peer {
+                #[cfg(all(feature = "tcpserver", not(feature = "tcp-channel-server")))]
                 if let Ok(r) = peer.is_disconnect().await {
                     return r;
                 }
+
+                #[cfg(feature = "tcp-channel-server")]
+                return peer.is_disconnect();
             }
             true
         })

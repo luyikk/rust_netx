@@ -9,4 +9,10 @@ pub use bytes::buf::BufMut;
 pub use data_rw;
 pub use netxbuilder::{build_impl, build_server as build, tag};
 pub use paste;
+#[cfg(all(feature = "tcpserver", not(feature = "tcp-channel-server")))]
 pub use tcpserver;
+#[cfg(all(feature = "tcpserver", not(feature = "tcp-channel-server")))]
+pub use tcpserver::IPeer;
+
+#[cfg(feature = "tcp-channel-server")]
+pub use tcp_channel_server as tcpserver;

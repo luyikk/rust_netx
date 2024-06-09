@@ -7,7 +7,6 @@ use netxserver::prelude::*;
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::sync::Arc;
-use tcpserver::IPeer;
 
 #[build(TestController)]
 trait ITestController {
@@ -90,7 +89,6 @@ impl ITestController for TestController {
     #[inline]
     async fn connect(&self) -> Result<()> {
         info!("{} is connect", self.token.get_session_id());
-
         if let Some(peer) = self.token.get_peer().await {
             info!("{} addr is {} ", self.token.get_session_id(), peer.addr())
         }

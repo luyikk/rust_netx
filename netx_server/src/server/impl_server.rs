@@ -1,11 +1,15 @@
 use anyhow::{bail, Result};
-use aqueue::Actor;
 use bytes::BufMut;
 use data_rw::Data;
 use std::sync::{Arc, Weak};
-use tcpserver::{Builder, IPeer, ITCPServer, TCPPeer};
 use tokio::io::{AsyncReadExt, ReadHalf};
 use tokio::task::JoinHandle;
+
+#[cfg(all(feature = "tcpserver", not(feature = "tcp-channel-server")))]
+use tcpserver::{Builder, IPeer, ITCPServer, TCPPeer};
+
+#[cfg(feature = "tcp-channel-server")]
+use tcp_channel_server::{Builder, ITCPServer, TCPPeer};
 
 use crate::async_token::{IAsyncToken, IAsyncTokenInner, NetxToken};
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
@@ -28,7 +32,12 @@ if #[cfg(feature = "use_openssl")]{
    use tokio_rustls::TlsAcceptor;
 }}
 
-pub type NetPeer = Actor<TCPPeer<MaybeStream>>;
+#[cfg(all(feature = "tcpserver", not(feature = "tcp-channel-server")))]
+pub type NetPeer = aqueue::Actor<TCPPeer<MaybeStream>>;
+
+#[cfg(feature = "tcp-channel-server")]
+pub type NetPeer = TCPPeer<MaybeStream>;
+
 pub type NetReadHalf = ReadHalf<MaybeStream>;
 
 pub(crate) enum SpecialFunctionTag {

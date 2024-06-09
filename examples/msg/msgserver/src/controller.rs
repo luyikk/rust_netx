@@ -5,7 +5,6 @@ use log::*;
 use netxserver::prelude::*;
 use packer::{LogOn, LogOnRes, User};
 use std::sync::Arc;
-use tcpserver::IPeer;
 
 //实现服务器接口和业务,用来给服务器调用
 //Realize the server interface and business, used to call the server

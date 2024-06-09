@@ -14,7 +14,7 @@ use_rustls = ["netxserver/use_rustls"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-netxserver = { path = "../../../netx_server" }
+netxserver = { path = "../../../netx_server",features = ["tcp-channel-server"] }
 log = "0.4"
 env_logger = "0.11"
 anyhow = "1.0"

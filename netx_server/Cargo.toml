@@ -1,6 +1,6 @@
 [package]
 name = "netxserver"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["yi lu <luyikk@126.com>"]
 edition = "2018"
 repository = "https://github.com/luyikk/rust_netx"
@@ -10,17 +10,18 @@ license = "MIT/Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["tcpserver"]
 use_openssl = ["openssl", "openssl-sys", "tokio-openssl"]
 use_rustls = ["tokio-rustls"]
 dserde = ["data-rw/data"]
-jserde=["data-rw/json"]
-backtrace=["anyhow/backtrace"]
+jserde = ["data-rw/json"]
+backtrace = ["anyhow/backtrace"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
-tcpserver = "2.0"
+tcpserver = { version = "2.0", optional = true }
+tcp-channel-server = { version = "0.1", optional = true }
 aqueue = "1.3"
 async-trait = "0.1"
 anyhow = { version = "1" }
