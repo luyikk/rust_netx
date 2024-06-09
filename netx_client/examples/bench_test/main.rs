@@ -117,8 +117,8 @@ async fn main() -> Result<()> {
         j.await?;
     }
 
-    let ms = start.elapsed().as_millis();
-    let all_count = config.thread_count as u128 * config.count as u128;
-    info!("all time:{} ms,TPS:{} ", ms, all_count / ms * 1000);
+    let ms = start.elapsed().as_secs_f32();
+    let all_count = config.thread_count as f32 * config.count as f32;
+    info!("all time:{} s,TPS:{} ", ms, (all_count / ms) as i64);
     Ok(())
 }

@@ -113,8 +113,6 @@ pub(crate) trait IAsyncTokenInner {
     async fn execute_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
     /// set response result
     async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
-    /// set response error
-    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()>;
     /// check request timeout
     async fn check_request_timeout(&self, request_out_time: u32);
 }
@@ -202,12 +200,6 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn set_error(&self, serial: i64, err: anyhow::Error) -> Result<()> {
-        self.inner_call(|inner| async move { inner.get_mut().set_error(serial, err) })
-            .await
-    }
-
-    #[inline]
     async fn check_request_timeout(&self, request_out_time: u32) {
         self.inner_call(|inner| async move {
             inner.get_mut().check_request_timeout(request_out_time);
@@ -270,7 +262,7 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     #[inline]
     async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()> {
         unsafe {
-            if let Some(ref peer) = self.deref_inner().peer {
+            if let Some(peer) = self.deref_inner().peer.clone() {
                 let peer = peer
                     .upgrade()
                     .ok_or_else(|| anyhow!("token:{} tcp disconnect", self.get_session_id()))?;

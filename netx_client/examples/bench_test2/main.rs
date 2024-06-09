@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for id in 0..config.thread_count {
         let client = client.clone();
         let join = tokio::spawn(async move {
-            let server: Box<dyn IServer> = impl_interface!(client=>IServer);
+            let server = impl_ref!(client=>IServer);
             let start = Instant::now();
             for i in 0..count {
                 if let Err(er) = server.add(1, i as i32).await {
@@ -69,8 +69,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         j.await?;
     }
 
-    let ms = start.elapsed().as_millis();
-    let all_count = config.thread_count as u128 * config.count as u128;
-    info!("all time:{} ms,TPS:{} ", ms, all_count / ms * 1000);
+    let ms = start.elapsed().as_secs_f32();
+    let all_count = config.thread_count as f32 * config.count as f32;
+    info!("all time:{} s,TPS:{} ", ms, (all_count / ms) as i64);
     Ok(())
 }
