@@ -93,8 +93,9 @@ where
                             return Ok(());
                         }
                     };
-
-                    Self::read_buff_byline(&mut reader, &peer, &token).await?;
+                    token.set_peer(Some(peer)).await;
+                    let res=Self::read_buff_byline(&mut reader, &token).await;
+                    token.set_peer(None).await;
                     token
                         .call_special_function(SpecialFunctionTag::Disconnect as i32)
                         .await?;
@@ -102,6 +103,7 @@ where
                         .async_tokens
                         .peer_disconnect(token.get_session_id())
                         .await;
+                    res?;
                     Ok(())
                 })
                 .build()
@@ -141,8 +143,9 @@ where
                             return Ok(());
                         }
                     };
-
-                    Self::read_buff_byline(&mut reader, &peer, &token).await?;
+                    token.set_peer(Some(peer)).await;
+                    let res=Self::read_buff_byline(&mut reader,  &token).await;
+                    token.set_peer(None).await;
                     token
                         .call_special_function(SpecialFunctionTag::Disconnect as i32)
                         .await?;
@@ -150,6 +153,7 @@ where
                         .async_tokens
                         .peer_disconnect(token.get_session_id())
                         .await;
+                    res?;
                     Ok(())
                 })
                 .build()
@@ -185,8 +189,9 @@ where
                         return Ok(());
                     }
                 };
-
-                Self::read_buff_byline(&mut reader, &peer, &token).await?;
+                token.set_peer(Some(peer)).await;
+                let res = Self::read_buff_byline(&mut reader, &token).await;
+                token.set_peer(None).await;
                 token
                     .call_special_function(SpecialFunctionTag::Disconnect as i32)
                     .await?;
@@ -194,6 +199,7 @@ where
                     .async_tokens
                     .peer_disconnect(token.get_session_id())
                     .await;
+                res?;
                 Ok(())
             })
             .build()
@@ -247,28 +253,25 @@ where
     #[inline]
     async fn read_buff_byline(
         reader: &mut NetReadHalf,
-        peer: &Arc<NetPeer>,
         token: &NetxToken<T::Controller>,
     ) -> Result<()> {
-        token.set_peer(Some(Arc::downgrade(peer))).await;
         token
             .call_special_function(SpecialFunctionTag::Connect as i32)
             .await?;
-        Self::data_reading(reader, peer, token).await?;
+        Self::data_reading(reader, token).await?;
         Ok(())
     }
 
     #[inline]
     async fn data_reading(
         mut reader: &mut NetReadHalf,
-        peer: &Arc<NetPeer>,
         token: &NetxToken<T::Controller>,
     ) -> Result<()> {
         while let Ok(mut dr) = reader.read_buff().await {
             let cmd = dr.read_fixed::<i32>()?;
             match cmd {
                 2000 => {
-                    Self::send_to_session_id(peer, token.get_session_id()).await?;
+                    Self::send_to_session_id(token).await?;
                 }
                 2400 => {
                     let tt = dr.read_fixed::<u8>()?;
@@ -347,14 +350,15 @@ where
         data
     }
     #[inline]
-    async fn send_to_session_id(peer: &Arc<NetPeer>, session_id: i64) -> Result<()> {
+    async fn send_to_session_id(token: &NetxToken<T::Controller>) -> Result<()> {
+        let session_id = token.get_session_id();
         let mut data = Data::new();
         data.write_fixed(0u32);
         data.write_fixed(2000i32);
         data.write_fixed(session_id);
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
-        peer.send_all(data.into_inner()).await
+        token.send(data.into_inner()).await
     }
     #[inline]
     async fn send_to_key_verify_msg(peer: &Arc<NetPeer>, is_err: bool, msg: &str) -> Result<()> {

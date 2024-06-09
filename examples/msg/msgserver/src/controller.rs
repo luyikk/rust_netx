@@ -48,36 +48,32 @@ impl Drop for ServerController {
 impl IServerController for ServerController {
     #[inline]
     async fn connect(&self) -> Result<()> {
-        if let Some(weak) = self.token.get_peer().await {
-            if let Some(peer) = weak.upgrade() {
-                info!(
-                    "addr:{} session {} connect",
-                    peer.addr(),
-                    self.token.get_session_id()
-                )
-            }
+        if let Some(peer) = self.token.get_peer().await {
+            info!(
+                "addr:{} session {} connect",
+                peer.addr(),
+                self.token.get_session_id()
+            )
         }
         Ok(())
     }
     #[inline]
     async fn disconnect(&self) -> Result<()> {
         let user = USERMANAGER.find(self.token.get_session_id()).await;
-        if let Some(weak) = self.token.get_peer().await {
-            if let Some(peer) = weak.upgrade() {
-                if let Some(user) = user {
-                    info!(
-                        "nickname:{} addr:{} session {} disconnect",
-                        user.nickname,
-                        peer.addr(),
-                        self.token.get_session_id()
-                    )
-                } else {
-                    info!(
-                        "addr:{} session {} disconnect",
-                        peer.addr(),
-                        self.token.get_session_id()
-                    )
-                }
+        if let Some(peer) = self.token.get_peer().await {
+            if let Some(user) = user {
+                info!(
+                    "nickname:{} addr:{} session {} disconnect",
+                    user.nickname,
+                    peer.addr(),
+                    self.token.get_session_id()
+                )
+            } else {
+                info!(
+                    "addr:{} session {} disconnect",
+                    peer.addr(),
+                    self.token.get_session_id()
+                )
             }
         }
         Ok(())

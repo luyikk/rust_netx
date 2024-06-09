@@ -14,7 +14,7 @@ use tokio::time::Instant;
 pub struct AsyncToken<T> {
     session_id: i64,
     controller: Option<Arc<T>>,
-    peer: Option<Weak<NetPeer>>,
+    peer: Option<Arc<NetPeer>>,
     manager: Weak<dyn IAsyncTokenManager<T>>,
     result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
     serial_atomic: AtomicI64,
@@ -106,7 +106,7 @@ pub(crate) trait IAsyncTokenInner {
     /// clean all controller fun map
     async fn clear_controller_fun_maps(&self);
     /// set peer
-    async fn set_peer(&self, peer: Option<Weak<NetPeer>>);
+    async fn set_peer(&self, peer: Option<Arc<NetPeer>>);
     /// call special function disconnect or connect , close
     async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
     /// run netx controller
@@ -135,7 +135,7 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn set_peer(&self, peer: Option<Weak<NetPeer>>) {
+    async fn set_peer(&self, peer: Option<Arc<NetPeer>>) {
         self.inner_call(|inner| async move {
             inner.get_mut().peer = peer;
         })
@@ -215,7 +215,7 @@ pub trait IAsyncToken {
     /// new serial id
     fn new_serial(&self) -> i64;
     /// get tcp socket peer
-    fn get_peer(&self) -> impl std::future::Future<Output = Option<Weak<NetPeer>>>;
+    fn get_peer(&self) -> impl std::future::Future<Output = Option<Arc<NetPeer>>>;
     /// send buff
     fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(
         &self,
@@ -254,7 +254,7 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn get_peer(&self) -> Option<Weak<NetPeer>> {
+    async fn get_peer(&self) -> Option<Arc<NetPeer>> {
         self.inner_call(|inner| async move { inner.get_mut().peer.clone() })
             .await
     }
@@ -263,9 +263,6 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     async fn send<B: Deref<Target = [u8]> + Send + Sync + 'static>(&self, buff: B) -> Result<()> {
         unsafe {
             if let Some(peer) = self.deref_inner().peer.clone() {
-                let peer = peer
-                    .upgrade()
-                    .ok_or_else(|| anyhow!("token:{} tcp disconnect", self.get_session_id()))?;
                 return peer.send_all(buff).await;
             }
             bail!("token:{} tcp disconnect", self.get_session_id())
@@ -302,8 +299,7 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
         let (peer, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
             .inner_call(|inner| async move {
-                if let Some(ref net) = inner.get().peer {
-                    let peer = net.upgrade().ok_or_else(|| anyhow!("call peer is null"))?;
+                if let Some(peer) = inner.get().peer.clone() {
                     let (tx, rx): (
                         Sender<Result<DataOwnedReader>>,
                         Receiver<Result<DataOwnedReader>>,
@@ -332,10 +328,10 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
 
     #[inline]
     async fn run(&self, buff: Data) -> Result<()> {
-        let peer: Arc<NetPeer> = self
+        let peer = self
             .inner_call(|inner| async move {
-                if let Some(ref net) = inner.get().peer {
-                    Ok(net.upgrade().ok_or_else(|| anyhow!("run not connect"))?)
+                if let Some(peer) = inner.get().peer.clone() {
+                    Ok(peer)
                 } else {
                     bail!("run not connect")
                 }
@@ -349,10 +345,8 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     async fn is_disconnect(&self) -> bool {
         self.inner_call(|inner| async move {
             if let Some(ref peer) = inner.get().peer {
-                if let Some(peer) = peer.upgrade() {
-                    if let Ok(r) = peer.is_disconnect().await {
-                        return r;
-                    }
+                if let Ok(r) = peer.is_disconnect().await {
+                    return r;
                 }
             }
             true
