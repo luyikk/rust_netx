@@ -4,6 +4,7 @@ use crate::controller::*;
 
 use log::LevelFilter;
 use netxclient::prelude::*;
+use openssl::ssl::SslVerifyMode;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,6 +18,7 @@ async fn main() -> anyhow::Result<()> {
         use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
         let ssl_connector = {
             let mut connector = SslConnector::builder(SslMethod::tls())?;
+            connector.set_verify(SslVerifyMode::PEER);
             connector.set_ca_file("./ca_test/CA.crt")?;
             connector.set_private_key_file("./ca_test/client-key.pem", SslFiletype::PEM)?;
             connector.set_certificate_chain_file("./ca_test/client-crt.pem")?;
