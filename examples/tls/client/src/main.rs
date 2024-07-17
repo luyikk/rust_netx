@@ -4,7 +4,6 @@ use crate::controller::*;
 
 use log::LevelFilter;
 use netxclient::prelude::*;
-use openssl::ssl::SslVerifyMode;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,6 +14,7 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
     let client = {
+        use openssl::ssl::SslVerifyMode;
         use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
         let ssl_connector = {
             let mut connector = SslConnector::builder(SslMethod::tls())?;
