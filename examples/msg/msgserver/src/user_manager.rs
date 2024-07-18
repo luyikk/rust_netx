@@ -23,7 +23,7 @@ impl UserManager {
         }
     }
 
-    pub fn check_nickname(&self, nickname: String) -> bool {
+    pub fn check_nickname(&self, nickname: &str) -> bool {
         for user in self.users.iter() {
             if user.nickname == nickname {
                 return false;
@@ -74,7 +74,7 @@ pub(crate) trait IUserManager {
     async fn find_by_nickname(&self, nickname: String) -> Option<User>;
     async fn remove(&self, session_id: i64) -> Option<User>;
     async fn get_users(&self) -> Vec<User>;
-    async fn check_nickname(&self, nickname: String) -> bool;
+    async fn check_nickname(&self, nickname: &str) -> bool;
 }
 
 impl IUserManager for Actor<UserManager> {
@@ -106,7 +106,7 @@ impl IUserManager for Actor<UserManager> {
         unsafe { self.deref_inner().get_users() }
     }
     #[inline]
-    async fn check_nickname(&self, nickname: String) -> bool {
+    async fn check_nickname(&self, nickname: &str) -> bool {
         self.inner_call(|inner| async move { inner.get().check_nickname(nickname) })
             .await
     }

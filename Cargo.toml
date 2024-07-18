@@ -10,5 +10,5 @@ members=[
     "examples/msg/msgserver",
     "examples/msg/packer",
     "examples/tls/server",
-    "examples/tls/client",
+    "examples/tls/client", "examples/msg/msgclient_tui",
 ]

@@ -1,0 +1,6 @@
+{
+  "addr": "127.0.0.1:8000",
+  "service_name": "msgserver",
+  "verify_key": "123123",
+  "request_out_time_ms": 5000
+}

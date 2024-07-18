@@ -88,7 +88,7 @@ impl IServerController for ServerController {
     async fn login(&self, msg: LogOn) -> Result<LogOnRes> {
         info!("{} is logon", msg.nickname);
 
-        if USERMANAGER.check_nickname(msg.nickname.clone()).await {
+        if USERMANAGER.check_nickname(&msg.nickname).await {
             USERMANAGER
                 .add(User {
                     nickname: msg.nickname,
