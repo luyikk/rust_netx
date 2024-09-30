@@ -19,5 +19,8 @@ pub use result::RetResult;
 #[cfg(feature = "use_rustls")]
 pub use rustls_accept_any_cert_verifier::RustlsAcceptAnyCertVerifier;
 
+/// Type alias for a reference-counted `Actor` wrapping a `NetXClient` with a generic session store.
 pub type NetxClientArc<T> = Arc<Actor<NetXClient<T>>>;
+
+/// Type alias for a reference-counted `Actor` wrapping a `NetXClient` with the default session store.
 pub type NetxClientArcDef = Arc<Actor<NetXClient<DefaultSessionStore>>>;

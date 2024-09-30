@@ -5,15 +5,28 @@ use std::io;
 use std::ops::{Index, IndexMut};
 use tokio::io::ErrorKind;
 
+/// A structure representing the result of an operation.
 #[derive(Debug)]
 pub struct RetResult {
+    /// Indicates if the result is an error.
     pub is_error: bool,
+    /// The error ID if the result is an error.
     pub error_id: i32,
+    /// The message associated with the result.
     pub msg: String,
+    /// The arguments associated with the result.
     pub arguments: Vec<DataOwnedReader>,
 }
 
 impl RetResult {
+    /// Creates a new `RetResult`.
+    ///
+    /// # Arguments
+    ///
+    /// * `is_error` - A boolean indicating if the result is an error.
+    /// * `error_id` - The error ID.
+    /// * `msg` - The message associated with the result.
+    /// * `args` - The arguments associated with the result.
     #[inline]
     pub fn new(
         is_error: bool,
@@ -28,6 +41,8 @@ impl RetResult {
             arguments: args,
         }
     }
+
+    /// Creates a `RetResult` representing a successful operation.
     #[inline]
     pub fn success() -> RetResult {
         RetResult {
@@ -38,6 +53,12 @@ impl RetResult {
         }
     }
 
+    /// Creates a `RetResult` representing an error.
+    ///
+    /// # Arguments
+    ///
+    /// * `error_id` - The error ID.
+    /// * `msg` - The error message.
     #[inline]
     pub fn error(error_id: i32, msg: String) -> RetResult {
         RetResult {
@@ -48,6 +69,11 @@ impl RetResult {
         }
     }
 
+    /// Adds a serialized argument to the result.
+    ///
+    /// # Arguments
+    ///
+    /// * `p` - The argument to be serialized and added.
     #[inline]
     pub fn add_arg_buff<T: Serialize>(&mut self, p: T) {
         match Data::pack_from(p) {
@@ -59,6 +85,12 @@ impl RetResult {
             }
         }
     }
+
+    /// Creates a `RetResult` from a `DataOwnedReader`.
+    ///
+    /// # Arguments
+    ///
+    /// * `dr` - The `DataOwnedReader` to create the result from.
     #[inline]
     pub(crate) fn from(mut dr: DataOwnedReader) -> Result<RetResult> {
         if dr.read_fixed::<bool>()? {
@@ -78,16 +110,19 @@ impl RetResult {
         }
     }
 
+    /// Returns the number of arguments in the result.
     #[inline]
     pub fn len(&self) -> usize {
         self.arguments.len()
     }
 
+    /// Checks if the result has no arguments.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.arguments.is_empty()
     }
 
+    /// Checks the result and returns an error if it is an error result.
     #[inline]
     pub fn check(self) -> Result<RetResult> {
         if self.is_error {
@@ -97,6 +132,11 @@ impl RetResult {
         }
     }
 
+    /// Gets a mutable reference to an argument by index.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the argument to get.
     #[inline]
     pub fn get(&mut self, index: usize) -> io::Result<&mut DataOwnedReader> {
         if index >= self.len() {
@@ -105,6 +145,11 @@ impl RetResult {
         Ok(&mut self.arguments[index])
     }
 
+    /// Deserializes the first argument in the result.
+    ///
+    /// # Arguments
+    ///
+    /// * `T` - The type to deserialize the argument into.
     #[inline]
     pub fn deserialize<'a, T: Deserialize<'a> + 'static>(&'a mut self) -> Result<T> {
         if self.is_empty() {

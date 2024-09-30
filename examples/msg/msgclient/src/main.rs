@@ -77,11 +77,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         if args.len() >= 2 {
                             let count = {
                                 if args.len() >= 3 {
-                                    if let Ok(v) = args[2].trim().parse::<i32>() {
-                                        v
-                                    } else {
-                                        1
-                                    }
+                                    args[2].trim().parse::<i32>().unwrap_or(1)
                                 } else {
                                     1
                                 }

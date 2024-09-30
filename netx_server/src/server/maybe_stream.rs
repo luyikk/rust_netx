@@ -8,6 +8,7 @@ use tokio_openssl::SslStream;
 #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
 use tokio_rustls::server::TlsStream;
 
+/// Enum representing a stream that can be either plain TCP or TLS/SSL.
 #[derive(Debug)]
 pub enum MaybeStream {
     Plain(TcpStream),
@@ -18,6 +19,16 @@ pub enum MaybeStream {
 }
 
 impl AsyncRead for MaybeStream {
+    /// Polls for reading from the stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cx` - The context of the current task.
+    /// * `buf` - The buffer to read data into.
+    ///
+    /// # Returns
+    ///
+    /// A `Poll` indicating the result of the read operation.
     #[inline]
     fn poll_read(
         self: Pin<&mut Self>,
@@ -35,6 +46,16 @@ impl AsyncRead for MaybeStream {
 }
 
 impl AsyncWrite for MaybeStream {
+    /// Polls for writing to the stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cx` - The context of the current task.
+    /// * `buf` - The buffer containing data to write.
+    ///
+    /// # Returns
+    ///
+    /// A `Poll` indicating the result of the write operation.
     #[inline]
     fn poll_write(
         self: Pin<&mut Self>,
@@ -49,6 +70,16 @@ impl AsyncWrite for MaybeStream {
             MaybeStream::ServerTls(ref mut s) => Pin::new(s).poll_write(cx, buf),
         }
     }
+
+    /// Polls for flushing the stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cx` - The context of the current task.
+    ///
+    /// # Returns
+    ///
+    /// A `Poll` indicating the result of the flush operation.
     #[inline]
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
@@ -60,6 +91,15 @@ impl AsyncWrite for MaybeStream {
         }
     }
 
+    /// Polls for shutting down the stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cx` - The context of the current task.
+    ///
+    /// # Returns
+    ///
+    /// A `Poll` indicating the result of the shutdown operation.
     #[inline]
     fn poll_shutdown(
         self: Pin<&mut Self>,
