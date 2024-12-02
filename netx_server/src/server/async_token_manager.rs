@@ -8,6 +8,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Weak};
 use tokio::time::{sleep, Duration, Instant};
 
+/// Manages asynchronous tokens, including their creation, timeout checks, and disconnection handling.
 pub struct AsyncTokenManager<T: ICreateController + 'static> {
     impl_controller: T,
     dict: HashMap<i64, NetxToken<T::Controller>>,
@@ -19,9 +20,21 @@ pub struct AsyncTokenManager<T: ICreateController + 'static> {
 unsafe impl<T: ICreateController + 'static> Send for AsyncTokenManager<T> {}
 unsafe impl<T: ICreateController + 'static> Sync for AsyncTokenManager<T> {}
 
+/// Type alias for a reference-counted actor managing asynchronous tokens.
 pub type TokenManager<T> = Arc<Actor<AsyncTokenManager<T>>>;
 
 impl<T: ICreateController + 'static> AsyncTokenManager<T> {
+    /// Creates a new `AsyncTokenManager` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `impl_controller` - The controller implementation.
+    /// * `request_out_time` - The timeout duration for requests.
+    /// * `session_save_time` - The duration to save sessions.
+    ///
+    /// # Returns
+    ///
+    /// An `Arc` wrapped `Actor` managing the `AsyncTokenManager`.
     #[inline]
     pub(crate) fn new(
         impl_controller: T,
@@ -40,6 +53,11 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
         ptr
     }
 
+    /// Starts the periodic check for token timeouts.
+    ///
+    /// # Arguments
+    ///
+    /// * `wk` - A weak reference to the `Actor` managing the `AsyncTokenManager`.
     #[inline]
     fn start_check(wk: Weak<Actor<AsyncTokenManager<T>>>) {
         tokio::spawn(async move {
@@ -52,6 +70,7 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
         });
     }
 
+    /// Checks for tokens that have timed out on requests.
     #[inline]
     async fn check_tokens_request_timeout(&self) {
         for token in self.dict.values() {
@@ -59,6 +78,7 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
         }
     }
 
+    /// Checks for tokens that have timed out on disconnection.
     #[inline]
     async fn check_tokens_disconnect_timeout(&mut self) {
         while let Some(item) = self.request_disconnect_clear_queue.pop_back() {
@@ -90,10 +110,25 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
         }
     }
 
+    /// Generates a new session ID.
+    ///
+    /// # Returns
+    ///
+    /// A new session ID as an `i64`.
     #[inline]
     fn make_new_session_id(&mut self) -> i64 {
         chrono::Local::now().timestamp_nanos_opt().unwrap()
     }
+
+    /// Creates a new token.
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - A weak reference to the `Actor` managing the `AsyncTokenManager`.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the new `NetxToken` or an error.
     #[inline]
     async fn create_token(
         &mut self,
@@ -107,18 +142,42 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
         Ok(token)
     }
 
+    /// Retrieves a token by its session ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID of the token.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the `NetxToken` if found.
     #[inline]
     pub fn get_token(&self, session_id: i64) -> Option<NetxToken<T::Controller>> {
         self.dict.get(&session_id).cloned()
     }
 
+    /// Retrieves all tokens.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec` containing all `NetxToken`s.
     #[inline]
     pub fn get_all_tokens(&self) -> Vec<NetxToken<T::Controller>> {
         self.dict.values().cloned().collect()
     }
 }
 
+/// Trait for creating tokens asynchronously.
 pub(crate) trait IAsyncTokenManagerCreateToken<T> {
+    /// Creates a new token.
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - A weak reference to the `Actor` managing the `AsyncTokenManager`.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the new `NetxToken` or an error.
     async fn create_token(&self, manager: Weak<Self>) -> Result<NetxToken<T>>;
 }
 
@@ -132,16 +191,42 @@ impl<T: ICreateController + 'static> IAsyncTokenManagerCreateToken<T::Controller
     }
 }
 
+/// Trait for managing tokens.
 #[async_trait::async_trait]
 pub trait ITokenManager<T>: Send + Sync {
+    /// Retrieves a token by its session ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID of the token.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the `NetxToken` if found.
     async fn get_token(&self, session_id: i64) -> Option<NetxToken<T>>;
+
+    /// Retrieves all tokens.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `Vec` of all `NetxToken`s or an error.
     async fn get_all_tokens(&self) -> Result<Vec<NetxToken<T>>>;
 }
 
+/// Trait for managing tokens asynchronously.
 #[async_trait::async_trait]
 pub(crate) trait IAsyncTokenManager<T>: ITokenManager<T> {
+    /// Checks for tokens that have timed out on requests.
     async fn check_tokens_request_timeout(&self);
+
+    /// Checks for tokens that have timed out on disconnection.
     async fn check_tokens_disconnect_timeout(&self);
+
+    /// Handles peer disconnection.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID of the token.
     async fn peer_disconnect(&self, session_id: i64);
 }
 

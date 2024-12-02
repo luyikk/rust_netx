@@ -34,17 +34,25 @@ if #[cfg(feature = "use_openssl")]{
    use tokio_rustls::rustls::pki_types::ServerName;
 }}
 
+/// Configuration for TLS (Transport Layer Security).
 #[derive(Clone)]
 pub enum TlsConfig {
+    /// No TLS configuration.
     None,
+    /// OpenSSL TLS configuration.
     #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
     OpenSsl {
+        /// The domain name for the TLS connection.
         domain: String,
+        /// The OpenSSL connector.
         connector: SslConnector,
     },
+    /// Rustls TLS configuration.
     #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
     Rustls {
+        /// The domain name for the TLS connection.
         domain: ServerName<'static>,
+        /// The Rustls connector.
         connector: TlsConnector,
     },
 }
@@ -52,59 +60,118 @@ pub enum TlsConfig {
 #[cfg(all(feature = "tcpclient", not(feature = "tcp-channel-client")))]
 pub type NetPeer = Actor<TcpClient<MaybeStream>>;
 
+/// Type alias for `NetPeer` when the `tcp-channel-client` feature is enabled.
 #[cfg(feature = "tcp-channel-client")]
 pub type NetPeer = TcpClient<MaybeStream>;
 
+/// Type alias for the read half of a network stream.
 pub type NetReadHalf = ReadHalf<MaybeStream>;
 
+/// Represents a network client with various configurations and states.
 pub struct NetXClient<T> {
+    /// Information about the server.
     pub server_info: ServerOption,
+    /// Configuration for TLS (Transport Layer Security).
     pub tls_config: TlsConfig,
+    /// Mode of the client.
     pub mode: u8,
+    /// Session information.
     pub session: T,
+    /// Optional network peer.
     net: Option<Arc<NetPeer>>,
+    /// Optional receiver for connection status updates.
     connect_stats: Option<WReceiver<(bool, String)>>,
+    /// Dictionary to store results with their corresponding serial numbers.
     result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
+    /// Atomic counter for generating serial numbers.
     serial_atomic: AtomicI64,
+    /// Manager for handling requests.
     request_manager: OnceCell<Arc<Actor<RequestManager<T>>>>,
+    /// Optional controller for handling special functions.
     controller: Option<Box<dyn IController>>,
 }
 
+/// Trait for session management.
+///
+/// This trait defines methods for getting and storing session IDs,
+/// which are used to manage individual sessions within the network client.
 pub trait SessionSave {
+    /// Gets the current session ID.
+    ///
+    /// # Returns
+    ///
+    /// * `i64` - The current session ID.
     fn get_session_id(&self) -> i64;
+
+    /// Stores the given session ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `session_id` - The session ID to store.
     fn store_session_id(&mut self, session_id: i64);
 }
 
+/// Tags for special functions that can be called by the network client.
 enum SpecialFunctionTag {
+    /// Tag for the connect function.
     Connect = 2147483647,
+    /// Tag for the disconnect function.
     Disconnect = 2147483646,
+    /// Tag for the closed function.
     Closed = 2147483645,
 }
 
+/// `Send` implementation for `NetXClient`.
 unsafe impl<T> Send for NetXClient<T> {}
+
+/// `Sync` implementation for `NetXClient`.
 unsafe impl<T> Sync for NetXClient<T> {}
 
+/// Custom `Drop` implementation for `NetXClient`.
 impl<T> Drop for NetXClient<T> {
+    /// Logs a debug message when the `NetXClient` is dropped.
     fn drop(&mut self) {
         log::debug!("{} is drop", self.server_info)
     }
 }
 
+/// Configuration options for the server.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ServerOption {
+    /// The address of the server.
     pub addr: String,
+    /// The name of the service.
     pub service_name: String,
+    /// The key used for verification.
     pub verify_key: String,
+    /// The timeout for requests in milliseconds.
     pub request_out_time_ms: u32,
 }
 
+/// Implementation of the `Display` trait for `ServerOption`.
+///
+/// This allows `ServerOption` to be formatted as a string,
+/// displaying the service name and address.
 impl std::fmt::Display for ServerOption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}[{}]", self.service_name, self.addr)
     }
 }
 
+/// Implementation of the `ServerOption` struct.
 impl ServerOption {
+    /// Creates a new `ServerOption`.
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The address of the server.
+    /// * `service_name` - The name of the service.
+    /// * `verify_key` - The key used for verification.
+    /// * `request_out_time_ms` - The timeout for requests in milliseconds.
+    ///
+    /// # Returns
+    ///
+    /// * `ServerOption` - A new instance of `ServerOption`.
     pub fn new(
         addr: String,
         service_name: String,
@@ -123,6 +190,18 @@ impl ServerOption {
 impl<T: SessionSave + 'static> NetXClient<T> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "use_openssl")] {
+            /// Creates a new `NetXClient` with OpenSSL TLS configuration.
+            ///
+            /// # Parameters
+            ///
+            /// * `server_info` - Configuration options for the server.
+            /// * `session` - The session information.
+            /// * `domain` - The domain name for the TLS connection.
+            /// * `connector` - The OpenSSL connector.
+            ///
+            /// # Returns
+            ///
+            /// * `NetxClientArc<T>` - A new instance of `NetXClient` wrapped in an `Arc`.
             pub fn new_ssl(server_info: ServerOption, session:T,domain:String,connector:SslConnector) ->NetxClientArc<T>{
                 let request_out_time_ms=server_info.request_out_time_ms;
                 let netx_client=Arc::new(Actor::new(NetXClient{
@@ -146,7 +225,19 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                 }
                 netx_client
             }
-        } else if #[cfg(feature = "use_rustls")]{
+        } else if #[cfg(feature = "use_rustls")] {
+             /// Creates a new `NetXClient` with Rustls TLS configuration.
+             ///
+             /// # Parameters
+             ///
+             /// * `server_info` - Configuration options for the server.
+             /// * `session` - The session information.
+             /// * `domain` - The domain name for the TLS connection.
+             /// * `connector` - The Rustls connector.
+             ///
+             /// # Returns
+             ///
+             /// * `NetxClientArc<T>` - A new instance of `NetXClient` wrapped in an `Arc`.
              pub fn new_tls(server_info: ServerOption, session:T,domain:ServerName<'static>,connector:TlsConnector) ->NetxClientArc<T>{
                 let request_out_time_ms=server_info.request_out_time_ms;
                 let netx_client=Arc::new(Actor::new(NetXClient{
@@ -173,6 +264,16 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         }
     }
 
+    /// Creates a new `NetXClient` without TLS configuration.
+    ///
+    /// # Parameters
+    ///
+    /// * `server_info` - Configuration options for the server.
+    /// * `session` - The session information.
+    ///
+    /// # Returns
+    ///
+    /// * `NetxClientArc<T>` - A new instance of `NetXClient` wrapped in an `Arc`.
     pub fn new(server_info: ServerOption, session: T) -> NetxClientArc<T> {
         let request_out_time_ms = server_info.request_out_time_ms;
         let netx_client = Arc::new(Actor::new(NetXClient {
@@ -203,11 +304,32 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         netx_client
     }
 
+    /// Initializes the `NetXClient` with a given controller.
+    ///
+    /// # Parameters
+    ///
+    /// * `controller` - The controller to initialize the client with. It must implement the `IController` trait and be `Sync`, `Send`, and `'static`.
     #[inline]
     pub fn init<C: IController + Sync + Send + 'static>(&mut self, controller: C) {
         self.controller = Some(Box::new(controller));
     }
 
+    /// Reads data from the network stream into the buffer and processes it.
+    ///
+    /// This function reads data from the provided `reader` and processes it using
+    /// the `read_buffer` method. If an error occurs during reading, it logs the error.
+    /// After reading, it cleans up the connection and calls the special disconnect function.
+    ///
+    /// # Parameters
+    ///
+    /// * `(netx_client, set_connect)` - A tuple containing the `NetxClientArc` and a `WSender`
+    ///   for connection status updates.
+    /// * `client` - An `Arc` containing the network peer.
+    /// * `reader` - The read half of the network stream.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<bool>` - Returns `Ok(true)` if the operation is successful, otherwise returns an error.
     #[allow(clippy::type_complexity)]
     async fn input_buffer(
         (netx_client, set_connect): (NetxClientArc<T>, WSender<(bool, String)>),
@@ -225,6 +347,22 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         Ok(true)
     }
 
+    /// Reads data from the network stream into the buffer and processes it.
+    ///
+    /// This function reads data from the provided `reader` and processes it using
+    /// the `read_buffer` method. If an error occurs during reading, it logs the error.
+    /// After reading, it cleans up the connection and calls the special disconnect function.
+    ///
+    /// # Parameters
+    ///
+    /// * `netx_client` - A reference to the `NetxClientArc`.
+    /// * `set_connect` - A `WSender` for connection status updates.
+    /// * `client` - An `Arc` containing the network peer.
+    /// * `reader` - The read half of the network stream.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns `Ok(())` if the operation is successful, otherwise returns an error.
     async fn read_buffer(
         netx_client: &NetxClientArc<T>,
         set_connect: WSender<(bool, String)>,
@@ -376,6 +514,15 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         Ok(())
     }
 
+    /// Calls a special function on the controller if it exists.
+    ///
+    /// # Parameters
+    ///
+    /// * `cmd_tag` - The command tag to be sent to the controller.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns `Ok(())` if the operation is successful, otherwise returns an error.
     #[inline]
     pub(crate) async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
         if let Some(ref controller) = self.controller {
@@ -386,6 +533,17 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         Ok(())
     }
 
+    /// Executes a command on the controller if it exists.
+    ///
+    /// # Parameters
+    ///
+    /// * `tt` - The type tag for the command.
+    /// * `cmd` - The command to be executed.
+    /// * `dr` - The data reader containing the command data.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<RetResult>` - Returns the result of the command execution if successful, otherwise returns an error.
     #[inline]
     pub(crate) async fn execute_controller(
         &self,
@@ -399,6 +557,17 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         bail!("controller is none")
     }
 
+    /// Generates a verification buffer.
+    ///
+    /// # Parameters
+    ///
+    /// * `service_name` - The name of the service.
+    /// * `verify_key` - The key used for verification.
+    /// * `session_id` - The session ID.
+    ///
+    /// # Returns
+    ///
+    /// * `Data` - The verification buffer.
     #[inline]
     fn get_verify_buff(service_name: &str, verify_key: &str, session_id: &i64) -> Data {
         let mut data = Data::with_capacity(128);
@@ -409,6 +578,15 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         data
     }
 
+    /// Generates a session ID buffer.
+    ///
+    /// # Parameters
+    ///
+    /// * `mode` - The mode of the client.
+    ///
+    /// # Returns
+    ///
+    /// * `Data` - The session ID buffer.
     fn get_session_id_buff(mode: u8) -> Data {
         let mut buff = Data::with_capacity(32);
         buff.write_fixed(2000);
@@ -423,6 +601,17 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         }
     }
 
+    /// Generates a result buffer.
+    ///
+    /// # Parameters
+    ///
+    /// * `session_id` - The session ID.
+    /// * `result` - The result of the operation.
+    /// * `mode` - The mode of the client.
+    ///
+    /// # Returns
+    ///
+    /// * `Data` - The result buffer.
     #[inline]
     fn get_result_buff(session_id: i64, result: RetResult, mode: u8) -> Data {
         let mut data = Data::with_capacity(1024);
@@ -451,61 +640,125 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         }
     }
 
+    /// Sets the mode of the client.
+    ///
+    /// # Parameters
+    ///
+    /// * `mode` - The mode to set.
     #[inline]
-    pub fn set_mode(&mut self, mode: u8) {
+    fn set_mode(&mut self, mode: u8) {
         self.mode = mode
     }
 
+    /// Gets the current mode of the client.
+    ///
+    /// # Returns
+    ///
+    /// * `u8` - The current mode.
     #[inline]
     pub fn get_mode(&self) -> u8 {
         self.mode
     }
 
+    /// Gets the address of the server as a string.
+    ///
+    /// # Returns
+    ///
+    /// * `String` - The server address.
     #[inline]
     pub fn get_addr_string(&self) -> String {
         self.server_info.addr.clone()
     }
 
+    /// Gets the service information of the server.
+    ///
+    /// # Returns
+    ///
+    /// * `ServerOption` - The service information.
     #[inline]
     pub fn get_service_info(&self) -> ServerOption {
         self.server_info.clone()
     }
 
+    /// Gets the current session ID.
+    ///
+    /// # Returns
+    ///
+    /// * `i64` - The current session ID.
     #[inline]
     pub fn get_session_id(&self) -> i64 {
         self.session.get_session_id()
     }
 
+    /// Stores the given session ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `session_id` - The session ID to store.
     #[inline]
     pub fn store_session_id(&mut self, session_id: i64) {
         self.session.store_session_id(session_id)
     }
 
+    /// Sets the network client.
+    ///
+    /// # Parameters
+    ///
+    /// * `client` - The network client to set.
     #[inline]
     pub fn set_network_client(&mut self, client: Arc<NetPeer>) {
         self.net = Some(client);
     }
 
+    /// Sets the connection status receiver.
+    ///
+    /// # Parameters
+    ///
+    /// * `stats` - The connection status receiver to set.
     #[inline]
     pub fn set_connect_stats(&mut self, stats: Option<WReceiver<(bool, String)>>) {
         self.connect_stats = stats;
     }
 
+    /// Checks if the client is connected.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` if connected, `false` otherwise.
     #[inline]
     pub fn is_connect(&self) -> bool {
         self.net.is_some()
     }
 
+    /// Generates a new serial number.
+    ///
+    /// # Returns
+    ///
+    /// * `i64` - The new serial number.
     #[inline]
     pub fn new_serial(&self) -> i64 {
         self.serial_atomic.fetch_add(1, Ordering::Acquire)
     }
 
+    /// Gets the length of the callback dictionary.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The length of the callback dictionary.
     #[inline]
     pub fn get_callback_len(&mut self) -> usize {
         self.result_dict.len()
     }
 
+    /// Sets the request session ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `session_id` - The session ID to set.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns `Ok(())` if successful, otherwise returns an error.
     #[inline]
     pub(crate) async fn set_request_session_id(&self, session_id: i64) -> Result<()> {
         if let Some(request) = self.request_manager.get() {
@@ -515,27 +768,76 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     }
 }
 
+/// Trait defining the internal operations for the `NetXClient`.
+///
+/// This trait includes methods for handling timeouts, setting results and errors,
+/// calling special functions, executing controllers, cleaning connections, and resetting connection statuses.
 pub(crate) trait INextClientInner {
-    /// get request or connect timeout time ms
+    /// Gets the request or connect timeout time in milliseconds.
     fn get_timeout_ms(&self) -> u32;
-    /// set response result
+
+    /// Sets the response result.
+    ///
+    /// # Parameters
+    /// - `serial`: The serial number of the request.
+    /// - `data`: The data to be set as the result.
     async fn set_result(&self, serial: i64, data: DataOwnedReader);
-    /// set response error
+
+    /// Sets the response error.
+    ///
+    /// # Parameters
+    /// - `serial`: The serial number of the request.
+    /// - `err`: The error to be set as the result.
     async fn set_error(&self, serial: i64, err: anyhow::Error);
-    /// call special function  disconnect or connect cmd
+
+    /// Calls a special function (disconnect or connect command).
+    ///
+    /// # Parameters
+    /// - `cmd_tag`: The command tag to be sent.
+    ///
+    /// # Returns
+    /// - `Result<()>`: Returns `Ok(())` if the operation is successful, otherwise returns an error.
     async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
-    /// call request controller
+
+    /// Calls the request controller.
+    ///
+    /// # Parameters
+    /// - `tt`: The type tag for the command.
+    /// - `cmd`: The command to be executed.
+    /// - `data`: The data reader containing the command data.
+    ///
+    /// # Returns
+    /// - `RetResult`: Returns the result of the command execution if successful, otherwise returns an error.
     async fn execute_controller(&self, tt: u8, cmd: i32, data: DataOwnedReader) -> RetResult;
-    /// clean current connect
+
+    /// Cleans the current connection.
+    ///
+    /// # Returns
+    /// - `Result<()>`: Returns `Ok(())` if the operation is successful, otherwise returns an error.
     async fn clean_connect(&self) -> Result<()>;
-    /// reset network connect stats
+
+    /// Resets the network connection status.
     async fn reset_connect_stats(&self);
-    /// set netx mode
+
+    /// Sets the mode of the client.
+    ///
+    /// # Parameters
+    /// - `mode`: The mode to set.
     async fn set_mode(&self, mode: u8);
-    /// store netx session id
+
+    /// Stores the session ID.
+    ///
+    /// # Parameters
+    /// - `session_id`: The session ID to store.
     async fn store_session_id(&self, session_id: i64);
 }
 
+/// Implementation of the `INextClientInner` trait for `Actor<NetXClient<T>>`.
+///
+/// This implementation provides the internal operations for the `NetXClient`,
+/// including methods for handling timeouts, setting results and errors,
+/// calling special functions, executing controllers, cleaning connections,
+/// and resetting connection statuses.
 impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
     #[inline]
     fn get_timeout_ms(&self) -> u32 {
@@ -635,42 +937,120 @@ impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
 
 #[allow(clippy::too_many_arguments)]
 pub trait INetXClient {
-    /// init netx client controller
+    /// Initializes the NetX client controller.
+    ///
+    /// # Parameters
+    /// - `controller`: The controller to initialize, which must implement the `IController` trait and be `Sync`, `Send`, and `'static`.
+    ///
+    /// # Returns
+    /// A future that resolves to a `Result<()>`.
     fn init<C: IController + Sync + Send + 'static>(
         &self,
         controller: C,
     ) -> impl std::future::Future<Output = Result<()>>;
-    /// connect to network
+
+    /// Connects to the network.
+    ///
+    /// # Returns
+    /// A future that resolves to a `Result<()>`.
     fn connect_network(self: &Arc<Self>) -> impl std::future::Future<Output = Result<()>> + Send;
-    /// get ssl
+
+    /// Gets the TLS configuration.
+    ///
+    /// # Returns
+    /// The TLS configuration.
     fn get_tls_config(&self) -> TlsConfig;
-    /// get netx server address
+
+    /// Gets the NetX server address.
+    ///
+    /// # Returns
+    /// The server address as a `String`.
     fn get_address(&self) -> String;
-    /// get netx client service config
+
+    /// Gets the NetX client service configuration.
+    ///
+    /// # Returns
+    /// The service configuration as a `ServerOption`.
     fn get_service_info(&self) -> ServerOption;
-    /// get netx session id
+
+    /// Gets the NetX session ID.
+    ///
+    /// # Returns
+    /// The session ID as an `i64`.
     fn get_session_id(&self) -> i64;
-    /// get netx mode
+
+    /// Gets the NetX mode.
+    ///
+    /// # Returns
+    /// The mode as a `u8`.
     fn get_mode(&self) -> u8;
-    /// new serial id
+
+    /// Generates a new serial ID.
+    ///
+    /// # Returns
+    /// The new serial ID as an `i64`.
     fn new_serial(&self) -> i64;
-    /// is connect to server
+
+    /// Checks if the client is connected to the server.
+    ///
+    /// # Returns
+    /// `true` if connected, `false` otherwise.
     fn is_connect(&self) -> bool;
-    /// get tcp socket peer
+
+    /// Gets the TCP socket peer.
+    ///
+    /// # Returns
+    /// A future that resolves to an `Option<Arc<NetPeer>>`.
     fn get_peer(&self) -> impl std::future::Future<Output = Option<Arc<NetPeer>>>;
-    /// set tcp socket peer
+
+    /// Sets the TCP socket peer.
+    ///
+    /// # Parameters
+    /// - `client`: The network client to set.
+    ///
+    /// # Returns
+    /// A future that resolves to `()`.
     fn set_network_client(&self, client: Arc<NetPeer>) -> impl std::future::Future<Output = ()>;
-    /// get request wait callback len
+
+    /// Gets the length of the request wait callback.
+    ///
+    /// # Returns
+    /// A future that resolves to the length as a `usize`.
     fn get_callback_len(&self) -> impl std::future::Future<Output = usize>;
-    /// close netx client
+
+    /// Closes the NetX client.
+    ///
+    /// # Returns
+    /// A future that resolves to a `Result<()>`.
     fn close(&self) -> impl std::future::Future<Output = Result<()>>;
-    /// call
+
+    /// Calls a function with the given serial and buffer.
+    ///
+    /// # Parameters
+    /// - `serial`: The serial ID.
+    /// - `buff`: The data buffer.
+    ///
+    /// # Returns
+    /// A future that resolves to a `Result<RetResult>`.
     fn call(&self, serial: i64, buff: Data)
         -> impl std::future::Future<Output = Result<RetResult>>;
-    /// run
+
+    /// Runs the client with the given buffer.
+    ///
+    /// # Parameters
+    /// - `buff`: The data buffer.
+    ///
+    /// # Returns
+    /// A future that resolves to a `Result<()>`.
     fn run(&self, buff: Data) -> impl std::future::Future<Output = Result<()>>;
 }
 
+/// Implementation of the `INetXClient` trait for `Actor<NetXClient<T>>`.
+///
+/// This implementation provides the external operations for the `NetXClient`,
+/// including methods for initializing the controller, connecting to the network,
+/// getting configuration and session information, generating serial IDs, and
+/// checking connection status.
 #[allow(clippy::too_many_arguments)]
 impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
     #[inline]
@@ -905,8 +1285,11 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
 
 #[macro_export]
 macro_rules! call {
+    // Helper macro to count the number of arguments
     (@uint $($x:tt)*)=>(());
     (@count $($rest:expr),*)=>(<[()]>::len(&[$(call!(@uint $rest)),*]));
+
+    // Macro to call a command and deserialize the result
     ($client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
                 $client.connect_network().await?;
@@ -924,6 +1307,8 @@ macro_rules! call {
             let mut ret= $client.call(serial,data).await?.check()?;
             ret.deserialize()?
     });
+
+    // Macro to call a command and return the result
     (@result $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
                $client.connect_network().await?;
@@ -940,6 +1325,8 @@ macro_rules! call {
             $(data.pack_serialize($args)?;)*
             $client.call(serial,data).await?
     });
+
+    // Macro to run a command without returning a result
     (@run $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
                 $client.connect_network().await?;
@@ -956,6 +1343,8 @@ macro_rules! call {
             $(data.pack_serialize($args)?;)*
             $client.run(data).await?;
     });
+
+    // Macro to run a command without returning a result and log errors
      (@run_not_err $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
                if let Err(err)= $client.connect_network().await{
@@ -980,6 +1369,8 @@ macro_rules! call {
                  log::warn!{"run {} is error:{}",$cmd,err}
             }
     });
+
+    // Macro to call a command, check the result, and return an error if the check fails
     (@checkrun $client:expr=>$cmd:expr;$($args:expr), *$(,)*) => ({
             if $client.is_connect() ==false{
                 $client.connect_network().await?;
@@ -1000,7 +1391,7 @@ macro_rules! call {
 
 }
 
-/// make Box<dyn $interface> will clone $client
+/// Macro to create a `Box<dyn $interface>` that clones `$client`.
 #[macro_export]
 macro_rules! impl_interface {
     ($client:expr=>$interface:ty) => {
@@ -1010,7 +1401,7 @@ macro_rules! impl_interface {
     };
 }
 
-/// make impl $interface will clone $client
+/// Macro to create an implementation of `$interface` that clones `$client`.
 #[macro_export]
 macro_rules! impl_struct {
     ($client:expr=>$interface:ty) => {
@@ -1020,7 +1411,7 @@ macro_rules! impl_struct {
     };
 }
 
-/// make $interface struct  will ref $client
+/// Macro to create a struct for `$interface` that references `$client`.
 #[macro_export]
 macro_rules! impl_ref {
     ($client:expr=>$interface:ty) => {
@@ -1030,7 +1421,7 @@ macro_rules! impl_ref {
     };
 }
 
-/// make Box<dyn $interface> not clone $client
+/// Macro to create a `Box<dyn $interface>` without cloning `$client`.
 #[macro_export]
 macro_rules! impl_owned_interface {
     ($client:expr=>$interface:ty) => {

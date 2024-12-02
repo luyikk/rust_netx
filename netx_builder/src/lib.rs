@@ -1,6 +1,8 @@
+/// Module containing global information.
 mod global_info;
 
 extern crate proc_macro;
+
 use global_info::*;
 use proc_macro::TokenStream;
 use proc_macro_roids::namespace_parameter;
@@ -14,6 +16,7 @@ const CONNECT: i32 = 2147483647;
 const DISCONNECT: i32 = 2147483646;
 const CLOSED: i32 = 2147483645;
 
+/// Checks if a method has a tag and returns the tag value if present.
 fn have_tag(method: &TraitItemMethod) -> Option<i32> {
     if let Some(tag) = namespace_parameter(&method.attrs[..], &parse_quote!(tag)) {
         match tag {
@@ -55,6 +58,7 @@ fn have_tag(method: &TraitItemMethod) -> Option<i32> {
     None
 }
 
+/// Determines the function type tag based on the return type.
 fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
     match rt {
         Type::Path(tp) => {
@@ -89,7 +93,6 @@ fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
                     }
                 }
             }
-            //panic!("return type not anyhow::Result<?> tag id:{} fn {}->{}", tag_id, func_name,seq.ident)
             panic!("return type is None:{} {} ", tag_id, func_name)
         }
         _ => {
@@ -101,6 +104,7 @@ fn get_function_tt(tag_id: i32, func_name: String, rt: Type) -> u8 {
     }
 }
 
+/// Generates client implementation functions based on the provided function information.
 fn get_impl_func_client(funcs: &[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     let mut ret = Vec::new();
     for func in funcs {
@@ -140,6 +144,7 @@ fn get_impl_func_client(funcs: &[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     ret
 }
 
+/// Generates server implementation functions based on the provided function information.
 fn get_impl_func_server(funcs: &[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     let mut ret = Vec::new();
     for func in funcs {
@@ -179,7 +184,7 @@ fn get_impl_func_server(funcs: &[FuncInfo]) -> Vec<proc_macro2::TokenStream> {
     ret
 }
 
-/// build client interface
+/// Macro to build client interface.
 #[proc_macro_attribute]
 pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as ItemTrait);
@@ -322,7 +327,6 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
             }
-
         };
 
         TokenStream::from(expanded)
@@ -338,7 +342,7 @@ pub fn build_client(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 }
 
-/// build server interface
+/// Macro to build server interface.
 #[proc_macro_attribute]
 pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as ItemTrait);
@@ -376,7 +380,6 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
         impl<'a,T: IController + 'static> #interface_name for #impl_interface_struct_name<&'a NetxToken<T>>{
             #(#impl_func)*
         }
-
     };
 
     if !controller_name.is_empty() {
@@ -451,9 +454,7 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         });
         let expanded = quote! {
-
             #ast
-
 
             impl IController for #controller{
                 #[inline]
@@ -471,7 +472,6 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
             }
-
         };
 
         TokenStream::from(expanded)
@@ -485,6 +485,8 @@ pub fn build_server(args: TokenStream, input: TokenStream) -> TokenStream {
         TokenStream::from(expanded)
     }
 }
+
+/// Extracts function information from the trait.
 fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
     let mut funcs = Vec::new();
     for item in &mut ast.items {
@@ -541,7 +543,7 @@ fn get_funcs_info(ast: &mut ItemTrait) -> Vec<FuncInfo> {
     funcs
 }
 
-/// impl interface
+/// Macro to implement an interface.
 #[proc_macro_attribute]
 pub fn build_impl(_: TokenStream, input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as ItemImpl);
@@ -550,7 +552,7 @@ pub fn build_impl(_: TokenStream, input: TokenStream) -> TokenStream {
     })
 }
 
-/// impl interface
+/// Macro to implement a client interface.
 #[proc_macro_attribute]
 pub fn build_impl_client(_: TokenStream, input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as ItemImpl);
@@ -560,7 +562,7 @@ pub fn build_impl_client(_: TokenStream, input: TokenStream) -> TokenStream {
     })
 }
 
-/// set cmd tag
+/// Macro to set a command tag.
 #[proc_macro_attribute]
 pub fn tag(_: TokenStream, input: TokenStream) -> TokenStream {
     input

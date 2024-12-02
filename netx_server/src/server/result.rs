@@ -5,6 +5,13 @@ use std::io;
 use std::io::ErrorKind;
 use std::ops::{Index, IndexMut};
 
+/// A struct representing the result of an operation.
+///
+/// # Fields
+/// - `is_error`: A boolean indicating if the result is an error.
+/// - `error_id`: An integer representing the error ID.
+/// - `msg`: A string containing the message associated with the result.
+/// - `arguments`: A vector of `DataOwnedReader` containing additional arguments.
 #[derive(Debug)]
 pub struct RetResult {
     pub is_error: bool,
@@ -14,6 +21,18 @@ pub struct RetResult {
 }
 
 impl RetResult {
+    /// Creates a new `RetResult`.
+    ///
+    /// # Arguments
+    ///
+    /// * `is_error` - A boolean indicating if the result is an error.
+    /// * `error_id` - An integer representing the error ID.
+    /// * `msg` - A string containing the message associated with the result.
+    /// * `args` - A vector of `DataOwnedReader` containing additional arguments.
+    ///
+    /// # Returns
+    ///
+    /// A new `RetResult` instance.
     #[inline]
     pub fn new(
         is_error: bool,
@@ -28,6 +47,12 @@ impl RetResult {
             arguments: args,
         }
     }
+
+    /// Creates a new `RetResult` representing a successful operation.
+    ///
+    /// # Returns
+    ///
+    /// A new `RetResult` instance with `is_error` set to `false`.
     #[inline]
     pub fn success() -> RetResult {
         RetResult {
@@ -38,6 +63,16 @@ impl RetResult {
         }
     }
 
+    /// Creates a new `RetResult` representing an error.
+    ///
+    /// # Arguments
+    ///
+    /// * `error_id` - An integer representing the error ID.
+    /// * `msg` - A string containing the error message.
+    ///
+    /// # Returns
+    ///
+    /// A new `RetResult` instance with `is_error` set to `true`.
     #[inline]
     pub fn error(error_id: i32, msg: String) -> RetResult {
         RetResult {
@@ -48,6 +83,15 @@ impl RetResult {
         }
     }
 
+    /// Adds a serialized argument to the `RetResult`.
+    ///
+    /// # Arguments
+    ///
+    /// * `p` - The argument to be serialized and added.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The type of the argument to be serialized.
     #[inline]
     pub fn add_arg_buff<T: Serialize>(&mut self, p: T) {
         match Data::pack_from(p) {
@@ -60,6 +104,15 @@ impl RetResult {
         }
     }
 
+    /// Creates a `RetResult` from a `DataOwnedReader`.
+    ///
+    /// # Arguments
+    ///
+    /// * `dr` - The `DataOwnedReader` to create the `RetResult` from.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the new `RetResult` or an error.
     #[inline]
     pub(crate) fn from(mut dr: DataOwnedReader) -> Result<RetResult> {
         if dr.read_fixed::<bool>()? {
@@ -79,16 +132,31 @@ impl RetResult {
         }
     }
 
+    /// Returns the number of arguments in the `RetResult`.
+    ///
+    /// # Returns
+    ///
+    /// The number of arguments.
     #[inline]
     pub fn len(&self) -> usize {
         self.arguments.len()
     }
 
+    /// Checks if the `RetResult` has no arguments.
+    ///
+    /// # Returns
+    ///
+    /// `true` if there are no arguments, `false` otherwise.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.arguments.is_empty()
     }
 
+    /// Checks if the `RetResult` is an error and returns it if not.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the `RetResult` or an error.
     #[inline]
     pub fn check(self) -> Result<RetResult> {
         if self.is_error {
@@ -98,6 +166,15 @@ impl RetResult {
         }
     }
 
+    /// Gets a mutable reference to an argument by index.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the argument to get.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a mutable reference to the argument or an error.
     #[inline]
     pub fn get(&mut self, index: usize) -> io::Result<&mut DataOwnedReader> {
         if index >= self.len() {
@@ -106,6 +183,15 @@ impl RetResult {
         Ok(&mut self.arguments[index])
     }
 
+    /// Deserializes the first argument in the `RetResult`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The type to deserialize to.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the deserialized value or an error.
     #[inline]
     pub fn deserialize<'a, T: Deserialize<'a> + 'static>(&'a mut self) -> Result<T> {
         if self.is_empty() {
