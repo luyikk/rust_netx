@@ -30,6 +30,7 @@ pub trait IServer: Sync + Send {
     #[tag(700)]
     async fn run_test(&self, a: Option<&str>) -> Result<()>;
     #[tag(5001)]
+    #[allow(dead_code)]
     async fn test(&self, msg: &str, i: i32);
     #[tag(1003)]
     async fn to_client_add_one(&self, a: i32) -> Result<i32>;

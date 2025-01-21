@@ -40,10 +40,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         DefaultSessionStore::default(),
     );
 
-    client
-        .init(TestController::new(client.clone()))
-        .await
-        .unwrap();
+    client.init(TestController::new(client.clone())).await;
+
     client.connect_network().await.unwrap();
 
     let mut join_array = Vec::with_capacity(config.thread_count as usize);
