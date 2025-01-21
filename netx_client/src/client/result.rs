@@ -1,4 +1,3 @@
-use anyhow::{bail, Result};
 use data_rw::{Data, DataOwnedReader};
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -92,7 +91,7 @@ impl RetResult {
     ///
     /// * `dr` - The `DataOwnedReader` to create the result from.
     #[inline]
-    pub(crate) fn from(mut dr: DataOwnedReader) -> Result<RetResult> {
+    pub(crate) fn from(mut dr: DataOwnedReader) -> crate::error::Result<RetResult> {
         if dr.read_fixed::<bool>()? {
             Ok(RetResult::new(
                 true,
@@ -124,9 +123,9 @@ impl RetResult {
 
     /// Checks the result and returns an error if it is an error result.
     #[inline]
-    pub fn check(self) -> Result<RetResult> {
+    pub fn check(self) -> crate::error::Result<RetResult> {
         if self.is_error {
-            bail!("{}:{}", self.error_id, self.msg)
+            Err(crate::error::Error::CallError(self.error_id, self.msg))
         } else {
             Ok(self)
         }
@@ -151,11 +150,11 @@ impl RetResult {
     ///
     /// * `T` - The type to deserialize the argument into.
     #[inline]
-    pub fn deserialize<'a, T: Deserialize<'a> + 'static>(&'a mut self) -> Result<T> {
+    pub fn deserialize<'a, T: Deserialize<'a> + 'static>(&'a mut self) -> crate::error::Result<T> {
         if self.is_empty() {
             return Err(io::Error::new(ErrorKind::Other, "index >= len").into());
         }
-        self.arguments[0].pack_to()
+        Ok(self.arguments[0].pack_to()?)
     }
 }
 

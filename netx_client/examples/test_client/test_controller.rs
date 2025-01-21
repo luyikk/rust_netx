@@ -6,7 +6,7 @@ use std::cell::RefCell;
 #[build(TestController)]
 pub trait ITestController {
     #[tag(connect)]
-    async fn connect_ok(&self) -> anyhow::Result<()>;
+    async fn connect_ok(&self) -> Result<()>;
     #[tag(disconnect)]
     async fn disconnect(&self) -> Result<()>;
     #[tag(closed)]
@@ -25,7 +25,7 @@ pub trait ITestController {
 
 #[allow(dead_code)]
 pub struct TestController {
-    server: Box<dyn crate::server::IServer>,
+    server: Box<dyn IServer>,
     name: RefCell<String>,
 }
 

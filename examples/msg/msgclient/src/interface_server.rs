@@ -1,5 +1,4 @@
-use anyhow::Result;
-use netxclient::prelude::*;
+use netxclient::prelude::{error::Result, *};
 use packer::*;
 
 //服务器接口,调用服务器需要使用它

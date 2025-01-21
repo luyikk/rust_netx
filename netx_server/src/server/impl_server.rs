@@ -3,13 +3,9 @@ use bytes::BufMut;
 use data_rw::Data;
 use std::sync::{Arc, Weak};
 use tokio::io::{AsyncReadExt, ReadHalf};
-use tokio::task::JoinHandle;
 
 #[cfg(all(feature = "tcpserver", not(feature = "tcp-channel-server")))]
 use tcpserver::{Builder, IPeer, ITCPServer, TCPPeer};
-
-#[cfg(feature = "tcp-channel-server")]
-use tcp_channel_server::{Builder, ITCPServer, TCPPeer};
 
 use crate::async_token::{IAsyncToken, IAsyncTokenInner, NetxToken};
 use crate::async_token_manager::{IAsyncTokenManager, TokenManager};
@@ -20,6 +16,8 @@ use crate::server::async_token_manager::{
 };
 use crate::server::maybe_stream::MaybeStream;
 use crate::{RetResult, ServerOption};
+#[cfg(feature = "tcp-channel-server")]
+use tcp_channel_server::{Builder, ITCPServer, TCPPeer};
 
 cfg_if::cfg_if! {
 if #[cfg(feature = "use_openssl")]{
@@ -463,7 +461,7 @@ where
     ///
     /// A `Result` indicating success or failure.
     #[inline]
-    async fn send_to_session_id(token: &NetxToken<T::Controller>) -> Result<()> {
+    async fn send_to_session_id(token: &NetxToken<T::Controller>) -> crate::error::Result<()> {
         let session_id = token.get_session_id();
         let mut data = Data::new();
         data.write_fixed(0u32);
@@ -486,7 +484,11 @@ where
     ///
     /// A `Result` indicating success or failure.
     #[inline]
-    async fn send_to_key_verify_msg(peer: &Arc<NetPeer>, is_err: bool, msg: &str) -> Result<()> {
+    async fn send_to_key_verify_msg(
+        peer: &Arc<NetPeer>,
+        is_err: bool,
+        msg: &str,
+    ) -> crate::error::Result<()> {
         let mut data = Data::new();
         data.write_fixed(0u32);
         data.write_fixed(1000i32);
@@ -495,7 +497,7 @@ where
         data.write_fixed(1u8);
         let len = data.len();
         (&mut data[0..4]).put_u32_le(len as u32);
-        peer.send_all(data.into_inner()).await
+        Ok(peer.send_all(data.into_inner()).await?)
     }
 
     /// Retrieves the token manager as a weak reference.
@@ -514,8 +516,8 @@ where
     ///
     /// A `Result` containing a `JoinHandle` that resolves to a `Result`.
     #[inline]
-    pub async fn start(&self) -> Result<JoinHandle<Result<()>>> {
-        self.serv.start(self.inner.clone()).await
+    pub async fn start(&self) -> crate::error::Result<tokio::task::JoinHandle<Result<()>>> {
+        Ok(self.serv.start(self.inner.clone()).await?)
     }
 
     /// Starts the server and blocks until it stops.
@@ -524,7 +526,7 @@ where
     ///
     /// A `Result` indicating success or failure.
     #[inline]
-    pub async fn start_block(&self) -> Result<()> {
-        self.serv.start_block(self.inner.clone()).await
+    pub async fn start_block(&self) -> crate::error::Result<()> {
+        Ok(self.serv.start_block(self.inner.clone()).await?)
     }
 }

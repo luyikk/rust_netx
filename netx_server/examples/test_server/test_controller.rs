@@ -163,7 +163,7 @@ impl ITestController for TestController {
     #[inline]
     async fn print2(&self, a: i32, b: String) -> Result<()> {
         let client = impl_ref!(self.token=>IClient);
-        client.print2(a, &b).await
+        Ok(client.print2(a, &b).await?)
     }
 
     #[inline]
@@ -187,7 +187,7 @@ impl ITestController for TestController {
     #[inline]
     async fn to_client_add_one(&self, a: i32) -> Result<i32> {
         let client = impl_ref!(self.token=>IClient);
-        client.add_one(a).await
+        Ok(client.add_one(a).await?)
     }
     #[inline]
     async fn recursive_test(&self, mut a: i32) -> Result<i32> {

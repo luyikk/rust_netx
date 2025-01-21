@@ -3,9 +3,9 @@ mod test_controller;
 mod test_struct;
 
 use crate::test_controller::ImplCreateController;
-use anyhow::Result;
 use log::LevelFilter;
 use netxserver::prelude::*;
+use std::error::Error;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -15,7 +15,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 //
 #[cfg(all(not(feature = "use_rustls"), not(feature = "use_openssl")))]
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     use anyhow::Context;
 
     env_logger::Builder::default()
@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
 //
 #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::Builder::default()
         .filter_level(LevelFilter::Debug)
         .init();
@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
 
 #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::Builder::default()
         .filter_level(LevelFilter::Debug)
         .init();

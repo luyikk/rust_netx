@@ -1,5 +1,4 @@
-use anyhow::Result;
-use netxserver::prelude::*;
+use netxserver::prelude::{error::Result, *};
 
 // client interface
 // 客户端接口

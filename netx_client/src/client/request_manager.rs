@@ -1,5 +1,4 @@
 use crate::client::{INextClientInner, NetXClient, SessionSave};
-use anyhow::{anyhow, Result};
 use aqueue::Actor;
 use std::collections::VecDeque;
 use std::sync::{Arc, Weak};
@@ -71,7 +70,7 @@ impl<T: SessionSave + 'static> RequestManager<T> {
             if item.1.elapsed().as_millis() as u32 >= self.request_out_time {
                 if let Some(client) = self.netx_client.upgrade() {
                     client
-                        .set_error(item.0, anyhow!("serial:{} time out", item.0))
+                        .set_error(item.0, crate::error::Error::SerialTimeOut(item.0))
                         .await;
                 }
             } else {
@@ -95,19 +94,19 @@ impl<T: SessionSave + 'static> RequestManager<T> {
 /// Trait defining the interface for `RequestManager`.
 pub(crate) trait IRequestManager {
     /// Asynchronously checks the requests.
-    async fn check(&self) -> Result<()>;
+    async fn check(&self) -> crate::error::Result<()>;
     /// Asynchronously sets a new request.
     ///
     /// # Arguments
     ///
     /// * `session_id` - The ID of the session to be set.
-    async fn set(&self, session_id: i64) -> Result<()>;
+    async fn set(&self, session_id: i64) -> crate::error::Result<()>;
 }
 
 impl<T: SessionSave + 'static> IRequestManager for Actor<RequestManager<T>> {
     /// Asynchronously checks the requests by calling the inner `check` method.
     #[inline]
-    async fn check(&self) -> Result<()> {
+    async fn check(&self) -> crate::error::Result<()> {
         self.inner_call(|inner| async move {
             inner.get_mut().check().await;
             Ok(())
@@ -121,7 +120,7 @@ impl<T: SessionSave + 'static> IRequestManager for Actor<RequestManager<T>> {
     ///
     /// * `session_id` - The ID of the session to be set.
     #[inline]
-    async fn set(&self, session_id: i64) -> Result<()> {
+    async fn set(&self, session_id: i64) -> crate::error::Result<()> {
         self.inner_call(|inner| async move {
             inner.get_mut().set(session_id);
             Ok(())
