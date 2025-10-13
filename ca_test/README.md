@@ -11,6 +11,8 @@ chmod -v 0400 CA.key
 chmod -v 0444 CA.crt
 ```
 
+## 如果要生成v3 版本的证书请使用 ./v3/tls_gen.sh 否则不会被rustls 0.23.0 之后的版本接受
+
 ```shell
 chmod 777 tls_gen.sh 
 ```
