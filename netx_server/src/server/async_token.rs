@@ -1,6 +1,6 @@
 use crate::async_token_manager::IAsyncTokenManager;
 use crate::{IController, NetPeer, RetResult};
-use anyhow::{anyhow, bail, Result};
+//use anyhow::{anyhow, bail, Result};
 use aqueue::Actor;
 use data_rw::{Data, DataOwnedReader};
 use oneshot::{channel as oneshot, Receiver, Sender};
@@ -23,7 +23,7 @@ pub struct AsyncToken<T> {
     /// A weak reference to the asynchronous token manager.
     manager: Weak<dyn IAsyncTokenManager<T>>,
     /// A dictionary mapping serial numbers to result senders.
-    result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
+    result_dict: HashMap<i64, Sender<crate::error::Result<DataOwnedReader>>>,
     /// An atomic counter for generating serial numbers.
     serial_atomic: AtomicI64,
     /// A queue of requests with their timestamps.
@@ -61,7 +61,7 @@ impl<T> Drop for AsyncToken<T> {
 impl<T: IController> AsyncToken<T> {
     /// Calls a special function on the controller with the given command tag.
     #[inline]
-    pub(crate) async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
+    pub(crate) async fn call_special_function(&self, cmd_tag: i32) -> anyhow::Result<()> {
         if let Some(ref controller) = self.controller {
             controller
                 .call(1, cmd_tag, DataOwnedReader::new(vec![0; 4]))
@@ -77,11 +77,11 @@ impl<T: IController> AsyncToken<T> {
         tt: u8,
         cmd: i32,
         dr: DataOwnedReader,
-    ) -> Result<RetResult> {
+    ) -> anyhow::Result<RetResult> {
         if let Some(ref controller) = self.controller {
             return controller.call(tt, cmd, dr).await;
         }
-        bail!("controller is none")
+        anyhow::bail!("controller is none")
     }
 
     /// Generates a new serial number.
@@ -92,9 +92,11 @@ impl<T: IController> AsyncToken<T> {
 
     /// Sets an error for the given serial number.
     #[inline]
-    pub fn set_error(&mut self, serial: i64, err: anyhow::Error) -> Result<()> {
+    pub fn set_error(&mut self, serial: i64, err: crate::error::Error) -> crate::error::Result<()> {
         if let Some(tx) = self.result_dict.remove(&serial) {
-            tx.send(Err(err)).map_err(|_| anyhow!("rx is close"))
+            Ok(tx
+                .send(Err(err))
+                .map_err(|_| crate::error::Error::SerialClose(serial))?)
         } else {
             Ok(())
         }
@@ -105,7 +107,8 @@ impl<T: IController> AsyncToken<T> {
     pub fn check_request_timeout(&mut self, request_out_time: u32) {
         while let Some(item) = self.request_queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= request_out_time {
-                if let Err(er) = self.set_error(item.0, anyhow!("time out")) {
+                if let Err(er) = self.set_error(item.0, crate::error::Error::SerialTimeOut(item.0))
+                {
                     log::error!("check err:{}", er);
                 }
             } else {
@@ -147,7 +150,7 @@ pub(crate) trait IAsyncTokenInner {
     /// # Returns
     ///
     /// * `Result<()>` - The result of the function call.
-    async fn call_special_function(&self, cmd_tag: i32) -> Result<()>;
+    async fn call_special_function(&self, cmd_tag: i32) -> anyhow::Result<()>;
 
     /// Executes a controller function with the given parameters.
     ///
@@ -172,7 +175,7 @@ pub(crate) trait IAsyncTokenInner {
     /// # Returns
     ///
     /// * `Result<()>` - The result of setting the response.
-    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> Result<()>;
+    async fn set_result(&self, serial: i64, data: DataOwnedReader) -> anyhow::Result<()>;
 
     /// Checks for request timeouts and handles them.
     ///
@@ -208,7 +211,7 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn call_special_function(&self, cmd_tag: i32) -> Result<()> {
+    async fn call_special_function(&self, cmd_tag: i32) -> anyhow::Result<()> {
         unsafe { self.deref_inner().call_special_function(cmd_tag).await }
     }
 
@@ -239,13 +242,15 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn set_result(&self, serial: i64, dr: DataOwnedReader) -> Result<()> {
-        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
+    async fn set_result(&self, serial: i64, dr: DataOwnedReader) -> anyhow::Result<()> {
+        let have_tx: Option<Sender<crate::error::Result<DataOwnedReader>>> = self
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
 
         if let Some(tx) = have_tx {
-            return tx.send(Ok(dr)).map_err(|_| anyhow!("close rx"));
+            Ok(tx
+                .send(Ok(dr))
+                .map_err(|_| crate::error::Error::SerialClose(serial))?)
         } else {
             match RetResult::from(dr) {
                 Ok(res) => match res.check() {
@@ -260,8 +265,9 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
                     log::error!("not found {} :{}", serial, er)
                 }
             }
+
+            Ok(())
         }
-        Ok(())
     }
 
     #[inline]
@@ -308,7 +314,7 @@ pub trait IAsyncToken {
     /// # Returns
     ///
     /// * `impl std::future::Future<Output = Result<()>>` - A future that resolves to a `Result`.
-    fn send(&self, buff: Vec<u8>) -> impl std::future::Future<Output = Result<()>>;
+    fn send(&self, buff: Vec<u8>) -> impl std::future::Future<Output = crate::error::Result<()>>;
 
     /// Gets the network token by session ID.
     ///
@@ -322,7 +328,7 @@ pub trait IAsyncToken {
     fn get_token(
         &self,
         session_id: i64,
-    ) -> impl std::future::Future<Output = Result<Option<NetxToken<Self::Controller>>>>;
+    ) -> impl std::future::Future<Output = crate::error::Result<Option<NetxToken<Self::Controller>>>>;
 
     /// Gets all network tokens.
     ///
@@ -331,7 +337,7 @@ pub trait IAsyncToken {
     /// * `impl std::future::Future<Output = Result<Vec<NetxToken<Self::Controller>>>>` - A future that resolves to a vector of `NetxToken`.
     fn get_all_tokens(
         &self,
-    ) -> impl std::future::Future<Output = Result<Vec<NetxToken<Self::Controller>>>>;
+    ) -> impl std::future::Future<Output = crate::error::Result<Vec<NetxToken<Self::Controller>>>>;
 
     /// Calls a function with the given serial and buffer.
     ///
@@ -343,8 +349,11 @@ pub trait IAsyncToken {
     /// # Returns
     ///
     /// * `impl std::future::Future<Output = Result<RetResult>>` - A future that resolves to a `RetResult`.
-    fn call(&self, serial: i64, buff: Data)
-        -> impl std::future::Future<Output = Result<RetResult>>;
+    fn call(
+        &self,
+        serial: i64,
+        buff: Data,
+    ) -> impl std::future::Future<Output = crate::error::Result<RetResult>>;
 
     /// Runs a function with the given buffer.
     ///
@@ -355,7 +364,7 @@ pub trait IAsyncToken {
     /// # Returns
     ///
     /// * `impl std::future::Future<Output = Result<()>>` - A future that resolves to a `Result`.
-    fn run(&self, buff: Data) -> impl std::future::Future<Output = Result<()>>;
+    fn run(&self, buff: Data) -> impl std::future::Future<Output = crate::error::Result<()>>;
 
     /// Checks if the connection is disconnected.
     ///
@@ -386,52 +395,56 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
     }
 
     #[inline]
-    async fn send(&self, buff: Vec<u8>) -> Result<()> {
+    async fn send(&self, buff: Vec<u8>) -> crate::error::Result<()> {
         unsafe {
             if let Some(peer) = self.deref_inner().peer.clone() {
-                return peer.send_all(buff).await;
+                Ok(peer.send_all(buff).await?)
+            } else {
+                Err(crate::error::Error::TokenDisconnect(self.get_session_id()))
             }
-            bail!("token:{} tcp disconnect", self.get_session_id())
         }
     }
 
     #[inline]
-    async fn get_token(&self, session_id: i64) -> Result<Option<NetxToken<T>>> {
+    async fn get_token(&self, session_id: i64) -> crate::error::Result<Option<NetxToken<T>>> {
         self.inner_call(|inner| async move {
             let manager = inner
                 .get()
                 .manager
                 .upgrade()
-                .ok_or_else(|| anyhow!("manager upgrade fail"))?;
+                .ok_or_else(|| crate::error::Error::ManagerUpgradeFail)?;
             Ok(manager.get_token(session_id).await)
         })
         .await
     }
 
     #[inline]
-    async fn get_all_tokens(&self) -> Result<Vec<NetxToken<T>>> {
+    async fn get_all_tokens(&self) -> crate::error::Result<Vec<NetxToken<T>>> {
         self.inner_call(|inner| async move {
             let manager = inner
                 .get()
                 .manager
                 .upgrade()
-                .ok_or_else(|| anyhow!("manager upgrade fail"))?;
-            manager.get_all_tokens().await
+                .ok_or_else(|| crate::error::Error::ManagerUpgradeFail)?;
+            Ok(manager.get_all_tokens().await)
         })
         .await
     }
 
     #[inline]
-    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
-        let (peer, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
+    async fn call(&self, serial: i64, buff: Data) -> crate::error::Result<RetResult> {
+        let (peer, rx): (
+            Arc<NetPeer>,
+            Receiver<crate::error::Result<DataOwnedReader>>,
+        ) = self
             .inner_call(|inner| async move {
                 if let Some(peer) = inner.get().peer.clone() {
                     let (tx, rx): (
-                        Sender<Result<DataOwnedReader>>,
-                        Receiver<Result<DataOwnedReader>>,
+                        Sender<crate::error::Result<DataOwnedReader>>,
+                        Receiver<crate::error::Result<DataOwnedReader>>,
                     ) = oneshot();
                     if inner.get_mut().result_dict.contains_key(&serial) {
-                        bail!("serial is have")
+                        return Err(crate::error::Error::SerialHave);
                     }
                     if inner.get_mut().result_dict.insert(serial, tx).is_none() {
                         inner
@@ -441,25 +454,25 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
                     }
                     Ok((peer, rx))
                 } else {
-                    bail!("call not connect")
+                    Err(crate::error::Error::TokenDisconnect(inner.get().session_id))
                 }
             })
             .await?;
         peer.send_all(buff.into_inner()).await?;
         match rx.await {
-            Err(_) => Err(anyhow!("tx is Close")),
+            Err(_) => Err(crate::error::Error::SerialClose(serial)),
             Ok(data) => Ok(RetResult::from(data?)?),
         }
     }
 
     #[inline]
-    async fn run(&self, buff: Data) -> Result<()> {
+    async fn run(&self, buff: Data) -> crate::error::Result<()> {
         let peer = self
             .inner_call(|inner| async move {
                 if let Some(peer) = inner.get().peer.clone() {
                     Ok(peer)
                 } else {
-                    bail!("run not connect")
+                    Err(crate::error::Error::TokenDisconnect(inner.get().session_id))
                 }
             })
             .await?;

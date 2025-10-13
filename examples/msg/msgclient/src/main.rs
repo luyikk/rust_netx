@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //init controller,it will be called by server
     client
         .init(ClientController::new(Arc::downgrade(&client)))
-        .await?;
+        .await;
     //尝试连接到服务器,如果这里不尝试那么调用服务器接口的时候会尝试连接
     //try connect to server
     //if not try,will try connect by call server interface

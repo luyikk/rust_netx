@@ -2,6 +2,7 @@ pub use super::server::{
     async_token_manager::ITokenManager, IAsyncToken, IController, ICreateController, NetXServer,
     NetxToken, RetResult, ServerOption,
 };
+pub use crate::error;
 pub use crate::{call_peer, impl_ref};
 pub use aqueue;
 pub use aqueue::Actor;

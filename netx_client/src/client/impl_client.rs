@@ -61,7 +61,7 @@ pub enum TlsConfig {
 pub type NetPeer = Actor<TcpClient<MaybeStream>>;
 
 /// Type alias for `NetPeer` when the `tcp-channel-client` feature is enabled.
-#[cfg(feature = "tcp-channel-client")]
+#[cfg(all(feature = "tcp-channel-client", not(feature = "tcpclient")))]
 pub type NetPeer = TcpClient<MaybeStream>;
 
 /// Type alias for the read half of a network stream.
@@ -82,7 +82,7 @@ pub struct NetXClient<T> {
     /// Optional receiver for connection status updates.
     connect_stats: Option<WReceiver<(bool, String)>>,
     /// Dictionary to store results with their corresponding serial numbers.
-    result_dict: HashMap<i64, Sender<Result<DataOwnedReader>>>,
+    result_dict: HashMap<i64, Sender<crate::error::Result<DataOwnedReader>>>,
     /// Atomic counter for generating serial numbers.
     serial_atomic: AtomicI64,
     /// Manager for handling requests.
@@ -760,7 +760,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     ///
     /// * `Result<()>` - Returns `Ok(())` if successful, otherwise returns an error.
     #[inline]
-    pub(crate) async fn set_request_session_id(&self, session_id: i64) -> Result<()> {
+    pub(crate) async fn set_request_session_id(&self, session_id: i64) -> crate::error::Result<()> {
         if let Some(request) = self.request_manager.get() {
             return request.set(session_id).await;
         }
@@ -788,7 +788,7 @@ pub(crate) trait INextClientInner {
     /// # Parameters
     /// - `serial`: The serial number of the request.
     /// - `err`: The error to be set as the result.
-    async fn set_error(&self, serial: i64, err: anyhow::Error);
+    async fn set_error(&self, serial: i64, err: crate::error::Error);
 
     /// Calls a special function (disconnect or connect command).
     ///
@@ -814,7 +814,7 @@ pub(crate) trait INextClientInner {
     ///
     /// # Returns
     /// - `Result<()>`: Returns `Ok(())` if the operation is successful, otherwise returns an error.
-    async fn clean_connect(&self) -> Result<()>;
+    async fn clean_connect(&self) -> crate::error::Result<()>;
 
     /// Resets the network connection status.
     async fn reset_connect_stats(&self);
@@ -846,7 +846,7 @@ impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
 
     #[inline]
     async fn set_result(&self, serial: i64, data: DataOwnedReader) {
-        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
+        let have_tx: Option<Sender<crate::error::Result<DataOwnedReader>>> = self
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
 
@@ -866,8 +866,8 @@ impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn set_error(&self, serial: i64, err: anyhow::Error) {
-        let have_tx: Option<Sender<Result<DataOwnedReader>>> = self
+    async fn set_error(&self, serial: i64, err: crate::error::Error) {
+        let have_tx: Option<Sender<crate::error::Result<DataOwnedReader>>> = self
             .inner_call(|inner| async move { inner.get_mut().result_dict.remove(&serial) })
             .await;
         if let Some(tx) = have_tx {
@@ -896,7 +896,7 @@ impl<T: SessionSave + 'static> INextClientInner for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn clean_connect(&self) -> Result<()> {
+    async fn clean_connect(&self) -> crate::error::Result<()> {
         let net: Result<Arc<NetPeer>> = self
             .inner_call(|inner| async move { inner.get_mut().net.take().context("not connect") })
             .await;
@@ -947,13 +947,15 @@ pub trait INetXClient {
     fn init<C: IController + Sync + Send + 'static>(
         &self,
         controller: C,
-    ) -> impl std::future::Future<Output = Result<()>>;
+    ) -> impl std::future::Future<Output = ()>;
 
     /// Connects to the network.
     ///
     /// # Returns
     /// A future that resolves to a `Result<()>`.
-    fn connect_network(self: &Arc<Self>) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn connect_network(
+        self: &Arc<Self>,
+    ) -> impl std::future::Future<Output = crate::error::Result<()>> + Send;
 
     /// Gets the TLS configuration.
     ///
@@ -1022,7 +1024,7 @@ pub trait INetXClient {
     ///
     /// # Returns
     /// A future that resolves to a `Result<()>`.
-    fn close(&self) -> impl std::future::Future<Output = Result<()>>;
+    fn close(&self) -> impl std::future::Future<Output = crate::error::Result<()>>;
 
     /// Calls a function with the given serial and buffer.
     ///
@@ -1032,8 +1034,11 @@ pub trait INetXClient {
     ///
     /// # Returns
     /// A future that resolves to a `Result<RetResult>`.
-    fn call(&self, serial: i64, buff: Data)
-        -> impl std::future::Future<Output = Result<RetResult>>;
+    fn call(
+        &self,
+        serial: i64,
+        buff: Data,
+    ) -> impl std::future::Future<Output = crate::error::Result<RetResult>>;
 
     /// Runs the client with the given buffer.
     ///
@@ -1042,7 +1047,7 @@ pub trait INetXClient {
     ///
     /// # Returns
     /// A future that resolves to a `Result<()>`.
-    fn run(&self, buff: Data) -> impl std::future::Future<Output = Result<()>>;
+    fn run(&self, buff: Data) -> impl std::future::Future<Output = crate::error::Result<()>>;
 }
 
 /// Implementation of the `INetXClient` trait for `Actor<NetXClient<T>>`.
@@ -1054,18 +1059,17 @@ pub trait INetXClient {
 #[allow(clippy::too_many_arguments)]
 impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
     #[inline]
-    async fn init<C: IController + Sync + Send + 'static>(&self, controller: C) -> Result<()> {
+    async fn init<C: IController + Sync + Send + 'static>(&self, controller: C) {
         self.inner_call(|inner| async move {
             inner.get_mut().init(controller);
-            Ok(())
         })
         .await
     }
 
     #[inline]
-    async fn connect_network(self: &Arc<Self>) -> Result<()> {
+    async fn connect_network(self: &Arc<Self>) -> crate::error::Result<()> {
         let netx_client = self.clone();
-        let wait_handler: Result<Option<WReceiver<(bool, String)>>> = self.inner_call(|inner|async move  {
+        let wait_handler: crate::error::Result<Option<WReceiver<(bool, String)>>> = self.inner_call(|inner|async move  {
             if inner.get().is_connect() {
                 return match inner.get().connect_stats {
                     Some(ref stats) => {
@@ -1123,13 +1127,13 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
             match wait_handler.changed().await {
                 Err(err) => {
                     self.reset_connect_stats().await;
-                    bail!("connect err:{}", err)
+                    return Err(err.into());
                 }
                 Ok(_) => {
                     self.reset_connect_stats().await;
                     let (is_connect, msg) = &(*wait_handler.borrow());
                     if !is_connect {
-                        bail!("connect err:{}", msg);
+                        return Err(crate::error::Error::ConnectError(msg.clone()));
                     }
                 }
             }
@@ -1194,7 +1198,7 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn close(&self) -> Result<()> {
+    async fn close(&self) -> crate::error::Result<()> {
         let net: Result<Arc<NetPeer>> = self
             .inner_call(|inner| async move {
                 if let Err(er) = inner
@@ -1219,16 +1223,19 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
     }
 
     #[inline]
-    async fn call(&self, serial: i64, buff: Data) -> Result<RetResult> {
-        let (net, rx): (Arc<NetPeer>, Receiver<Result<DataOwnedReader>>) = self
+    async fn call(&self, serial: i64, buff: Data) -> crate::error::Result<RetResult> {
+        let (net, rx): (
+            Arc<NetPeer>,
+            Receiver<crate::error::Result<DataOwnedReader>>,
+        ) = self
             .inner_call(|inner| async move {
                 if let Some(ref net) = inner.get().net {
                     if inner.get_mut().result_dict.contains_key(&serial) {
                         bail!("serial is have")
                     }
                     let (tx, rx): (
-                        Sender<Result<DataOwnedReader>>,
-                        Receiver<Result<DataOwnedReader>>,
+                        Sender<crate::error::Result<DataOwnedReader>>,
+                        Receiver<crate::error::Result<DataOwnedReader>>,
                     ) = oneshot();
                     inner.get_mut().result_dict.insert(serial, tx);
                     Ok((net.clone(), rx))
@@ -1251,15 +1258,13 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
             net.send_all(data.into_inner()).await?;
         }
         match rx.await {
-            Err(_) => {
-                bail!("tx is Close")
-            }
+            Err(_) => Err(crate::error::Error::SerialClose(serial)),
             Ok(data) => Ok(RetResult::from(data?)?),
         }
     }
 
     #[inline]
-    async fn run(&self, buff: Data) -> Result<()> {
+    async fn run(&self, buff: Data) -> crate::error::Result<()> {
         let net = self
             .inner_call(|inner| async move {
                 if let Some(ref net) = inner.get().net {

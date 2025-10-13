@@ -94,10 +94,8 @@ async fn main() -> Result<()> {
                 }}
             };
 
-            client
-                .init(TestController::new(client.clone()))
-                .await
-                .unwrap();
+            client.init(TestController::new(client.clone())).await;
+
             client.connect_network().await.unwrap();
             let server: Box<dyn IServer> = impl_interface!(client=>IServer);
             let start = Instant::now();

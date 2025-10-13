@@ -2,7 +2,6 @@ mod controller;
 mod interface_server;
 
 use crate::controller::ClientController;
-use anyhow::Result;
 use cursive::align::HAlign;
 use cursive::theme::Effect;
 use cursive::traits::Nameable;
@@ -16,6 +15,7 @@ use log::LevelFilter;
 use netxclient::prelude::*;
 use once_cell::sync::Lazy;
 use packer::LogOn;
+use std::error::Error;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
@@ -47,7 +47,7 @@ enum MessageSend {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     //create logger
     env_logger::Builder::default()
         .filter_module("cursive", LevelFilter::Info)
@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     //init controller,it will be called by server
     CLIENT
         .init(ClientController::new(Arc::downgrade(&CLIENT), msg_sender))
-        .await?;
+        .await;
 
     // message send channel
     let (msg_send_tx, mut msg_recv_rx) = tokio::sync::mpsc::channel::<MessageSend>(32);

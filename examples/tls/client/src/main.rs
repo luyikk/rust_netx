@@ -1,12 +1,13 @@
 mod controller;
 
 use crate::controller::*;
+use std::error::Error;
 
 use log::LevelFilter;
 use netxclient::prelude::*;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::Builder::default()
         .filter_level(LevelFilter::Trace)
         .filter_module("mio", LevelFilter::Error)
@@ -74,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
     let data = vec![1; 0x20000];
     log::info!("{:?}", server.test_buff(&data).await?);
     if let Err(err) = server.test_error().await {
-        log::info!("{}", err);
+        log::error!("{}", err);
     }
     Ok(())
 }
