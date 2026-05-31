@@ -22,7 +22,7 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 tcpserver = { version = "2.2", optional = true }
 tcp-channel-server = { version = "0.2.1", optional = true }
-aqueue = "1.3"
+aqueue = "1.4"
 async-trait = "0.1"
 anyhow = { version = "1" }
 log = "0.4"
