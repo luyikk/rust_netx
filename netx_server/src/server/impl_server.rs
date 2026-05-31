@@ -175,7 +175,7 @@ where
                         true
                     })
                     .set_stream_init(move |tcp_stream| async move {
-                       Ok(MaybeStream::ServerTls(acceptor.accept(tcp_stream).await?))
+                       Ok(MaybeStream::ServerTls(Box::new(acceptor.accept(tcp_stream).await?)))
                     })
                     .set_input_event(|mut reader, peer, inner| async move {
                         let addr = peer.addr();
@@ -428,7 +428,10 @@ where
     /// A `Data` object containing the serialized result.
     #[inline]
     fn get_result_buff(serial: i64, result: RetResult) -> Data {
-        let mut data = Data::with_capacity(1024);
+        // 128 bytes covers the overwhelming majority of responses (header is
+        // 16 bytes; error payloads are typically < 80 bytes; small return
+        // values fit easily). The Vec grows on demand for larger payloads.
+        let mut data = Data::with_capacity(128);
 
         data.write_fixed(0u32);
         data.write_fixed(2500u32);
@@ -463,7 +466,8 @@ where
     #[inline]
     async fn send_to_session_id(token: &NetxToken<T::Controller>) -> crate::error::Result<()> {
         let session_id = token.get_session_id();
-        let mut data = Data::new();
+        // Packet is exactly 16 bytes: 4 (len) + 4 (cmd=2000) + 8 (session_id).
+        let mut data = Data::with_capacity(16);
         data.write_fixed(0u32);
         data.write_fixed(2000i32);
         data.write_fixed(session_id);
@@ -489,7 +493,8 @@ where
         is_err: bool,
         msg: &str,
     ) -> crate::error::Result<()> {
-        let mut data = Data::new();
+        // 4 (len) + 4 (cmd=1000) + 1 (is_err) + 4 (msg_len) + ~msg + 1 (version) ≈ 64 bytes.
+        let mut data = Data::with_capacity(64);
         data.write_fixed(0u32);
         data.write_fixed(1000i32);
         data.write_fixed(is_err);

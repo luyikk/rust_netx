@@ -1,7 +1,6 @@
 use data_rw::{Data, DataOwnedReader};
 use serde::{Deserialize, Serialize};
 use std::io;
-use std::io::ErrorKind;
 use std::ops::{Index, IndexMut};
 
 /// A struct representing the result of an operation.
@@ -177,7 +176,7 @@ impl RetResult {
     #[inline]
     pub fn get(&mut self, index: usize) -> io::Result<&mut DataOwnedReader> {
         if index >= self.len() {
-            return Err(io::Error::new(ErrorKind::Other, "index >= len"));
+            return Err(io::Error::other("index >= len"));
         }
         Ok(&mut self.arguments[index])
     }
@@ -194,7 +193,7 @@ impl RetResult {
     #[inline]
     pub fn deserialize<'a, T: Deserialize<'a> + 'static>(&'a mut self) -> crate::error::Result<T> {
         if self.is_empty() {
-            return Err(io::Error::new(ErrorKind::Other, "index >= len").into());
+            return Err(io::Error::other("index >= len").into());
         }
         Ok(self.arguments[0].pack_to()?)
     }

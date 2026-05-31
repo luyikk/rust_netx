@@ -1,9 +1,9 @@
 use crate::async_token_manager::IAsyncTokenManager;
 use crate::{IController, NetPeer, RetResult};
-//use anyhow::{anyhow, bail, Result};
 use aqueue::Actor;
 use data_rw::{Data, DataOwnedReader};
 use oneshot::{channel as oneshot, Receiver, Sender};
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Weak};
@@ -85,9 +85,14 @@ impl<T: IController> AsyncToken<T> {
     }
 
     /// Generates a new serial number.
+    ///
+    /// `Relaxed` ordering is sufficient here: the atomic itself guarantees
+    /// uniqueness; we don't need acquire/release memory-ordering because the
+    /// actual per-request data (result_dict, request_queue) is protected by
+    /// the Actor's exclusive inner_call lock.
     #[inline]
     pub(crate) fn new_serial(&self) -> i64 {
-        self.serial_atomic.fetch_add(1, Ordering::Acquire)
+        self.serial_atomic.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Sets an error for the given serial number.
@@ -221,20 +226,12 @@ impl<T: IController + 'static> IAsyncTokenInner for Actor<AsyncToken<T>> {
             match self.deref_inner().execute_controller(tt, cmd, dr).await {
                 Ok(res) => res,
                 Err(err) => {
-                    log::error!(
-                        "session id:{} call cmd:{} error:{:?}",
-                        self.get_session_id(),
-                        cmd,
-                        err
-                    );
+                    // Capture session_id once to avoid a second unsafe deref.
+                    let session_id = self.get_session_id();
+                    log::error!("session id:{} call cmd:{} error:{:?}", session_id, cmd, err);
                     RetResult::error(
                         -1,
-                        format!(
-                            "session id:{} call cmd:{} error:{}",
-                            self.get_session_id(),
-                            cmd,
-                            err
-                        ),
+                        format!("session id:{} call cmd:{} error:{}", session_id, cmd, err),
                     )
                 }
             }
@@ -438,26 +435,37 @@ impl<T: IController + 'static> IAsyncToken for Actor<AsyncToken<T>> {
             Receiver<crate::error::Result<DataOwnedReader>>,
         ) = self
             .inner_call(|inner| async move {
-                if let Some(peer) = inner.get().peer.clone() {
-                    let (tx, rx): (
-                        Sender<crate::error::Result<DataOwnedReader>>,
-                        Receiver<crate::error::Result<DataOwnedReader>>,
-                    ) = oneshot();
-                    if inner.get_mut().result_dict.contains_key(&serial) {
-                        return Err(crate::error::Error::SerialHave);
+                let inner_mut = inner.get_mut();
+
+                // Read peer; bail early if disconnected.
+                let Some(peer) = inner_mut.peer.clone() else {
+                    return Err(crate::error::Error::TokenDisconnect(inner_mut.session_id));
+                };
+
+                let (tx, rx): (
+                    Sender<crate::error::Result<DataOwnedReader>>,
+                    Receiver<crate::error::Result<DataOwnedReader>>,
+                ) = oneshot();
+
+                // Use the Entry API to check-and-insert in a single HashMap lookup
+                // instead of the previous contains_key + insert (two lookups).
+                {
+                    let dict = &mut inner_mut.result_dict;
+                    match dict.entry(serial) {
+                        Entry::Occupied(_) => return Err(crate::error::Error::SerialHave),
+                        Entry::Vacant(e) => {
+                            e.insert(tx);
+                        }
                     }
-                    if inner.get_mut().result_dict.insert(serial, tx).is_none() {
-                        inner
-                            .get_mut()
-                            .request_queue
-                            .push_front((serial, Instant::now()));
-                    }
-                    Ok((peer, rx))
-                } else {
-                    Err(crate::error::Error::TokenDisconnect(inner.get().session_id))
-                }
+                } // borrow of result_dict ends here
+
+                // Always enqueue the timeout entry — the previous insert always
+                // succeeded (we just checked the key was absent via Entry).
+                inner_mut.request_queue.push_front((serial, Instant::now()));
+                Ok((peer, rx))
             })
             .await?;
+
         peer.send_all(buff.into_inner()).await?;
         match rx.await {
             Err(_) => Err(crate::error::Error::SerialClose(serial)),

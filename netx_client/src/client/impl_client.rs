@@ -5,6 +5,7 @@ use log::warn;
 use once_cell::sync::OnceCell;
 use oneshot::{channel as oneshot, Receiver, Sender};
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
@@ -347,22 +348,21 @@ impl<T: SessionSave + 'static> NetXClient<T> {
         Ok(true)
     }
 
-    /// Reads data from the network stream into the buffer and processes it.
-    ///
-    /// This function reads data from the provided `reader` and processes it using
-    /// the `read_buffer` method. If an error occurs during reading, it logs the error.
-    /// After reading, it cleans up the connection and calls the special disconnect function.
+    /// Core receive loop: reads framed packets from the network stream, handles the
+    /// protocol handshake (commands 1000/2000), and dispatches incoming RPC calls
+    /// (command 2400) and responses (command 2500) until the connection is closed or
+    /// an unrecoverable error occurs.
     ///
     /// # Parameters
     ///
     /// * `netx_client` - A reference to the `NetxClientArc`.
-    /// * `set_connect` - A `WSender` for connection status updates.
-    /// * `client` - An `Arc` containing the network peer.
+    /// * `set_connect` - A `WSender` used to signal connection success/failure to the caller.
+    /// * `client` - An `Arc` containing the network peer (used to send responses).
     /// * `reader` - The read half of the network stream.
     ///
     /// # Returns
     ///
-    /// * `Result<()>` - Returns `Ok(())` if the operation is successful, otherwise returns an error.
+    /// * `Result<()>` - Returns `Ok(())` when the connection closes cleanly, or an error on failure.
     async fn read_buffer(
         netx_client: &NetxClientArc<T>,
         set_connect: WSender<(bool, String)>,
@@ -417,12 +417,10 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                     if set_connect.send((false, err.to_string())).is_err() {
                                         log::error!("talk connect rx is close");
                                     }
-                                    drop(set_connect);
                                 } else {
                                     if set_connect.send((true, "success".into())).is_err() {
                                         log::error!("talk connect rx is close");
                                     }
-                                    drop(set_connect);
                                 }
                             });
                         }
@@ -434,7 +432,6 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                             if set_connect.send((false, err.to_string())).is_err() {
                                 log::error!("talk connect rx is close");
                             }
-                            drop(set_connect);
                         }
                         break;
                     }
@@ -455,7 +452,10 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                 let _ = run_netx_client.execute_controller(tt, cmd, dr).await;
                             });
                         }
-                        1 => {
+                        // tt=1 (confirm) and tt=2 (return value) both execute the controller
+                        // and send the result back. They differ only in what the server handler
+                        // placed in the payload — the dispatch logic here is identical.
+                        1 | 2 => {
                             let run_netx_client = netx_client.clone();
                             let send_client = client.clone();
                             tokio::spawn(async move {
@@ -471,27 +471,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
                                     )
                                     .await
                                 {
-                                    log::error!("send buff 1 error:{}", er);
-                                }
-                            });
-                        }
-                        2 => {
-                            let run_netx_client = netx_client.clone();
-                            let send_client = client.clone();
-                            tokio::spawn(async move {
-                                let res = run_netx_client.execute_controller(tt, cmd, dr).await;
-                                if let Err(er) = send_client
-                                    .send_all(
-                                        Self::get_result_buff(
-                                            session_id,
-                                            res,
-                                            run_netx_client.get_mode(),
-                                        )
-                                        .into_inner(),
-                                    )
-                                    .await
-                                {
-                                    log::error!("send buff 2 error:{}", er);
+                                    log::error!("send buff tt={} error:{}", tt, er);
                                 }
                             });
                         }
@@ -588,16 +568,18 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     ///
     /// * `Data` - The session ID buffer.
     fn get_session_id_buff(mode: u8) -> Data {
-        let mut buff = Data::with_capacity(32);
-        buff.write_fixed(2000);
         if mode == 0 {
+            // No framing: just the 4-byte command.
+            let mut buff = Data::with_capacity(4);
+            buff.write_fixed(2000i32);
             buff
         } else {
-            let len = buff.len() + 4;
-            let mut data = Data::with_capacity(len);
-            data.write_fixed(len as u32);
-            data.write_buf(&buff);
-            data
+            // Mode 1: length-prefixed framing. Total = 4 (u32 length) + 4 (i32 cmd) = 8 bytes.
+            // Write directly into a single allocation instead of allocating twice.
+            let mut buff = Data::with_capacity(8);
+            buff.write_fixed(8u32); // total packet length including this header
+            buff.write_fixed(2000i32); // command
+            buff
         }
     }
 
@@ -614,7 +596,9 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     /// * `Data` - The result buffer.
     #[inline]
     fn get_result_buff(session_id: i64, result: RetResult, mode: u8) -> Data {
-        let mut data = Data::with_capacity(1024);
+        // Typical content: 4 (cmd) + 8 (session_id) + 1 (is_error) + payload.
+        // 128 bytes covers most responses without wasteful over-allocation.
+        let mut data = Data::with_capacity(128);
         data.write_fixed(2500u32);
         data.write_fixed(session_id);
         if result.is_error {
@@ -737,7 +721,8 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     /// * `i64` - The new serial number.
     #[inline]
     pub fn new_serial(&self) -> i64 {
-        self.serial_atomic.fetch_add(1, Ordering::Acquire)
+        // Relaxed is sufficient: we only need a unique value, not memory ordering guarantees.
+        self.serial_atomic.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Gets the length of the callback dictionary.
@@ -746,7 +731,7 @@ impl<T: SessionSave + 'static> NetXClient<T> {
     ///
     /// * `usize` - The length of the callback dictionary.
     #[inline]
-    pub fn get_callback_len(&mut self) -> usize {
+    pub fn get_callback_len(&self) -> usize {
         self.result_dict.len()
     }
 
@@ -1103,7 +1088,7 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
                 if let TlsConfig::Rustls{domain,connector}=netx_client.get_tls_config(){
                       tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(),|tcp_stream| async move{
                          let stream =connector.connect(domain,tcp_stream).await?;
-                         Ok(MaybeStream::ServerTls(stream))
+                         Ok(MaybeStream::ServerTls(Box::new(stream)))
                       },NetXClient::input_buffer, (netx_client, set_connect))).await.map_err(|_|anyhow!("connect timeout"))??
                 }else{
                       tokio::time::timeout(Duration::from_millis(self.get_timeout_ms() as u64),TcpClient::connect_stream_type(netx_client.get_address(), |tcp_stream| async move{
@@ -1193,7 +1178,7 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
 
     #[inline]
     async fn get_callback_len(&self) -> usize {
-        self.inner_call(|inner| async move { inner.get_mut().get_callback_len() })
+        self.inner_call(|inner| async move { inner.get().get_callback_len() })
             .await
     }
 
@@ -1208,8 +1193,10 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
                 {
                     log::error!("call controller Closed err:{}", er)
                 }
-                inner.get_mut().controller = None;
-                inner.get_mut().net.take().context("not connect")
+                // Cache the mutable reference to avoid calling get_mut() twice.
+                let ref_inner = inner.get_mut();
+                ref_inner.controller = None;
+                ref_inner.net.take().context("not connect")
             })
             .await;
         match net {
@@ -1230,14 +1217,17 @@ impl<T: SessionSave + 'static> INetXClient for Actor<NetXClient<T>> {
         ) = self
             .inner_call(|inner| async move {
                 if let Some(ref net) = inner.get().net {
-                    if inner.get_mut().result_dict.contains_key(&serial) {
-                        bail!("serial is have")
-                    }
                     let (tx, rx): (
                         Sender<crate::error::Result<DataOwnedReader>>,
                         Receiver<crate::error::Result<DataOwnedReader>>,
                     ) = oneshot();
-                    inner.get_mut().result_dict.insert(serial, tx);
+                    // Entry API: single lookup — check for duplicate serial and insert atomically.
+                    match inner.get_mut().result_dict.entry(serial) {
+                        Entry::Occupied(_) => bail!("serial is have"),
+                        Entry::Vacant(e) => {
+                            e.insert(tx);
+                        }
+                    }
                     Ok((net.clone(), rx))
                 } else {
                     bail!("not connect")

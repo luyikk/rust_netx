@@ -19,7 +19,7 @@ pub enum MaybeStream {
     ServerSsl(SslStream<TcpStream>),
     /// A TLS encrypted stream using Rustls.
     #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
-    ServerTls(TlsStream<TcpStream>),
+    ServerTls(Box<TlsStream<TcpStream>>),
 }
 
 impl AsyncRead for MaybeStream {
@@ -43,7 +43,7 @@ impl AsyncRead for MaybeStream {
             #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
             MaybeStream::ServerSsl(ref mut s) => Pin::new(s).poll_read(cx, buf),
             #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
-            MaybeStream::ServerTls(ref mut s) => Pin::new(s).poll_read(cx, buf),
+            MaybeStream::ServerTls(ref mut s) => Pin::new(&mut **s).poll_read(cx, buf),
         }
     }
 }
@@ -69,7 +69,7 @@ impl AsyncWrite for MaybeStream {
             #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
             MaybeStream::ServerSsl(ref mut s) => Pin::new(s).poll_write(cx, buf),
             #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
-            MaybeStream::ServerTls(ref mut s) => Pin::new(s).poll_write(cx, buf),
+            MaybeStream::ServerTls(ref mut s) => Pin::new(&mut **s).poll_write(cx, buf),
         }
     }
 
@@ -88,7 +88,7 @@ impl AsyncWrite for MaybeStream {
             #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
             MaybeStream::ServerSsl(ref mut s) => Pin::new(s).poll_flush(cx),
             #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
-            MaybeStream::ServerTls(ref mut s) => Pin::new(s).poll_flush(cx),
+            MaybeStream::ServerTls(ref mut s) => Pin::new(&mut **s).poll_flush(cx),
         }
     }
 
@@ -110,7 +110,7 @@ impl AsyncWrite for MaybeStream {
             #[cfg(all(feature = "use_openssl", not(feature = "use_rustls")))]
             MaybeStream::ServerSsl(ref mut s) => Pin::new(s).poll_shutdown(cx),
             #[cfg(all(feature = "use_rustls", not(feature = "use_openssl")))]
-            MaybeStream::ServerTls(ref mut s) => Pin::new(s).poll_shutdown(cx),
+            MaybeStream::ServerTls(ref mut s) => Pin::new(&mut **s).poll_shutdown(cx),
         }
     }
 }

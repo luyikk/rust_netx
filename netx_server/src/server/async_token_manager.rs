@@ -82,25 +82,33 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
     async fn check_tokens_disconnect_timeout(&mut self) {
         while let Some(item) = self.request_disconnect_clear_queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= self.session_save_time {
-                if let Some(token) = self.dict.get(&item.0) {
-                    if token.is_disconnect().await {
-                        if let Some(token) = self.dict.remove(&item.0) {
-                            if let Err(er) = token
-                                .call_special_function(SpecialFunctionTag::Closed as i32)
-                                .await
-                            {
-                                log::error!("call token Closed err:{}", er)
-                            }
-                            token.clear_controller_fun_maps().await;
-                            log::debug!("token {} remove", token.get_session_id());
-                        } else {
-                            log::debug!("remove token {} fail", item.0);
-                        }
-                    } else {
-                        log::debug!("remove token {},but it not disconnect", item.0);
+                // Clone the Arc upfront so we don't hold a borrow of `self.dict`
+                // across the async `is_disconnect()` await point.
+                let token = match self.dict.get(&item.0).cloned() {
+                    Some(t) => t,
+                    None => {
+                        log::debug!("remove token not found {}", item.0);
+                        continue;
                     }
+                };
+
+                if !token.is_disconnect().await {
+                    log::debug!("remove token {},but it not disconnect", item.0);
+                    continue;
+                }
+
+                // Token is confirmed disconnected — remove it from the dict.
+                if self.dict.remove(&item.0).is_some() {
+                    if let Err(er) = token
+                        .call_special_function(SpecialFunctionTag::Closed as i32)
+                        .await
+                    {
+                        log::error!("call token Closed err:{}", er)
+                    }
+                    token.clear_controller_fun_maps().await;
+                    log::debug!("token {} remove", token.get_session_id());
                 } else {
-                    log::debug!("remove token not found {}", item.0);
+                    log::debug!("remove token {} fail", item.0);
                 }
             } else {
                 self.request_disconnect_clear_queue.push_back(item);
@@ -114,9 +122,15 @@ impl<T: ICreateController + 'static> AsyncTokenManager<T> {
     /// # Returns
     ///
     /// A new session ID as an `i64`.
+    ///
+    /// Uses `Utc` rather than `Local`: both yield the same nanosecond-since-epoch
+    /// value (`timestamp_nanos_opt` is always UTC-based), but `Utc::now()` skips
+    /// the timezone-offset lookup that `Local::now()` performs.
+    /// `unwrap_or(0)` avoids a potential panic for dates far outside the i64
+    /// nanosecond range (year 2262+).
     #[inline]
     fn make_new_session_id(&mut self) -> i64 {
-        chrono::Local::now().timestamp_nanos_opt().unwrap()
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
     }
 
     /// Creates a new token.

@@ -58,6 +58,10 @@ impl<T: SessionSave + 'static> RequestManager<T> {
                 if let Err(er) = req.check().await {
                     log::error!("check request error:{}", er);
                 }
+                // Drop the strong reference before sleeping so the RequestManager
+                // can be freed promptly when the client is dropped, rather than
+                // being kept alive for the full 500 ms sleep window.
+                drop(req);
                 sleep(Duration::from_millis(500)).await
             }
         });
@@ -66,11 +70,13 @@ impl<T: SessionSave + 'static> RequestManager<T> {
     /// Checks the queue for timed-out requests and handles them.
     #[inline]
     pub async fn check(&mut self) {
+        // Upgrade once here rather than inside the loop — if multiple entries
+        // have timed out simultaneously we avoid redundant Weak::upgrade() calls.
+        let client = self.netx_client.upgrade();
         while let Some(item) = self.queue.pop_back() {
             if item.1.elapsed().as_millis() as u32 >= self.request_out_time {
-                if let Some(client) = self.netx_client.upgrade() {
-                    client
-                        .set_error(item.0, crate::error::Error::SerialTimeOut(item.0))
+                if let Some(ref c) = client {
+                    c.set_error(item.0, crate::error::Error::SerialTimeOut(item.0))
                         .await;
                 }
             } else {

@@ -2,7 +2,7 @@
 name = "netxclient"
 version = "2.2.0"
 authors = ["luyi <luyikk@126.com>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/luyikk/rust_netx"
 documentation = "https://docs.rs/netxclient"
 description = "netx client assembly."
@@ -28,7 +28,7 @@ paste = "1.0"
 aqueue = "1.4"
 async-trait = "0.1"
 data-rw = "1.6"
-netxbuilder = "2.0"
+netxbuilder = { path = "../netx_builder", version = "3" }
 anyhow = { version = "1" }
 once_cell = "1.10"
 cfg-if = "1.0"

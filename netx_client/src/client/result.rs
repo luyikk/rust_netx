@@ -2,7 +2,6 @@ use data_rw::{Data, DataOwnedReader};
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::ops::{Index, IndexMut};
-use tokio::io::ErrorKind;
 
 /// A structure representing the result of an operation.
 #[derive(Debug)]
@@ -100,7 +99,8 @@ impl RetResult {
                 Vec::new(),
             ))
         } else {
-            let len = dr.read_fixed::<i32>()?;
+            // Read as u32 — consistent with get_result_buff() which writes `len as u32`.
+            let len = dr.read_fixed::<u32>()?;
             let mut buffs = Vec::with_capacity(len as usize);
             for _ in 0..len {
                 buffs.push(DataOwnedReader::new(dr.read_fixed_buf()?.to_vec()));
@@ -139,7 +139,7 @@ impl RetResult {
     #[inline]
     pub fn get(&mut self, index: usize) -> io::Result<&mut DataOwnedReader> {
         if index >= self.len() {
-            return Err(io::Error::new(ErrorKind::Other, "index >= len"));
+            return Err(io::Error::other("index >= len"));
         }
         Ok(&mut self.arguments[index])
     }
@@ -152,7 +152,7 @@ impl RetResult {
     #[inline]
     pub fn deserialize<'a, T: Deserialize<'a> + 'static>(&'a mut self) -> crate::error::Result<T> {
         if self.is_empty() {
-            return Err(io::Error::new(ErrorKind::Other, "index >= len").into());
+            return Err(io::Error::other("index >= len").into());
         }
         Ok(self.arguments[0].pack_to()?)
     }

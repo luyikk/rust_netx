@@ -1,5 +1,6 @@
 use data_rw::DataOwnedReader;
 use std::io;
+use std::io::ErrorKind;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadHalf};
 
 /// A trait that extends the functionality of `ReadHalf`.
@@ -27,14 +28,17 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an `io::Error` if reading from the `ReadHalf` fails.
+    /// Returns an `io::Error` if reading from the `ReadHalf` fails or if the
+    /// bytes are not valid UTF-8.
     #[inline]
     async fn read_string(&mut self) -> io::Result<String> {
         let len = self.read_u32_le().await? as usize;
         let mut data = vec![0; len];
         let r = self.read_exact(&mut data).await?;
         debug_assert_eq!(len, r);
-        Ok(String::from_utf8_lossy(&data).to_string())
+        // `String::from_utf8` reuses the allocation directly and returns an
+        // error on invalid UTF-8 instead of silently replacing bytes.
+        String::from_utf8(data).map_err(|e| io::Error::new(ErrorKind::InvalidData, e))
     }
 
     /// Reads a `DataOwnedReader` from the `ReadHalf`.
