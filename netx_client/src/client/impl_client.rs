@@ -186,6 +186,13 @@ impl ServerOption {
             request_out_time_ms,
         }
     }
+
+    /// Sets the request timeout duration in milliseconds.
+    #[inline]
+    pub fn set_request_out_time_ms(mut self, request_out_time_ms: u32) -> Self {
+        self.request_out_time_ms = request_out_time_ms;
+        self
+    }
 }
 
 impl<T: SessionSave + 'static> NetXClient<T> {
