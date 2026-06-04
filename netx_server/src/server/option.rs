@@ -13,6 +13,14 @@ pub struct ServerOption {
     pub request_out_time: u32,
     /// The time to save the session in milliseconds.
     pub session_save_time: u32,
+    /// Set the maximum number of concurrent connections. When the limit is reached,
+    /// accept will block until a slot is freed. Set to 0 (default) for unlimited connections.
+    #[serde(default)]
+    pub max_connections: usize,
+    /// Enable or disable TCP_NODELAY (Nagle's algorithm). When enabled,
+    /// small packets are sent immediately without delay. Default: false (Nagle's algorithm enabled).
+    #[serde(default)]
+    pub is_nodelay: bool,
 }
 
 impl ServerOption {
@@ -35,6 +43,37 @@ impl ServerOption {
             verify_key: verify_key.to_string(),
             request_out_time: 5000,
             session_save_time: 5000,
+            max_connections: 0,
+            is_nodelay: false,
         }
+    }
+
+    /// Sets the request timeout duration.
+    #[inline]
+    pub fn set_session_save_time(mut self, session_save_time: u32) -> Self {
+        self.session_save_time = session_save_time;
+        self
+    }
+
+    /// Sets the request timeout duration.
+    #[inline]
+    pub fn set_request_out_time(mut self, request_out_time: u32) -> Self {
+        self.request_out_time = request_out_time;
+        self
+    }
+
+    /// Sets the maximum number of concurrent connections.
+    ///
+    /// When the limit is reached, accept will block until a slot is freed. Set to 0 (default) for unlimited connections.
+    #[inline]
+    pub fn set_max_connections(mut self, max_connections: usize) -> Self {
+        self.max_connections = max_connections;
+        self
+    }
+
+    /// Sets whether to enable TCP_NODELAY (Nagle's algorithm).
+    pub fn set_nodelay(mut self, is_nodelay: bool) -> Self {
+        self.is_nodelay = is_nodelay;
+        self
     }
 }

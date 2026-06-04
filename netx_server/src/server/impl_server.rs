@@ -102,6 +102,8 @@ where
                     async_tokens,
                 });
                 let serv = Builder::new(&inner.option.addr)
+                    .set_max_connections(inner.option.max_connections)
+                    .set_nodelay(inner.option.is_nodelay)
                     .set_connect_event(|addr| {
                         log::debug!("{} connect", addr);
                         true
@@ -170,6 +172,8 @@ where
                     async_tokens,
                 });
                 let serv = Builder::new(&inner.option.addr)
+                    .set_max_connections(inner.option.max_connections)
+                    .set_nodelay(inner.option.is_nodelay)
                     .set_connect_event(|addr| {
                         log::debug!("{} connect", addr);
                         true
@@ -231,6 +235,8 @@ where
             async_tokens,
         });
         let serv = Builder::new(&inner.option.addr)
+            .set_max_connections(inner.option.max_connections)
+            .set_nodelay(inner.option.is_nodelay)
             .set_connect_event(|addr| {
                 log::debug!("{} connect", addr);
                 true

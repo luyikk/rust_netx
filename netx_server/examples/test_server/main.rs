@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .filter_level(LevelFilter::Debug)
         .init();
     let server = NetXServer::new(
-        ServerOption::new("0.0.0.0:6666", "", "123123"),
+        ServerOption::new("0.0.0.0:6666", "", "123123").set_nodelay(true),
         ImplCreateController,
     )
     .await;
