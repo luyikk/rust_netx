@@ -32,3 +32,8 @@ netxbuilder = { path = "netx_builder", version = "3" }
 syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
+
+# --- shared dev-dependencies ---
+env_logger = "0.11"
+mimalloc = { version = "0.1", default-features = false }
+rustls-pemfile = "2"

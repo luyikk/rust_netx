@@ -18,18 +18,18 @@ jserde = ["data-rw/json"]
 backtrace = ["anyhow/backtrace"]
 
 [dependencies]
-tokio = { workspace = true }
-serde = { workspace = true }
-aqueue = { workspace = true }
-async-trait = { workspace = true }
-anyhow = { workspace = true }
-log = { workspace = true }
-data-rw = { workspace = true }
-paste = { workspace = true }
-netxbuilder = { workspace = true }
-cfg-if = { workspace = true }
-oneshot = { workspace = true }
-thiserror = { workspace = true }
+tokio.workspace = true
+serde.workspace = true
+aqueue.workspace = true
+async-trait.workspace = true
+anyhow.workspace = true
+log.workspace = true
+data-rw.workspace = true
+paste.workspace = true
+netxbuilder.workspace = true
+cfg-if.workspace = true
+oneshot.workspace = true
+thiserror.workspace = true
 
 # transport (optional, mutually exclusive with tcp-channel-server)
 tcpserver = { version = "2.2.3", optional = true }
@@ -46,8 +46,8 @@ tokio-openssl = { version = "0.6", optional = true }
 tokio-rustls = { version = "0.26", optional = true }
 
 [dev-dependencies]
-env_logger = "0.11"
-serde = { version = "1.0", features = ["derive"] }
-log = "0.4"
-mimalloc = { version = "0.1", default-features = false }
-rustls-pemfile = { version = "2" }
+env_logger.workspace = true
+serde.workspace = true
+log.workspace = true
+mimalloc.workspace = true
+rustls-pemfile.workspace = true
