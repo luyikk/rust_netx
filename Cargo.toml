@@ -12,3 +12,23 @@ members=[
     "examples/tls/server",
     "examples/tls/client", "examples/msg/msgclient_tui",
 ]
+
+[workspace.dependencies]
+# --- shared by netx_server + netx_client ---
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+async-trait = "0.1"
+anyhow = "1"
+log = "0.4"
+data-rw = "1.6"
+paste = "1.0"
+cfg-if = "1.0"
+aqueue = "1.4"
+oneshot = { version = "0.2", default-features = false, features = ["async"] }
+thiserror = "2"
+netxbuilder = { path = "netx_builder", version = "3" }
+
+# --- netx_builder only ---
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"

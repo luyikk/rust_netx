@@ -18,26 +18,32 @@ jserde = ["data-rw/json"]
 backtrace = ["anyhow/backtrace"]
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-log = "0.4"
+tokio = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+aqueue = { workspace = true }
+async-trait = { workspace = true }
+data-rw = { workspace = true }
+netxbuilder = { workspace = true }
+anyhow = { workspace = true }
+cfg-if = { workspace = true }
+paste = { workspace = true }
+oneshot = { workspace = true }
+thiserror = { workspace = true }
+
+# transport (optional, mutually exclusive with tcp-channel-client)
 tcpclient = { version = "2.1", optional = true }
 tcp-channel-client = { version = "0.4.2", optional = true }
-serde = { version = "1.0", features = ["derive"] }
+
+# crate-specific
 serde_json = "1.0"
-paste = "1.0"
-aqueue = "1.4"
-async-trait = "0.1"
-data-rw = "1.6"
-netxbuilder = { path = "../netx_builder", version = "3" }
-anyhow = { version = "1" }
 once_cell = "1.10"
-cfg-if = "1.0"
+
+# tls (optional)
 openssl = { version = "0.10", optional = true }
 openssl-sys = { version = "0.9", optional = true }
 tokio-openssl = { version = "0.6", optional = true }
 tokio-rustls = { version = "0.26", optional = true }
-oneshot = { version = "0.1", default-features = false, features = ["async"] }
-thiserror = "2"
 
 [dev-dependencies]
 env_logger = "0.11"
